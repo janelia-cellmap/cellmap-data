@@ -1,0 +1,21 @@
+{
+  "template": "https://github.com/tlambert03/pyrepo-cookiecutter",
+  "commit": "a464b9946d054b0769a71daa07a3c1ad9c50ea3e",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "full_name": "Jeff Rhoades",
+      "email": "rhoadesj@hhmi.org",
+      "github_username": "rhoadesScholar",
+      "project_name": "cellmap.data",
+      "project_slug": "cellmap_data",
+      "project_short_description": "Utility for loading CellMap data for machine learning training, utilizing PyTorch, TensorStore, and PyDantic.",
+      "pypi_username": "rhoadesScholar",
+      "_copy_without_render": [
+        ".github/workflows/*"
+      ],
+      "_template": "https://github.com/tlambert03/pyrepo-cookiecutter"
+    }
+  },
+  "directory": null
+}
