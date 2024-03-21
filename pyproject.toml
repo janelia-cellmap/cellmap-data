@@ -41,6 +41,7 @@ test = ["pytest>=6.0", "pytest-cov"]
 dev = [
     "black",
     "ipython",
+    "jupyter",
     "mypy",
     "pdbpp",
     "pre-commit",
