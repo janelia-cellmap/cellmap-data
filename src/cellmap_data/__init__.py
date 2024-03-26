@@ -15,5 +15,7 @@ except PackageNotFoundError:
 __author__ = "Jeff Rhoades"
 __email__ = "rhoadesj@hhmi.org"
 
-from .dataset import CellMapDataset
 from .dataloader import CellMapDataLoader
+from .datasplit import CellMapDataSplit
+from .dataset import CellMapDataset
+from .image import CellMapImage

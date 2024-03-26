@@ -31,7 +31,7 @@ dependencies = [
     "numpy",
     "matplotlib",
     "fibsem-tools",
-    "zarrdataset",
+    "cellmap_schemas",
 ]
 
 # extras

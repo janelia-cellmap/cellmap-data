@@ -1,12 +1,12 @@
 # %%
 import torch
-from cellmap_data import CellMapDataset, CellMapDataLoader
 from torchvision.models import resnet18
 
 # %%
 # Define the dataset files to use
 dataset_dict = {
-    "train": {"raw": "train_data.zarr/raw", "gt": "train_data.zarr/gt", "weight": 1.0},
+    # "train": {"raw": "train_data.zarr/raw", "gt": "train_data.zarr/gt", "weight": 1.0},
+    "train": {"raw": "train_data.zarr/raw", "gt": "train_data.zarr/gt"},
     "val": {"raw": "val_data.zarr/raw", "gt": "val_data.zarr/gt"},
     "test": {"raw": "test_data.zarr/raw", "gt": "test_data.zarr/gt"},
 }
@@ -45,6 +45,7 @@ torch.save(model.state_dict(), "model.pth")
 import zarrdataset as zds
 import zarr
 import matplotlib.pyplot as plt
+import cellmap_data
 
 filenames = ["/misc/public/dacapo_learnathon/jrc_hela-2.zarr"]
 
@@ -102,10 +103,14 @@ plt.show()
 from fibsem_tools import read, read_xarray
 from pathlib import Path
 
-raw = read_xarray(Path(filenames[0], "recon-1/em/fibsem-uint8"))
+filenames = ["/misc/public/dacapo_learnathon/jrc_hela-2.zarr"]
+label_group = "recon-1/labels/groundtruth/crop155/mito"
+raw_group = "recon-1/em/fibsem-uint8"
+
+raw = read_xarray(Path(filenames[0], raw_group))
 print(raw)
 # %%
 
-labels = read_xarray(Path(filenames[0], "recon-1/labels/groundtruth/crop155/mito"))
+labels = read_xarray(Path(filenames[0], label_group))
 print(labels)
 # %%
