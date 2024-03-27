@@ -1,6 +1,7 @@
 # %%
 import csv
 from typing import Callable, Dict, Iterable, Optional
+import numpy as np
 import torch
 from torch.utils.data import Dataset
 import tensorstore as tswift
@@ -66,15 +67,35 @@ class CellMapDataset(Dataset):
         self.classes = classes
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
-        self._bounding_box = None
-        self._class_counts = None
         self.construct()
 
-    def __len__(self): ...
+    def __len__(self):
+        """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for a cube."""
+        if not self.has_data:
+            return 0
+        if self._len is None:
+            size = 1
+            for _, (start, stop) in self.sampling_box.items():
+                size *= stop - start
+            size /= np.prod(list(self.largest_voxel_sizes.values()))
+            self._len = int(size)
+        return self._len
 
     def __getitem__(self, idx):
-        """Returns a random crop of the input and target data as PyTorch tensors."""
-        ...
+        """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
+
+        center = np.unravel_index(idx, list(self.sampling_box_shape.values()))
+        outputs = {}
+        for array_name in self.input_arrays.keys():
+            outputs[array_name] = self.input_sources[array_name][center][
+                None, None, ...
+            ]
+        for array_name in self.target_arrays.keys():
+            class_arrays = []
+            for label in self.classes:
+                class_arrays.append(self.target_sources[array_name][label][center])
+            outputs[array_name] = torch.stack(class_arrays)[None, ...]
+        return outputs
 
     def __iter__(self):
         """Iterates over the dataset, covering each section of the bounding box. For instance, for calculating validation scores."""
@@ -88,31 +109,54 @@ class CellMapDataset(Dataset):
                 self.raw_path,
                 "raw",
                 array_info["scale"],
-                array_info["shape"],
+                array_info["shape"],  # type: ignore
             )
         self.target_sources = {}
         self.has_data = False
         for array_name, array_info in self.target_arrays.items():
             self.target_sources[array_name] = {}
+            empty_store = torch.zeros(array_info["shape"])  # type: ignore
             for label in self.classes:
                 if label in self.classes_with_path:
                     self.target_sources[array_name][label] = CellMapImage(
                         self.gt_path_str.format(label=label),
                         label,
                         array_info["scale"],
-                        array_info["shape"],
+                        array_info["shape"],  # type: ignore
                     )
                     self.has_data = True
                 else:
                     self.target_sources[array_name][label] = EmptyImage(
-                        label, array_info["shape"]
+                        label, array_info["shape"], empty_store  # type: ignore
                     )
+
+        self._bounding_box = None
+        self._bounding_box_shape = None
+        self._sampling_box = None
+        self._sampling_box_shape = None
+        self._class_counts = None
+        self._largest_voxel_sizes = None
+        self._len = None
+
+    @property
+    def largest_voxel_sizes(self):
+        """Returns the largest voxel size of the dataset."""
+        if self._largest_voxel_size is None:
+            largest_voxel_size = {c: 0 for c in "zyx"}
+            for source in [self.input_sources.values(), self.target_sources.values()]:
+                if source.scale is None:
+                    continue
+                for c, size in zip("zyx", source.scale):
+                    largest_voxel_size[c] = max(largest_voxel_size[c], size)
+            self._largest_voxel_size = largest_voxel_size
+
+        return self._largest_voxel_size
 
     @property
     def bounding_box(self):
         """Returns the bounding box of the dataset."""
         if self._bounding_box is None:
-            bounding_box = {c: [0, 2**32] for c in "xyz"}
+            bounding_box = {c: [0, 2**32] for c in "zyx"}
             for source in [self.input_sources.values(), self.target_sources.values()]:
                 if source.bounding_box is None:
                     continue
@@ -121,6 +165,44 @@ class CellMapDataset(Dataset):
                     bounding_box[c][1] = min(bounding_box[c][1], stop)
             self._bounding_box = bounding_box
         return self._bounding_box
+
+    @property
+    def bounding_box_shape(self):
+        """Returns the shape of the bounding box of the dataset in voxels of the largest voxel size."""
+        if self._bounding_box_shape is None:
+            bounding_box_shape = {c: 0 for c in "zyx"}
+            for c, (start, stop) in self.bounding_box.items():
+                size = stop - start
+                size /= self.largest_voxel_sizes[c]
+                bounding_box_shape[c] = int(size)
+            self._bounding_box_shape = bounding_box_shape
+        return self._bounding_box_shape
+
+    @property
+    def sampling_box(self):
+        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
+        if self._sampling_box is None:
+            sampling_box = {c: [0, 2**32] for c in "zyx"}
+            for source in [self.input_sources.values(), self.target_sources.values()]:
+                if source.sampling_box is None:
+                    continue
+                for c, (start, stop) in source.sampling_box.items():
+                    sampling_box[c][0] = max(sampling_box[c][0], start)
+                    sampling_box[c][1] = min(sampling_box[c][1], stop)
+            self._sampling_box = sampling_box
+        return self._sampling_box
+
+    @property
+    def sampling_box_shape(self):
+        """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size."""
+        if self._sampling_box_shape is None:
+            sampling_box_shape = {c: 0 for c in "zyx"}
+            for c, (start, stop) in self.sampling_box.items():
+                size = stop - start
+                size /= self.largest_voxel_sizes[c]
+                sampling_box_shape[c] = int(size)
+            self._sampling_box_shape = sampling_box_shape
+        return self._sampling_box_shape
 
     @property
     def class_counts(self) -> Dict[str, Dict[str, int]]:
