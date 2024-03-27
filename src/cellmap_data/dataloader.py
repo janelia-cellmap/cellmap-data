@@ -1,6 +1,4 @@
 from torch.utils.data import DataLoader
-from torch.utils.data.dataloader import _BaseDataLoaderIter
-from .dataset import CellMapDataset
 from .datasplit import CellMapDataSplit
 from typing import Callable, Iterable
 
@@ -17,25 +15,3 @@ class CellMapDataLoader(DataLoader):
     is_train: bool
     augmentations: list[dict[str, any]]
     to_target: Callable
-
-    def __init__(
-            ...)
-    
-    def __getitem__(self, idx: int) -> dict[str, tuple[torch.Tensor, torch.Tensor]]:
-        """Returns the input and target data for the given index."""
-        ...
-    
-    def __len__(self) -> int:
-        """Returns the length of the dataset."""
-        ...
-
-    def __iter__(self):
-        
-    
-    def _apply_augmentations(self, data: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        """Applies augmentations to the data."""
-        ...
-
-    def _to_target(self, data: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        """Converts the input data to the target data."""
-        ...
