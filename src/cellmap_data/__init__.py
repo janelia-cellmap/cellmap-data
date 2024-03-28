@@ -16,6 +16,7 @@ __author__ = "Jeff Rhoades"
 __email__ = "rhoadesj@hhmi.org"
 
 from .dataloader import CellMapDataLoader
+from .multidataset import CellMapMultiDataset
 from .datasplit import CellMapDataSplit
 from .dataset import CellMapDataset
 from .image import CellMapImage

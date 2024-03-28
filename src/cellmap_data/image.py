@@ -1,7 +1,9 @@
 from typing import Iterable, Optional
 import torch
-import tensorstore as ts
 from fibsem_tools.io.core import read_xarray
+import xarray
+import tensorstore
+import xarray_tensorstore as xt
 
 
 class CellMapImage:
@@ -10,7 +12,8 @@ class CellMapImage:
     shape: tuple[float, ...]
     scale: tuple[float, ...]
     label_class: str
-    store: ts.TensorStore
+    array: xarray.DataArray
+    context: Optional[tensorstore.Context] = None
 
     def __init__(
         self,
@@ -18,6 +21,7 @@ class CellMapImage:
         target_class: str,
         target_scale: Iterable[float],
         target_voxel_shape: Iterable[int],
+        context: Optional[tensorstore.Context] = None,
     ):
         """Initializes a CellMapImage object.
 
@@ -36,12 +40,29 @@ class CellMapImage:
         self.output_shape = tuple(
             target_voxel_shape
         )  # TODO: this should be a dictionary of shapes for each axis
+        self.context = context
         self.construct()
 
     def construct(self):
         self._bounding_box = None
         self._sampling_box = None
         self._class_counts = None
+        self.ds = read_xarray(self.path)
+        # Find correct multiscale level based on target scale
+        # TODO
+        ...
+        self.array_path = ...
+        # Construct an xarray with Tensorstore backend
+        spec = xt._zarr_spec_from_path(self.array_path)
+        array_future = tensorstore.open(  # type: ignore
+            spec, read=True, write=False, context=self.context
+        )
+        array = array_future.result()
+        new_data = xt._TensorStoreAdapter(array)
+        self.array = ds.copy(data=new_data)  # type: ignore
+        self.xs = self.array.coords["x"]
+        self.ys = self.array.coords["y"]
+        self.zs = self.array.coords["z"]
 
     def __getitem__(self, center: Iterable[float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""

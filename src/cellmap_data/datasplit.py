@@ -1,48 +1,60 @@
 import csv
-from torch.utils.data import Dataset
-from typing import Callable, Dict, Iterable, Optional
+from torchvision.transforms.v2 import RandomApply
+from typing import Callable, Dict, Iterable, Optional, Sequence
+
+from .multidataset import CellMapMultiDataset
 from .dataset import CellMapDataset
 
 
-class CellMapDataSplit(Dataset):
+class CellMapDataSplit:
     """
     This subclasses PyTorch Dataset to split data into training and validation sets. It maintains the same API as the Dataset class. It retrieves raw and groundtruth data from CellMapDataset objects.
     """
 
-    input_arrays: dict[str, dict[str, Iterable[int | float]]]
-    target_arrays: dict[str, dict[str, Iterable[int | float]]]
-    classes: Iterable[str]
+    input_arrays: dict[str, dict[str, Sequence[int | float]]]
+    target_arrays: dict[str, dict[str, Sequence[int | float]]]
+    classes: Sequence[str]
+    to_target: Callable
     datasets: dict[str, Iterable[CellMapDataset]]
+    train_datasets: Iterable[CellMapDataset]
+    validate_datasets: Iterable[CellMapDataset]
+    train_datasets_combined: CellMapMultiDataset
+    validate_datasets_combined: CellMapMultiDataset
+    transforms: RandomApply | None
 
     def __init__(
         self,
-        input_arrays: dict[str, dict[str, Iterable[int | float]]],
-        target_arrays: dict[str, dict[str, Iterable[int | float]]],
-        classes: Iterable[str],
+        input_arrays: dict[str, dict[str, Sequence[int | float]]],
+        target_arrays: dict[str, dict[str, Sequence[int | float]]],
+        classes: Sequence[str],
+        to_target: Callable,
         datasets: Optional[Dict[str, Iterable[CellMapDataset]]] = None,
         dataset_dict: Optional[Dict[str, Dict[str, str]]] = None,
         csv_path: Optional[str] = None,
+        transforms: Optional[Sequence[Callable]] = None,
     ):
         """Initializes the CellMapDatasets class.
 
         Args:
-            input_arrays (dict[str, dict[str, Iterable[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure:
+            input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure:
                 {
                     "array_name": {
                         "shape": typle[int],
-                        "scale": Iterable[float],
+                        "scale": Sequence[float],
                     },
                     ...
                 }
-            target_arrays (dict[str, dict[str, Iterable[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the following structure:
+            target_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the following structure:
                 {
                     "array_name": {
                         "shape": typle[int],
-                        "scale": Iterable[float],
+                        "scale": Sequence[float],
                     },
                     ...
                 }
-            classes (Iterable[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with zeros.
+            classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with zeros.
+            to_target (Callable): A function to convert the ground truth data to target arrays. The function should have the following structure:
+                def to_target(gt: torch.Tensor, classes: Sequence[str]) -> dict[str, torch.Tensor]:
             datasets (Optional[Dict[str, CellMapDataset]], optional): A dictionary containing the dataset objects. The dictionary should have the following structure:
                 {
                     "train": Iterable[CellMapDataset],
@@ -58,6 +70,7 @@ class CellMapDataSplit(Dataset):
                 }. Defaults to None.
             csv_path (Optional[str], optional): A path to a csv file containing the dataset data. Defaults to None. Each row in the csv file should have the following structure:
                 train | validate, raw path, gt path
+            transforms (Optional[Iterable[dict[str, any]]], optional): A list of transforms to apply to the data. Each augmentation should be a dictionary containing the following structure:
         """
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
@@ -71,13 +84,8 @@ class CellMapDataSplit(Dataset):
             self.construct(dataset_dict)
         elif csv_path is not None:
             self.from_csv(csv_path)
-
-    def __len__(self):
-        return len(self.train_datasets)
-
-    def __getitem__(self, idx): ...
-
-    def __iter__(self): ...
+        self.to_target = to_target
+        self.transforms = RandomApply(transforms) if transforms is not None else None
 
     def from_csv(self, csv_path):
         # Load file data from csv file
@@ -99,7 +107,13 @@ class CellMapDataSplit(Dataset):
         for raw, gt in zip(dataset_dict["train"]["raw"], dataset_dict["train"]["gt"]):
             self.train_datasets.append(
                 CellMapDataset(
-                    raw, gt, self.classes, self.input_arrays, self.target_arrays
+                    raw,
+                    gt,
+                    self.classes,
+                    self.input_arrays,
+                    self.target_arrays,
+                    self.to_target,
+                    self.transforms,
                 )
             )
         for raw, gt in zip(
@@ -107,9 +121,26 @@ class CellMapDataSplit(Dataset):
         ):
             self.validate_datasets.append(
                 CellMapDataset(
-                    raw, gt, self.classes, self.input_arrays, self.target_arrays
+                    raw,
+                    gt,
+                    self.classes,
+                    self.input_arrays,
+                    self.target_arrays,
+                    self.to_target,
                 )
             )
+        self.train_datasets_combined = CellMapMultiDataset(
+            self.classes,
+            self.input_arrays,
+            self.target_arrays,
+            [ds for ds in self.train_datasets if ds.has_data],
+        )
+        self.validate_datasets_combined = CellMapMultiDataset(
+            self.classes,
+            self.input_arrays,
+            self.target_arrays,
+            [ds for ds in self.validate_datasets if ds.has_data],
+        )
 
 
 # Example input arrays:

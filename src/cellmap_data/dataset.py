@@ -1,6 +1,6 @@
 # %%
 import csv
-from typing import Callable, Dict, Iterable, Optional
+from typing import Callable, Dict, Sequence, Optional
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -24,42 +24,58 @@ class CellMapDataset(Dataset):
 
     raw_path: str
     gt_path: str
-    classes: Iterable[str]
-    input_arrays: dict[str, dict[str, Iterable[int | float]]]
-    target_arrays: dict[str, dict[str, Iterable[int | float]]]
+    classes: Sequence[str]
+    input_arrays: dict[str, dict[str, Sequence[int | float]]]
+    target_arrays: dict[str, dict[str, Sequence[int | float]]]
     input_sources: dict[str, CellMapImage]
     target_sources: dict[str, dict[str, CellMapImage | EmptyImage]]
+    to_target: Callable
+    transforms: RandomApply | None
+    has_data: bool
+    _bounding_box: Optional[Dict[str, list[int]]]
+    _bounding_box_shape: Optional[Dict[str, int]]
+    _sampling_box: Optional[Dict[str, list[int]]]
+    _sampling_box_shape: Optional[Dict[str, int]]
+    _class_counts: Optional[Dict[str, Dict[str, int]]]
+    _largest_voxel_sizes: Optional[Dict[str, int]]
+    _len: Optional[int]
+    _iter_coords: Optional[...]
 
     def __init__(
         self,
         raw_path: str,
         gt_path: str,
-        classes: Iterable[str],
-        input_arrays: dict[str, dict[str, Iterable[int | float]]],
-        target_arrays: dict[str, dict[str, Iterable[int | float]]],
+        classes: Sequence[str],
+        input_arrays: dict[str, dict[str, Sequence[int | float]]],
+        target_arrays: dict[str, dict[str, Sequence[int | float]]],
+        to_target: Callable,
+        transforms: Optional[Sequence[Callable]] = None,
     ):
         """Initializes the CellMapDataset class.
 
         Args:
             raw_path (str): The path to the raw data.
             gt_path (str): The path to the ground truth data.
-            classes (Iterable[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with zeros.
-            input_arrays (dict[str, dict[str, Iterable[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure:
+            classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with zeros.
+            input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure:
                 {
                     "array_name": {
                         "shape": typle[int],
-                        "scale": Iterable[float],
+                        "scale": Sequence[float],
                     },
                     ...
                 }
-            target_arrays (dict[str, dict[str, Iterable[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the following structure:
+            target_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the following structure:
                 {
                     "array_name": {
                         "shape": typle[int],
-                        "scale": Iterable[float],
+                        "scale": Sequence[float],
                     },
                     ...
                 }
+            to_target (Callable): A function to convert the ground truth data to target arrays. The function should have the following structure:
+                def to_target(gt: torch.Tensor, classes: Sequence[str]) -> dict[str, torch.Tensor]:
+            transforms (Optional[Sequence[Callable]], optional): A sequence of transformations to apply to the data. Defaults to None.
         """
         self.raw_path = raw_path
         self.gt_paths = gt_path
@@ -67,6 +83,8 @@ class CellMapDataset(Dataset):
         self.classes = classes
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
+        self.to_target = to_target
+        self.transforms = transforms
         self.construct()
 
     def __len__(self):
@@ -99,7 +117,10 @@ class CellMapDataset(Dataset):
 
     def __iter__(self):
         """Iterates over the dataset, covering each section of the bounding box. For instance, for calculating validation scores."""
-        ...
+        # TODO
+        if self._iter_coords is None:
+            self._iter_coords = ...
+        yield self.__getitem__(self._iter_coords)
 
     def construct(self):
         """Constructs the input and target sources for the dataset."""
@@ -137,6 +158,7 @@ class CellMapDataset(Dataset):
         self._class_counts = None
         self._largest_voxel_sizes = None
         self._len = None
+        self._iter_coords = None
 
     @property
     def largest_voxel_sizes(self):
