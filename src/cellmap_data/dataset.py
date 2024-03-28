@@ -4,7 +4,7 @@ from typing import Callable, Dict, Sequence, Optional
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-import tensorstore as tswift
+import tensorstore
 from fibsem_tools.io.core import read, read_xarray
 from .image import CellMapImage, EmptyImage
 
@@ -29,9 +29,13 @@ class CellMapDataset(Dataset):
     target_arrays: dict[str, dict[str, Sequence[int | float]]]
     input_sources: dict[str, CellMapImage]
     target_sources: dict[str, dict[str, CellMapImage | EmptyImage]]
-    to_target: Callable
-    transforms: RandomApply | None
+    spatial_transforms: Optional[Sequence[dict[str, any]]]  # type: ignore
+    raw_value_transforms: Optional[Callable]  # For instance, normalizing the raw data
+    gt_value_transforms: Optional[
+        Callable | Sequence[Callable] | dict[str, Callable]
+    ]  # For instance, converting the ground truth data to target arrays
     has_data: bool
+    is_train: bool
     _bounding_box: Optional[Dict[str, list[int]]]
     _bounding_box_shape: Optional[Dict[str, int]]
     _sampling_box: Optional[Dict[str, list[int]]]
@@ -39,7 +43,7 @@ class CellMapDataset(Dataset):
     _class_counts: Optional[Dict[str, Dict[str, int]]]
     _largest_voxel_sizes: Optional[Dict[str, int]]
     _len: Optional[int]
-    _iter_coords: Optional[...]
+    _iter_coords: Optional[Sequence[float]]
 
     def __init__(
         self,
@@ -48,8 +52,13 @@ class CellMapDataset(Dataset):
         classes: Sequence[str],
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
-        to_target: Callable,
-        transforms: Optional[Sequence[Callable]] = None,
+        spatial_transforms: Optional[Sequence[dict[str, any]]] = None,  # type: ignore
+        raw_value_transforms: Optional[Callable] = None,
+        gt_value_transforms: Optional[
+            Callable | Sequence[Callable] | dict[str, Callable]
+        ] = None,
+        is_train: bool = False,
+        context: Optional[tensorstore.Context] = None,  # type: ignore
     ):
         """Initializes the CellMapDataset class.
 
@@ -73,9 +82,13 @@ class CellMapDataset(Dataset):
                     },
                     ...
                 }
-            to_target (Callable): A function to convert the ground truth data to target arrays. The function should have the following structure:
-                def to_target(gt: torch.Tensor, classes: Sequence[str]) -> dict[str, torch.Tensor]:
-            transforms (Optional[Sequence[Callable]], optional): A sequence of transformations to apply to the data. Defaults to None.
+            spatial_transforms (Optional[Sequence[dict[str, any]]], optional): A sequence of dictionaries containing the spatial transformations to apply to the data. The dictionary should have the following structure:
+                {transform_name: {transform_args}}
+                Defaults to None.
+            raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
+            gt_value_transforms (Optional[Callable | Sequence[Callable] | dict[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
+            is_train (bool, optional): Whether the dataset is for training. Defaults to False.
+            context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
         """
         self.raw_path = raw_path
         self.gt_paths = gt_path
@@ -83,8 +96,11 @@ class CellMapDataset(Dataset):
         self.classes = classes
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
-        self.to_target = to_target
-        self.transforms = transforms
+        self.spatial_transforms = spatial_transforms
+        self.raw_value_transforms = raw_value_transforms
+        self.gt_value_transforms = gt_value_transforms
+        self.is_train = is_train
+        self.context = context
         self.construct()
 
     def __len__(self):
@@ -101,16 +117,30 @@ class CellMapDataset(Dataset):
 
     def __getitem__(self, idx):
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
-
+        # TODO: make center dictionary by axis
         center = np.unravel_index(idx, list(self.sampling_box_shape.values()))
+        if self.is_train and self.spatial_transforms is not None:
+            # TODO: Get spatial transforms
+            ...
+        else:
+            spatial_transforms = None
         outputs = {}
         for array_name in self.input_arrays.keys():
+            if spatial_transforms is not None:
+                self.input_sources[array_name].set_spatial_transforms(
+                    spatial_transforms
+                )
             outputs[array_name] = self.input_sources[array_name][center][
                 None, None, ...
             ]
+        # TODO: Allow for distribtion of array gathering to multiple threads
         for array_name in self.target_arrays.keys():
             class_arrays = []
             for label in self.classes:
+                if spatial_transforms is not None:
+                    self.target_sources[array_name][label].set_spatial_transforms(
+                        spatial_transforms
+                    )
                 class_arrays.append(self.target_sources[array_name][label][center])
             outputs[array_name] = torch.stack(class_arrays)[None, ...]
         return outputs
@@ -131,21 +161,34 @@ class CellMapDataset(Dataset):
                 "raw",
                 array_info["scale"],
                 array_info["shape"],  # type: ignore
+                value_transform=self.raw_value_transforms,
+                context=self.context,
             )
         self.target_sources = {}
         self.has_data = False
         for array_name, array_info in self.target_arrays.items():
             self.target_sources[array_name] = {}
             empty_store = torch.zeros(array_info["shape"])  # type: ignore
-            for label in self.classes:
+            for i, label in enumerate[self.classes]:  # type: ignore
                 if label in self.classes_with_path:
+                    if isinstance(self.gt_value_transforms, dict):
+                        value_transform: Callable = self.gt_value_transforms[label]
+                    elif isinstance(self.gt_value_transforms, list):
+                        value_transform: Callable = self.gt_value_transforms[i]
+                    else:
+                        value_transform: Callable = self.gt_value_transforms  # type: ignore
                     self.target_sources[array_name][label] = CellMapImage(
                         self.gt_path_str.format(label=label),
                         label,
                         array_info["scale"],
                         array_info["shape"],  # type: ignore
+                        value_transform=value_transform,
+                        context=self.context,
                     )
-                    self.has_data = True
+                    self.has_data = (
+                        self.has_data
+                        or self.target_sources[array_name][label].class_counts != 0
+                    )
                 else:
                     self.target_sources[array_name][label] = EmptyImage(
                         label, array_info["shape"], empty_store  # type: ignore

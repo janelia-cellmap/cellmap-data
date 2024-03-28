@@ -6,6 +6,7 @@ from typing import Callable, Iterable, Optional
 
 
 class CellMapDataLoader:
+    # TODO: This class may be unnecessary
     # TODO: docstring corrections
     """This subclasses PyTorch DataLoader to load CellMap data for training. It maintains the same API as the DataLoader class. This includes applying augmentations to the data and returning the data in the correct format for training, such as generating the target arrays (e.g. signed distance transform of labels). It retrieves raw and groundtruth data from a CellMapDataSplit object, which is a subclass of PyTorch Dataset. Training and validation data are split using the CellMapDataSplit object, and separate dataloaders are maintained as `train_loader` and `validate_loader` respectively."""
 

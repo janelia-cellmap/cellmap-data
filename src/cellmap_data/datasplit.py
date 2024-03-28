@@ -20,6 +20,7 @@ class CellMapDataSplit:
     validate_datasets: Iterable[CellMapDataset]
     train_datasets_combined: CellMapMultiDataset
     validate_datasets_combined: CellMapMultiDataset
+    # TODO: Correct transform passing (value for raw and labels, and spatial)
     transforms: RandomApply | None
 
     def __init__(

@@ -1,45 +1,58 @@
-from typing import Iterable, Optional
+import os
+from typing import Callable, Iterable, Optional, Sequence
 import torch
 from fibsem_tools.io.core import read_xarray
 import xarray
 import tensorstore
 import xarray_tensorstore as xt
-
+import numpy as np
+from cellmap_schemas.annotation import AnnotationGroup
+import zarr
 
 class CellMapImage:
     path: str
-    translation: tuple[float, ...]
-    shape: tuple[float, ...]
-    scale: tuple[float, ...]
+    translation: dict[str, float]
+    shape: dict[str, int]
+    scale: dict[str, float]
+    output_shape: dict[str, int]
+    output_size: dict[str, float]
     label_class: str
     array: xarray.DataArray
-    context: Optional[tensorstore.Context] = None
+    axes: str | Sequence[str]
+    value_transform: Optional[Callable]
+    context: Optional[tensorstore.Context] = None  # type: ignore
 
     def __init__(
         self,
         path: str,
         target_class: str,
-        target_scale: Iterable[float],
-        target_voxel_shape: Iterable[int],
-        context: Optional[tensorstore.Context] = None,
+        target_scale: Sequence[float],
+        target_voxel_shape: Sequence[int],
+        axis_order: str | Sequence[str] = "zyx",
+        value_transform: Optional[Callable] = None,
+        context: Optional[tensorstore.Context] = None,  # type: ignore
     ):
         """Initializes a CellMapImage object.
 
         Args:
             path (str): The path to the image file.
             target_class (str): The label class of the image.
-            target_scale (Iterable[float]): The scale of the image in physical space.
-            target_voxel_shape (Iterable[int]): The shape of the image in voxels.
+            target_scale (Sequence[float]): The scale of the image in physical space.
+            target_voxel_shape (Sequence[int]): The shape of the image in voxels.
+            axis_order (str, optional): The order of the axes in the image. Defaults to "zyx".
+            value_transform (Optional[callable], optional): A function to transform the image data. Defaults to None.
+            context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
         """
 
         self.path = path
         self.label_class = target_class
-        self.scale = tuple(
-            target_scale
-        )  # TODO: this should be a dictionary of scales for each axis
-        self.output_shape = tuple(
-            target_voxel_shape
-        )  # TODO: this should be a dictionary of shapes for each axis
+        self.scale = {c: s for c, s in zip(axis_order, target_scale)}
+        self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
+        self.output_size = {
+            c: target_voxel_shape[i] * target_scale[i] for i, c in enumerate(axis_order)
+        }
+        self.axes = axis_order
+        self.value_transform = value_transform
         self.context = context
         self.construct()
 
@@ -47,12 +60,13 @@ class CellMapImage:
         self._bounding_box = None
         self._sampling_box = None
         self._class_counts = None
-        self.ds = read_xarray(self.path)
+        self.group = read_xarray(self.path)
         # Find correct multiscale level based on target scale
-        # TODO
-        ...
-        self.array_path = ...
+        level = # TODO: Find nearest level...
+        self.scale_level = f"s{level}"
+        self.array_path = os.path.join(self.path, self.scale_level)
         # Construct an xarray with Tensorstore backend
+        ds = read_xarray(self.array_path)
         spec = xt._zarr_spec_from_path(self.array_path)
         array_future = tensorstore.open(  # type: ignore
             spec, read=True, write=False, context=self.context
@@ -64,20 +78,55 @@ class CellMapImage:
         self.ys = self.array.coords["y"]
         self.zs = self.array.coords["z"]
 
-    def __getitem__(self, center: Iterable[float]) -> torch.Tensor:
+    def __getitem__(self, center: Sequence[float] | dict[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
-        # Get the image data using Tensorstore
-        # Ensure that the data is the right scale and shape
+        # Find vectors of coordinates in world space to pull data from
+        if isinstance(center, Sequence):
+            temp = {c: center[i] for i, c in enumerate(self.axes)}
+            center = temp
+        coords = {}
+        for c in self.axes:
+            coords[c] = np.linspace(
+                center[c] - self.output_size[c] / 2,
+                center[c] + self.output_size[c] / 2,
+                self.output_shape[c],
+            )
+        # Apply any spatial transformations to the coordinates
+        coords = self.apply_spatial_transforms(coords)
+        # Pull data from the image
+        data = self.array.sel(
+            **coords, # type: ignore
+            method="nearest",
+            tolerance=np.mean(
+                [s / 2 for s in self.scale.values()]
+            ),  # TODO: tolerance should be per axis
+        )
+        # Apply any value transformations to the data
+        if self.value_transform is not None:
+            data = self.value_transform(data)
+        return torch.as_tensor(data)
+
+    def set_spatial_transforms(self, transforms: Iterable[dict[str, any]]):
+        """Sets spatial transformations for the image data."""
+        # TODO
+        for transform in transforms:
+        ...
+
+    def apply_spatial_transforms(
+        self, coords: dict[str, Sequence[float]]
+    ) -> dict[str, Sequence[float]]:
+        """Applies spatial transformations to the given coordinates."""
         # TODO
         ...
+        return coords
 
     @property
     def bounding_box(self) -> dict[str, list[float]]:
         """Returns the bounding box of the dataset."""
         if self._bounding_box is None:
             self._bounding_box = {
-                c: [self.translation[i], self.shape[i] + self.translation[i]]
-                for i, c in enumerate("zyx")
+                c: [self.translation[c], self.shape[c] + self.translation[c]]
+                for c in self.axes
             }
         return self._bounding_box
 
@@ -86,7 +135,7 @@ class CellMapImage:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
         if self._sampling_box is None:
             self._sampling_box = {}
-            output_padding = {c: (s / 2) for c, s in zip("zyx", self.output_shape)}
+            output_padding = {c: (s / 2) for c, s in self.output_shape.items()}
             for c, (start, stop) in self.bounding_box.items():
                 self._sampling_box[c] = [
                     start + output_padding[c],
@@ -99,41 +148,49 @@ class CellMapImage:
         """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
         if self._class_counts is None:
             # Get from cellmap-schemas metadata, then normalize by resolution
-            # TODO
-            ...
+            group = zarr.open(self.path, mode="r")
+            annotation_group = AnnotationGroup.from_zarr(group) # type: ignore
+            self._class_counts = np.prod(self.array.shape) - annotation_group.members[self.scale_level].attrs.cellmap.annotation.complement_counts        
         return self._class_counts
 
 
 class EmptyImage:
-    shape: tuple[float, ...]
+    shape: dict[str, float]
     label_class: str
+    axes: str
     store: torch.Tensor
 
     def __init__(
         self,
         target_class: str,
-        target_voxel_shape: Iterable[int],
+        target_voxel_shape: Sequence[int],
         store: Optional[torch.Tensor] = None,
+        axis_order: str = "zyx",
     ):
         """Initializes an empty image object.
 
         Args:
             target_class (str): The label class of the image.
-            target_voxel_shape (Iterable[int]): The shape of the image in voxels.
+            target_voxel_shape (Sequence[int]): The shape of the image in voxels.
             store (Optional[torch.Tensor], optional): The tensor to return. Defaults to None.
+            axis_order (str, optional): The order of the axes in the image. Defaults to "zyx".
         """
         self.label_class = target_class
-        self.output_shape = tuple(target_voxel_shape)
+        self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
+        self.axes = axis_order
         self._bounding_box = None
         self._class_counts = 0
         if store is not None:
             self.store = store
         else:
-            self.store = torch.zeros(self.output_shape)
+            self.store = torch.zeros([self.output_shape[c] for c in self.axes])
 
     def __getitem__(self, center: Iterable[float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
         return self.store
+
+    def set_spatial_transforms(self, transforms: Iterable[dict[str, any]]):
+        pass
 
     @property
     def bounding_box(self) -> None:

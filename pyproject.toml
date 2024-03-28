@@ -32,6 +32,8 @@ dependencies = [
     "matplotlib",
     "fibsem-tools",
     "cellmap_schemas",
+    "tensorstore",
+    "xarray-tensorstore",
 ]
 
 # extras
