@@ -1,10 +1,10 @@
 from typing import Iterable, Sequence
-from torch.utils.data import Dataset
+from torch.utils.data import ConcatDataset
 
 from .dataset import CellMapDataset
 
 
-class CellMapMultiDataset(Dataset):
+class CellMapMultiDataset(ConcatDataset):
     """
     This subclasses PyTorch Dataset to wrap multiple CellMapDataset objects under a common API, which can be used for dataloading. It maintains the same API as the Dataset class. It retrieves raw and groundtruth data from CellMapDataset objects.
     """
@@ -26,6 +26,7 @@ class CellMapMultiDataset(Dataset):
         self.classes = classes
         self.datasets = datasets
         self.construct()
+        # TODO: SHOULD BE REPLACEABLE BY torch.utils.data.ConcatDataset
 
     def __len__(self):
         # TODO

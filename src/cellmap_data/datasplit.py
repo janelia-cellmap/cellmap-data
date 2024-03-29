@@ -22,12 +22,13 @@ class CellMapDataSplit:
     train_datasets_combined: CellMapMultiDataset
     validate_datasets_combined: CellMapMultiDataset
     spatial_transforms: Optional[Sequence[dict[str, any]]]
-    raw_value_transforms: Optional[Callable | Sequence[Callable]] = None
+    raw_value_transforms: Optional[Callable] = None
     gt_value_transforms: Optional[
         Callable | Sequence[Callable] | dict[str, Callable]
     ] = None
     context: Optional[tensorstore.Context] = None  # type: ignore
 
+    # TODO: may want different transforms for different arrays
     def __init__(
         self,
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
@@ -37,10 +38,11 @@ class CellMapDataSplit:
         dataset_dict: Optional[Dict[str, Dict[str, str]]] = None,
         csv_path: Optional[str] = None,
         spatial_transforms: Optional[Sequence[dict[str, any]]] = None,
-        raw_value_transforms: Optional[Callable | Sequence[Callable]] = None,
+        raw_value_transforms: Optional[Callable] = None,
         gt_value_transforms: Optional[
             Callable | Sequence[Callable] | dict[str, Callable]
         ] = None,
+        force_has_data: bool = False,
         context: Optional[tensorstore.Context] = None,  # type: ignore
     ):
         """Initializes the CellMapDatasets class.
@@ -86,6 +88,7 @@ class CellMapDataSplit:
             raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
             gt_value_transforms (Optional[Callable | Sequence[Callable] | dict[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
             is_train (bool, optional): Whether the dataset is for training. Defaults to False.
+            force_has_data (bool, optional): Whether to force the dataset to have data. Defaults to False.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
         """
         self.input_arrays = input_arrays
@@ -103,6 +106,7 @@ class CellMapDataSplit:
         self.spatial_transforms = spatial_transforms
         self.raw_value_transforms = raw_value_transforms
         self.gt_value_transforms = gt_value_transforms
+        self.force_has_data = force_has_data
         self.context = context
         self.construct(self.dataset_dict)
 
@@ -136,6 +140,9 @@ class CellMapDataSplit:
                     self.gt_value_transforms,
                 )
             )
+
+        # TODO: probably want larger arrays for validation
+
         for raw, gt in zip(
             dataset_dict["validate"]["raw"], dataset_dict["validate"]["gt"]
         ):
@@ -153,13 +160,13 @@ class CellMapDataSplit:
             self.classes,
             self.input_arrays,
             self.target_arrays,
-            [ds for ds in self.train_datasets if ds.has_data],
+            [ds for ds in self.train_datasets if self.force_has_data or ds.has_data],
         )
         self.validate_datasets_combined = CellMapMultiDataset(
             self.classes,
             self.input_arrays,
             self.target_arrays,
-            [ds for ds in self.validate_datasets if ds.has_data],
+            [ds for ds in self.validate_datasets if self.force_has_data or ds.has_data],
         )
 
 

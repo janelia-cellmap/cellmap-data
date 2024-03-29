@@ -72,13 +72,13 @@ class CellMapImage:
                 self.output_shape[c],
             )
 
-        # Apply any spatial transformations to the coordinates and return the image data
+        # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
         data = self.apply_spatial_transforms(coords)
 
         # Apply any value transformations to the data
         if self.value_transform is not None:
             data = self.value_transform(data)
-        return torch.as_tensor(data)
+        return data
 
     def construct(self):
         self._bounding_box = None
@@ -139,6 +139,7 @@ class CellMapImage:
         if self._current_spatial_transforms is not None:
             for transform, params in self._current_spatial_transforms.items():
                 if transform not in self.post_image_transforms:
+                    # TODO: Implement non-90 degree rotations
                     # TODO
                     ...
         self._last_coords = coords

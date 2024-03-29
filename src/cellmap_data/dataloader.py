@@ -32,6 +32,8 @@ class CellMapDataLoader:
         self.is_train = is_train
         self.construct()
 
+        # TODO: could keep dataloaders separate
+
     def construct(self):
         self.train_datasets = self.datasplit.train_datasets_combined
         self.validate_datasets = self.datasplit.validate_datasets_combined
