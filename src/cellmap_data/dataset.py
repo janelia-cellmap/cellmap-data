@@ -30,10 +30,9 @@ class CellMapDataset(Dataset):
     input_sources: dict[str, CellMapImage]
     target_sources: dict[str, dict[str, CellMapImage | EmptyImage]]
     spatial_transforms: Optional[Sequence[dict[str, any]]]  # type: ignore
-    raw_value_transforms: Optional[Callable]  # For instance, normalizing the raw data
-    gt_value_transforms: Optional[
-        Callable | Sequence[Callable] | dict[str, Callable]
-    ]  # For instance, converting the ground truth data to target arrays
+    raw_value_transforms: Optional[Callable | Sequence[Callable]]
+    gt_value_transforms: Optional[Callable | Sequence[Callable] | dict[str, Callable]]
+    context: Optional[tensorstore.Context]  # type: ignore
     has_data: bool
     is_train: bool
     _bounding_box: Optional[Dict[str, list[int]]]
@@ -53,7 +52,7 @@ class CellMapDataset(Dataset):
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
         spatial_transforms: Optional[Sequence[dict[str, any]]] = None,  # type: ignore
-        raw_value_transforms: Optional[Callable] = None,
+        raw_value_transforms: Optional[Callable | Sequence[Callable]] = None,
         gt_value_transforms: Optional[
             Callable | Sequence[Callable] | dict[str, Callable]
         ] = None,
