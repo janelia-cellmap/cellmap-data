@@ -33,7 +33,6 @@ class CellMapDataSplit:
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
         classes: Sequence[str],
-        to_target: Callable,
         datasets: Optional[Dict[str, Iterable[CellMapDataset]]] = None,
         dataset_dict: Optional[Dict[str, Dict[str, str]]] = None,
         csv_path: Optional[str] = None,

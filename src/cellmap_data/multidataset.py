@@ -42,3 +42,6 @@ class CellMapMultiDataset(Dataset):
     def construct(self):
         # TODO
         ...
+
+
+# TODO: make "last" and "current" variable names consistent

@@ -9,6 +9,7 @@ import numpy as np
 from cellmap_schemas.annotation import AnnotationGroup
 import zarr
 
+
 class CellMapImage:
     path: str
     translation: dict[str, float]
@@ -19,6 +20,7 @@ class CellMapImage:
     label_class: str
     array: xarray.DataArray
     axes: str | Sequence[str]
+    post_image_transforms: Sequence[str] = ["transpose"]
     value_transform: Optional[Callable]
     context: Optional[tensorstore.Context] = None  # type: ignore
 
@@ -56,14 +58,37 @@ class CellMapImage:
         self.context = context
         self.construct()
 
+    def __getitem__(self, center: Sequence[float] | dict[str, float]) -> torch.Tensor:
+        """Returns image data centered around the given point, based on the scale and shape of the target output image."""
+        # Find vectors of coordinates in world space to pull data from
+        if isinstance(center, Sequence):
+            temp = {c: center[i] for i, c in enumerate(self.axes)}
+            center = temp
+        coords = {}
+        for c in self.axes:
+            coords[c] = np.linspace(
+                center[c] - self.output_size[c] / 2,
+                center[c] + self.output_size[c] / 2,
+                self.output_shape[c],
+            )
+
+        # Apply any spatial transformations to the coordinates and return the image data
+        data = self.apply_spatial_transforms(coords)
+
+        # Apply any value transformations to the data
+        if self.value_transform is not None:
+            data = self.value_transform(data)
+        return torch.as_tensor(data)
+
     def construct(self):
         self._bounding_box = None
         self._sampling_box = None
         self._class_counts = None
+        self._current_spatial_transforms = None
+        self._last_coords = None
         self.group = read_xarray(self.path)
         # Find correct multiscale level based on target scale
-        level = # TODO: Find nearest level...
-        self.scale_level = f"s{level}"
+        self.scale_level = self.find_level(self.scale)
         self.array_path = os.path.join(self.path, self.scale_level)
         # Construct an xarray with Tensorstore backend
         ds = read_xarray(self.array_path)
@@ -78,47 +103,68 @@ class CellMapImage:
         self.ys = self.array.coords["y"]
         self.zs = self.array.coords["z"]
 
-    def __getitem__(self, center: Sequence[float] | dict[str, float]) -> torch.Tensor:
-        """Returns image data centered around the given point, based on the scale and shape of the target output image."""
-        # Find vectors of coordinates in world space to pull data from
-        if isinstance(center, Sequence):
-            temp = {c: center[i] for i, c in enumerate(self.axes)}
-            center = temp
-        coords = {}
-        for c in self.axes:
-            coords[c] = np.linspace(
-                center[c] - self.output_size[c] / 2,
-                center[c] + self.output_size[c] / 2,
-                self.output_shape[c],
-            )
-        # Apply any spatial transformations to the coordinates
-        coords = self.apply_spatial_transforms(coords)
-        # Pull data from the image
-        data = self.array.sel(
-            **coords, # type: ignore
-            method="nearest",
-            tolerance=np.mean(
-                [s / 2 for s in self.scale.values()]
-            ),  # TODO: tolerance should be per axis
-        )
-        # Apply any value transformations to the data
-        if self.value_transform is not None:
-            data = self.value_transform(data)
-        return torch.as_tensor(data)
+    def find_level(self, target_scale: dict[str, float]) -> str:
+        """Finds the multiscale level that is closest to the target scale."""
+        # Get the order of axes in the image
+        axes = []
+        for axis in self.group.attrs["multiscales"][0]["axes"]:
+            if axis["type"] == "space":
+                axes.append(axis["name"])
 
-    def set_spatial_transforms(self, transforms: Iterable[dict[str, any]]):
+        last_path: str = ""
+        scale = {}
+        for level in self.group.attrs["multiscales"][0]["datasets"]:
+            for transform in level["coordinateTransformations"]:
+                if "scale" in transform:
+                    scale = {c: s for c, s in zip(axes, transform["scale"])}
+                    break
+            for c in axes:
+                if scale[c] > target_scale[c]:
+                    if last_path is None:
+                        return level["path"]
+                    else:
+                        return last_path
+            last_path = level["path"]
+        return last_path
+
+    def set_spatial_transforms(self, transforms: dict[str, any]):
         """Sets spatial transformations for the image data."""
-        # TODO
-        for transform in transforms:
-        ...
+        self._current_spatial_transforms = transforms
 
     def apply_spatial_transforms(
         self, coords: dict[str, Sequence[float]]
-    ) -> dict[str, Sequence[float]]:
+    ) -> torch.Tensor:
         """Applies spatial transformations to the given coordinates."""
-        # TODO
-        ...
-        return coords
+        # Apply spatial transformations to the coordinates
+        if self._current_spatial_transforms is not None:
+            for transform, params in self._current_spatial_transforms.items():
+                if transform not in self.post_image_transforms:
+                    # TODO
+                    ...
+        self._last_coords = coords
+
+        # Pull data from the image
+        data = self.return_data(coords)
+
+        # Apply and spatial transformations that require the image array (e.g. transpose)
+        if self._current_spatial_transforms is not None:
+            for transform, params in self._current_spatial_transforms.items():
+                if transform in self.post_image_transforms:
+                    if transform == "transpose":
+                        data = data.transpose(*params)
+                    else:
+                        raise ValueError(f"Unknown spatial transform: {transform}")
+
+        return torch.tensor(data.values)
+
+    def return_data(self, coords: dict[str, Sequence[float]]):
+        # Pull data from the image based on the given coordinates. This interpolates the data to the nearest pixel automatically.
+        data = self.array.sel(
+            **coords,  # type: ignore
+            method="nearest",
+        )
+
+        return data
 
     @property
     def bounding_box(self) -> dict[str, list[float]]:
@@ -149,8 +195,13 @@ class CellMapImage:
         if self._class_counts is None:
             # Get from cellmap-schemas metadata, then normalize by resolution
             group = zarr.open(self.path, mode="r")
-            annotation_group = AnnotationGroup.from_zarr(group) # type: ignore
-            self._class_counts = np.prod(self.array.shape) - annotation_group.members[self.scale_level].attrs.cellmap.annotation.complement_counts        
+            annotation_group = AnnotationGroup.from_zarr(group)  # type: ignore
+            self._class_counts = (
+                np.prod(self.array.shape)
+                - annotation_group.members[
+                    self.scale_level
+                ].attrs.cellmap.annotation.complement_counts
+            )
         return self._class_counts
 
 
@@ -189,7 +240,7 @@ class EmptyImage:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
         return self.store
 
-    def set_spatial_transforms(self, transforms: Iterable[dict[str, any]]):
+    def set_spatial_transforms(self, transforms: dict[str, any]):
         pass
 
     @property

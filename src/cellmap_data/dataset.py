@@ -30,7 +30,7 @@ class CellMapDataset(Dataset):
     input_sources: dict[str, CellMapImage]
     target_sources: dict[str, dict[str, CellMapImage | EmptyImage]]
     spatial_transforms: Optional[Sequence[dict[str, any]]]  # type: ignore
-    raw_value_transforms: Optional[Callable | Sequence[Callable]]
+    raw_value_transforms: Optional[Callable]
     gt_value_transforms: Optional[Callable | Sequence[Callable] | dict[str, Callable]]
     context: Optional[tensorstore.Context]  # type: ignore
     has_data: bool
@@ -52,7 +52,7 @@ class CellMapDataset(Dataset):
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
         spatial_transforms: Optional[Sequence[dict[str, any]]] = None,  # type: ignore
-        raw_value_transforms: Optional[Callable | Sequence[Callable]] = None,
+        raw_value_transforms: Optional[Callable] = None,
         gt_value_transforms: Optional[
             Callable | Sequence[Callable] | dict[str, Callable]
         ] = None,
@@ -118,11 +118,8 @@ class CellMapDataset(Dataset):
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
         # TODO: make center dictionary by axis
         center = np.unravel_index(idx, list(self.sampling_box_shape.values()))
-        if self.is_train and self.spatial_transforms is not None:
-            # TODO: Get spatial transforms
-            ...
-        else:
-            spatial_transforms = None
+        self._current_center = center
+        spatial_transforms = self.generate_spatial_transforms()
         outputs = {}
         for array_name in self.input_arrays.keys():
             if spatial_transforms is not None:
@@ -147,12 +144,23 @@ class CellMapDataset(Dataset):
     def __iter__(self):
         """Iterates over the dataset, covering each section of the bounding box. For instance, for calculating validation scores."""
         # TODO
+        raise NotImplementedError
         if self._iter_coords is None:
             self._iter_coords = ...
         yield self.__getitem__(self._iter_coords)
 
     def construct(self):
         """Constructs the input and target sources for the dataset."""
+        self._bounding_box = None
+        self._bounding_box_shape = None
+        self._sampling_box = None
+        self._sampling_box_shape = None
+        self._class_counts = None
+        self._largest_voxel_sizes = None
+        self._len = None
+        self._iter_coords = None
+        self._current_center = None
+        self._current_spatial_transforms = None
         self.input_sources = {}
         for array_name, array_info in self.input_arrays.items():
             self.input_sources[array_name] = CellMapImage(
@@ -193,14 +201,14 @@ class CellMapDataset(Dataset):
                         label, array_info["shape"], empty_store  # type: ignore
                     )
 
-        self._bounding_box = None
-        self._bounding_box_shape = None
-        self._sampling_box = None
-        self._sampling_box_shape = None
-        self._class_counts = None
-        self._largest_voxel_sizes = None
-        self._len = None
-        self._iter_coords = None
+    def generate_spatial_transforms(self):
+        """Generates spatial transforms for the dataset."""
+        if not self.is_train or self.spatial_transforms is None:
+            return None
+        spatial_transforms = {}
+        # TODO
+        ...
+        self._current_spatial_transforms = spatial_transforms
 
     @property
     def largest_voxel_sizes(self):
