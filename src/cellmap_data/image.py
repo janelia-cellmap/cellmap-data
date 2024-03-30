@@ -58,12 +58,9 @@ class CellMapImage:
         self.context = context
         self.construct()
 
-    def __getitem__(self, center: Sequence[float] | dict[str, float]) -> torch.Tensor:
+    def __getitem__(self, center: dict[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
         # Find vectors of coordinates in world space to pull data from
-        if isinstance(center, Sequence):
-            temp = {c: center[i] for i, c in enumerate(self.axes)}
-            center = temp
         coords = {}
         for c in self.axes:
             coords[c] = np.linspace(
@@ -136,27 +133,35 @@ class CellMapImage:
     ) -> torch.Tensor:
         """Applies spatial transformations to the given coordinates."""
         # Apply spatial transformations to the coordinates
+        # TODO: Implement non-90 degree rotations
         if self._current_spatial_transforms is not None:
             for transform, params in self._current_spatial_transforms.items():
                 if transform not in self.post_image_transforms:
-                    # TODO: Implement non-90 degree rotations
-                    # TODO
-                    ...
+                    if transform == "mirror":
+                        for axis in params:
+                            # TODO: Make sure this works and doesn't collapse to coords
+                            coords[axis] = coords[axis][::-1]
+                    else:
+                        raise ValueError(f"Unknown spatial transform: {transform}")
         self._last_coords = coords
 
         # Pull data from the image
         data = self.return_data(coords)
+        data = data.values
 
         # Apply and spatial transformations that require the image array (e.g. transpose)
         if self._current_spatial_transforms is not None:
             for transform, params in self._current_spatial_transforms.items():
                 if transform in self.post_image_transforms:
                     if transform == "transpose":
-                        data = data.transpose(*params)
+                        # TODO ... make sure this works
+                        # data = data.transpose(*params)
+                        new_order = [params[c] for c in self.axes]
+                        data = np.transpose(data, new_order)
                     else:
                         raise ValueError(f"Unknown spatial transform: {transform}")
 
-        return torch.tensor(data.values)
+        return torch.tensor(data)
 
     def return_data(self, coords: dict[str, Sequence[float]]):
         # Pull data from the image based on the given coordinates. This interpolates the data to the nearest pixel automatically.
