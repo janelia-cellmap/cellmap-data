@@ -120,7 +120,10 @@ class CellMapDataset(Dataset):
     def __getitem__(self, idx):
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
         center = np.unravel_index(idx, list(self.sampling_box_shape.values()))
-        center = {c: center[i] for i, c in enumerate(self.axis_order)}
+        center = {
+            c: center[i] * self.largest_voxel_sizes[c] + self.sampling_box[c][0]
+            for i, c in enumerate(self.axis_order)
+        }
         self._current_center = center
         spatial_transforms = self.generate_spatial_transforms()
         outputs = {}
@@ -180,7 +183,7 @@ class CellMapDataset(Dataset):
         for array_name, array_info in self.target_arrays.items():
             self.target_sources[array_name] = {}
             empty_store = torch.zeros(array_info["shape"])  # type: ignore
-            for i, label in enumerate[self.classes]:  # type: ignore
+            for i, label in enumerate(self.classes):  # type: ignore
                 if label in self.classes_with_path:
                     if isinstance(self.gt_value_transforms, dict):
                         value_transform: Callable = self.gt_value_transforms[label]
@@ -242,23 +245,34 @@ class CellMapDataset(Dataset):
     @property
     def largest_voxel_sizes(self):
         """Returns the largest voxel size of the dataset."""
-        if self._largest_voxel_size is None:
+        if self._largest_voxel_sizes is None:
             largest_voxel_size = {c: 0 for c in self.axis_order}
-            for source in [self.input_sources.values(), self.target_sources.values()]:
-                if source.scale is None:
-                    continue
-                for c, size in zip(self.axis_order, source.scale):
-                    largest_voxel_size[c] = max(largest_voxel_size[c], size)
-            self._largest_voxel_size = largest_voxel_size
+            for source in list(self.input_sources.values()) + list(
+                self.target_sources.values()
+            ):
+                if isinstance(source, dict):
+                    for label, source in source.items():
+                        if source.scale is None:
+                            continue
+                        for c, size in source.scale.items():
+                            largest_voxel_size[c] = max(largest_voxel_size[c], size)
+                else:
+                    if source.scale is None:
+                        continue
+                    for c, size in source.scale.items():
+                        largest_voxel_size[c] = max(largest_voxel_size[c], size)
+            self._largest_voxel_sizes = largest_voxel_size
 
-        return self._largest_voxel_size
+        return self._largest_voxel_sizes
 
     @property
     def bounding_box(self):
         """Returns the bounding box of the dataset."""
         if self._bounding_box is None:
             bounding_box = {c: [0, 2**32] for c in self.axis_order}
-            for source in [self.input_sources.values(), self.target_sources.values()]:
+            for source in list(self.input_sources.values()) + list(
+                self.target_sources.values()
+            ):
                 if source.bounding_box is None:
                     continue
                 for c, (start, stop) in source.bounding_box.items():
@@ -284,12 +298,22 @@ class CellMapDataset(Dataset):
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
         if self._sampling_box is None:
             sampling_box = {c: [0, 2**32] for c in self.axis_order}
-            for source in [self.input_sources.values(), self.target_sources.values()]:
-                if source.sampling_box is None:
-                    continue
-                for c, (start, stop) in source.sampling_box.items():
-                    sampling_box[c][0] = max(sampling_box[c][0], start)
-                    sampling_box[c][1] = min(sampling_box[c][1], stop)
+            for source in list(self.input_sources.values()) + list(
+                self.target_sources.values()
+            ):
+                if isinstance(source, dict):
+                    for label, source in source.items():
+                        if source.sampling_box is None:
+                            continue
+                        for c, (start, stop) in source.sampling_box.items():
+                            sampling_box[c][0] = max(sampling_box[c][0], start)
+                            sampling_box[c][1] = min(sampling_box[c][1], stop)
+                else:
+                    if source.sampling_box is None:
+                        continue
+                    for c, (start, stop) in source.sampling_box.items():
+                        sampling_box[c][0] = max(sampling_box[c][0], start)
+                        sampling_box[c][1] = min(sampling_box[c][1], stop)
             self._sampling_box = sampling_box
         return self._sampling_box
 

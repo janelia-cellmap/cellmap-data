@@ -13,7 +13,6 @@ import zarr
 class CellMapImage:
     path: str
     translation: dict[str, float]
-    shape: dict[str, int]
     scale: dict[str, float]
     output_shape: dict[str, int]
     output_size: dict[str, float]
@@ -63,6 +62,14 @@ class CellMapImage:
         # Find vectors of coordinates in world space to pull data from
         coords = {}
         for c in self.axes:
+            if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
+                raise ValueError(
+                    f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
+                )
+            if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
+                raise ValueError(
+                    f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
+                )
             coords[c] = np.linspace(
                 center[c] - self.output_size[c] / 2,
                 center[c] + self.output_size[c] / 2,
@@ -96,9 +103,10 @@ class CellMapImage:
         array = array_future.result()
         new_data = xt._TensorStoreAdapter(array)
         self.array = ds.copy(data=new_data)  # type: ignore
-        self.xs = self.array.coords["x"]
-        self.ys = self.array.coords["y"]
-        self.zs = self.array.coords["z"]
+        self.get_spatial_metadata()
+        # self.xs = self.array.coords["x"]
+        # self.ys = self.array.coords["y"]
+        # self.zs = self.array.coords["z"]
 
     def find_level(self, target_scale: dict[str, float]) -> str:
         """Finds the multiscale level that is closest to the target scale."""
@@ -123,6 +131,22 @@ class CellMapImage:
                         return last_path
             last_path = level["path"]
         return last_path
+
+    def get_spatial_metadata(self):
+        """Gets the spatial metadata for the image."""
+        # Get the translation of the image
+        self.translation = {c: min(self.array.coords[c].values) for c in self.axes}
+
+        # Get the original scale of the image from poorly formatted metadata
+        for level_data in self.group.attrs["multiscales"][0]["datasets"]:
+            if level_data["path"] == self.scale_level:
+                level_data = level_data["coordinateTransformations"]
+                for transform in level_data:
+                    if transform["type"] == "scale":
+                        self.original_scale = {
+                            c: transform["scale"][i] for i, c in enumerate(self.axes)
+                        }
+                break
 
     def set_spatial_transforms(self, transforms: dict[str, any]):
         """Sets spatial transformations for the image data."""
@@ -174,20 +198,20 @@ class CellMapImage:
 
     @property
     def bounding_box(self) -> dict[str, list[float]]:
-        """Returns the bounding box of the dataset."""
+        """Returns the bounding box of the dataset in world units."""
         if self._bounding_box is None:
             self._bounding_box = {
-                c: [self.translation[c], self.shape[c] + self.translation[c]]
+                c: [self.translation[c], max(self.array.coords[c].values)]
                 for c in self.axes
             }
         return self._bounding_box
 
     @property
     def sampling_box(self) -> dict[str, list[float]]:
-        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
+        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units."""
         if self._sampling_box is None:
             self._sampling_box = {}
-            output_padding = {c: (s / 2) for c, s in self.output_shape.items()}
+            output_padding = {c: (s / 2) for c, s in self.output_size.items()}
             for c, (start, stop) in self.bounding_box.items():
                 self._sampling_box[c] = [
                     start + output_padding[c],
@@ -200,19 +224,22 @@ class CellMapImage:
         """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
         if self._class_counts is None:
             # Get from cellmap-schemas metadata, then normalize by resolution
-            group = zarr.open(self.path, mode="r")
-            annotation_group = AnnotationGroup.from_zarr(group)  # type: ignore
-            self._class_counts = (
-                np.prod(self.array.shape)
-                - annotation_group.members[
-                    self.scale_level
-                ].attrs.cellmap.annotation.complement_counts
-            )
+            try:
+                group = zarr.open(self.path, mode="r")
+                annotation_group = AnnotationGroup.from_zarr(group)  # type: ignore
+                self._class_counts = (
+                    np.prod(self.array.shape)
+                    - annotation_group.members[
+                        self.scale_level
+                    ].attrs.cellmap.annotation.complement_counts["absent"]
+                )
+            except Exception as e:
+                print(e)
+                self._class_counts = -1
         return self._class_counts
 
 
 class EmptyImage:
-    shape: dict[str, float]
     label_class: str
     axes: str
     store: torch.Tensor
@@ -237,12 +264,13 @@ class EmptyImage:
         self.axes = axis_order
         self._bounding_box = None
         self._class_counts = 0
+        self.scale = {c: 1 for c in self.axes}
         if store is not None:
             self.store = store
         else:
             self.store = torch.zeros([self.output_shape[c] for c in self.axes])
 
-    def __getitem__(self, center: Iterable[float]) -> torch.Tensor:
+    def __getitem__(self, center: dict[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
         return self.store
 
