@@ -86,7 +86,6 @@ class CellMapDataSplit:
                 Defaults to None.
             raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
             gt_value_transforms (Optional[Callable | Sequence[Callable] | dict[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
-            is_train (bool, optional): Whether the dataset is for training. Defaults to False.
             force_has_data (bool, optional): Whether to force the dataset to have data. Defaults to False.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
         """
@@ -137,6 +136,7 @@ class CellMapDataSplit:
                     self.spatial_transforms,
                     self.raw_value_transforms,
                     self.gt_value_transforms,
+                    is_train=True,
                 )
             )
 

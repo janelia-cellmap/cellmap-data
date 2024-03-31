@@ -1,6 +1,6 @@
 # %%
 import csv
-from typing import Callable, Dict, Sequence, Optional
+from typing import Callable, Dict, Generator, Sequence, Optional
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -60,6 +60,7 @@ class CellMapDataset(Dataset):
         is_train: bool = False,
         axis_order: str = "zyx",
         context: Optional[tensorstore.Context] = None,  # type: ignore
+        rng: Optional[Generator] = None,
     ):
         """Initializes the CellMapDataset class.
 
@@ -90,6 +91,7 @@ class CellMapDataset(Dataset):
             gt_value_transforms (Optional[Callable | Sequence[Callable] | dict[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
             is_train (bool, optional): Whether the dataset is for training. Defaults to False.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
+            rng (Optional[Generator], optional): A random number generator. Defaults to None.
         """
         self.raw_path = raw_path
         self.gt_paths = gt_path
@@ -103,6 +105,7 @@ class CellMapDataset(Dataset):
         self.is_train = is_train
         self.axis_order = axis_order
         self.context = context
+        self._rng = rng
         self.construct()
 
     def __len__(self):
@@ -128,10 +131,7 @@ class CellMapDataset(Dataset):
         spatial_transforms = self.generate_spatial_transforms()
         outputs = {}
         for array_name in self.input_arrays.keys():
-            if spatial_transforms is not None:
-                self.input_sources[array_name].set_spatial_transforms(
-                    spatial_transforms
-                )
+            self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
             outputs[array_name] = self.input_sources[array_name][center][
                 None, None, ...
             ]
@@ -139,10 +139,9 @@ class CellMapDataset(Dataset):
         for array_name in self.target_arrays.keys():
             class_arrays = []
             for label in self.classes:
-                if spatial_transforms is not None:
-                    self.target_sources[array_name][label].set_spatial_transforms(
-                        spatial_transforms
-                    )
+                self.target_sources[array_name][label].set_spatial_transforms(
+                    spatial_transforms
+                )
                 class_arrays.append(self.target_sources[array_name][label][center])
             outputs[array_name] = torch.stack(class_arrays)[None, ...]
         return outputs
@@ -208,12 +207,11 @@ class CellMapDataset(Dataset):
                         label, array_info["shape"], empty_store  # type: ignore
                     )
 
-    def generate_spatial_transforms(self):
+    def generate_spatial_transforms(self) -> Optional[dict[str, any]]:
         """Generates spatial transforms for the dataset."""
         if self._rng is None:
-            rng = np.random.default_rng()
-        else:
-            rng = self._rng
+            self._rng = np.random.default_rng()
+        rng = self._rng
 
         if not self.is_train or self.spatial_transforms is None:
             return None
@@ -223,7 +221,7 @@ class CellMapDataset(Dataset):
                 # input: "mirror": {"axes": {"x": 0.5, "y": 0.5, "z":0.1}}
                 # output: {"mirror": ["x", "y"]}
                 spatial_transforms[transform] = []
-                for axis, prob in params["axes"]:
+                for axis, prob in params["axes"].items():
                     if rng.random() < prob:
                         spatial_transforms[transform].append(axis)
             elif transform == "transpose":
@@ -237,10 +235,12 @@ class CellMapDataset(Dataset):
                 shuffled_axes = {
                     axis: shuffled_axes[i] for i, axis in enumerate(params["axes"])
                 }  # reassign axes
-                spatial_transforms[transform] = axes.update(shuffled_axes)
+                axes.update(shuffled_axes)
+                spatial_transforms[transform] = axes
             else:
                 raise ValueError(f"Unknown spatial transform: {transform}")
         self._current_spatial_transforms = spatial_transforms
+        return spatial_transforms
 
     @property
     def largest_voxel_sizes(self):

@@ -148,7 +148,7 @@ class CellMapImage:
                         }
                 break
 
-    def set_spatial_transforms(self, transforms: dict[str, any]):
+    def set_spatial_transforms(self, transforms: dict[str, any] | None):
         """Sets spatial transformations for the image data."""
         self._current_spatial_transforms = transforms
 
