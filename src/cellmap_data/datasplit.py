@@ -1,9 +1,8 @@
 import csv
 from typing import Callable, Dict, Iterable, Optional, Sequence
 import tensorstore
-
-from .multidataset import CellMapMultiDataset
 from .dataset import CellMapDataset
+from .multidataset import CellMapMultiDataset
 
 
 class CellMapDataSplit:
@@ -20,11 +19,12 @@ class CellMapDataSplit:
     validate_datasets: Iterable[CellMapDataset]
     train_datasets_combined: CellMapMultiDataset
     validate_datasets_combined: CellMapMultiDataset
-    spatial_transforms: Optional[Sequence[dict[str, any]]]
+    spatial_transforms: Optional[dict[str, any]] = None
     raw_value_transforms: Optional[Callable] = None
     gt_value_transforms: Optional[
         Callable | Sequence[Callable] | dict[str, Callable]
     ] = None
+    force_has_data: bool = False
     context: Optional[tensorstore.Context] = None  # type: ignore
 
     # TODO: may want different transforms for different arrays
@@ -34,9 +34,9 @@ class CellMapDataSplit:
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
         classes: Sequence[str],
         datasets: Optional[Dict[str, Iterable[CellMapDataset]]] = None,
-        dataset_dict: Optional[Dict[str, Dict[str, str]]] = None,
+        dataset_dict: Optional[Dict[str, Sequence[Dict[str, str]]]] = None,
         csv_path: Optional[str] = None,
-        spatial_transforms: Optional[Sequence[dict[str, any]]] = None,
+        spatial_transforms: Optional[dict[str, any]] = None,
         raw_value_transforms: Optional[Callable] = None,
         gt_value_transforms: Optional[
             Callable | Sequence[Callable] | dict[str, Callable]
@@ -71,12 +71,12 @@ class CellMapDataSplit:
                     "train": Iterable[CellMapDataset],
                     "validate": Iterable[CellMapDataset],
                 }. Defaults to None.
-            dataset_dict (Optional[Dict[str, Dict[str, str]]], optional): A dictionary containing the dataset data. The dictionary should have the following structure:
+            dataset_dict (Optional[Dict[str, Sequence[Dict[str, str]]]], optional): A dictionary containing the dataset data. The dictionary should have the following structure:
                 {
-                    "train" | "validate": {
+                    "train" | "validate": [{
                         "raw": str (path to raw data),
                         "gt": str (path to ground truth data),
-                    },
+                    }],
                     ...
                 }. Defaults to None.
             csv_path (Optional[str], optional): A path to a csv file containing the dataset data. Defaults to None. Each row in the csv file should have the following structure:
@@ -115,21 +115,21 @@ class CellMapDataSplit:
             reader = csv.reader(f)
             for row in reader:
                 if row[0] not in dataset_dict:
-                    dataset_dict[row[0]] = {"raw": [], "gt": []}
-                dataset_dict[row[0]]["raw"].append(row[1])
-                dataset_dict[row[0]]["gt"].append(row[2])
+                    dataset_dict[row[0]] = []
+                dataset_dict[row[0]].append({"raw": row[1], "gt": row[2]})
 
         self.dataset_dict = dataset_dict
         self.construct(dataset_dict)
 
     def construct(self, dataset_dict):
+        self._class_counts = None
         self.train_datasets = []
         self.validate_datasets = []
-        for raw, gt in zip(dataset_dict["train"]["raw"], dataset_dict["train"]["gt"]):
+        for data_paths in dataset_dict["train"]:
             self.train_datasets.append(
                 CellMapDataset(
-                    raw,
-                    gt,
+                    data_paths["raw"],
+                    data_paths["gt"],
                     self.classes,
                     self.input_arrays,
                     self.target_arrays,
@@ -142,13 +142,11 @@ class CellMapDataSplit:
 
         # TODO: probably want larger arrays for validation
 
-        for raw, gt in zip(
-            dataset_dict["validate"]["raw"], dataset_dict["validate"]["gt"]
-        ):
+        for data_paths in dataset_dict["validate"]:
             self.validate_datasets.append(
                 CellMapDataset(
-                    raw,
-                    gt,
+                    data_paths["raw"],
+                    data_paths["gt"],
                     self.classes,
                     self.input_arrays,
                     self.target_arrays,
@@ -167,6 +165,15 @@ class CellMapDataSplit:
             self.target_arrays,
             [ds for ds in self.validate_datasets if self.force_has_data or ds.has_data],
         )
+
+    @property
+    def class_counts(self):
+        if self._class_counts is None:
+            self._class_counts = {
+                "train": self.train_datasets_combined.class_counts,
+                "validate": self.validate_datasets_combined.class_counts,
+            }
+        return self._class_counts
 
 
 # Example input arrays:

@@ -274,7 +274,7 @@ class EmptyImage:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
         return self.store
 
-    def set_spatial_transforms(self, transforms: dict[str, any]):
+    def set_spatial_transforms(self, transforms: dict[str, any] | None):
         pass
 
     @property

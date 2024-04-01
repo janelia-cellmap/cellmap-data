@@ -1,9 +1,11 @@
 # %%
 import csv
-from typing import Callable, Dict, Generator, Sequence, Optional
+import math
+import os
+from typing import Callable, Dict, Sequence, Optional
 import numpy as np
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, get_worker_info
 import tensorstore
 from fibsem_tools.io.core import read, read_xarray
 from .image import CellMapImage, EmptyImage
@@ -11,10 +13,14 @@ from .image import CellMapImage, EmptyImage
 
 def split_gt_path(path: str) -> tuple[str, list[str]]:
     """Splits a path to groundtruth data into the main path string, and the classes supplied for it."""
-    path_prefix, path_rem = path.split("[")
-    classes, path_suffix = path_rem.split("]")
-    classes = classes.split(",")
-    path_string = path_prefix + "{label}" + path_suffix
+    try:
+        path_prefix, path_rem = path.split("[")
+        classes, path_suffix = path_rem.split("]")
+        classes = classes.split(",")
+        path_string = path_prefix + "{label}" + path_suffix
+    except ValueError:
+        path_string = path
+        classes = [path.split(os.path.sep)[-1]]
     return path_string, classes
 
 
@@ -60,7 +66,7 @@ class CellMapDataset(Dataset):
         is_train: bool = False,
         axis_order: str = "zyx",
         context: Optional[tensorstore.Context] = None,  # type: ignore
-        rng: Optional[Generator] = None,
+        rng: Optional[np.random.Generator] = None,
     ):
         """Initializes the CellMapDataset class.
 
@@ -91,7 +97,7 @@ class CellMapDataset(Dataset):
             gt_value_transforms (Optional[Callable | Sequence[Callable] | dict[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
             is_train (bool, optional): Whether the dataset is for training. Defaults to False.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
-            rng (Optional[Generator], optional): A random number generator. Defaults to None.
+            rng (Optional[np.random.Generator], optional): A random number generator. Defaults to None.
         """
         self.raw_path = raw_path
         self.gt_paths = gt_path
@@ -148,11 +154,21 @@ class CellMapDataset(Dataset):
 
     def __iter__(self):
         """Iterates over the dataset, covering each section of the bounding box. For instance, for calculating validation scores."""
-        # TODO
-        raise NotImplementedError
-        if self._iter_coords is None:
-            self._iter_coords = ...
-        yield self.__getitem__(self._iter_coords)
+        # TODO : determine if this is right
+        worker_info = get_worker_info()
+        start = 0
+        end = len(self) - 1
+        # single-process data loading, return the full iterator
+        if worker_info is None:
+            iter_start = start
+            iter_end = end
+        else:  # in a worker process
+            # split workload
+            per_worker = int(math.ceil((end - start) / float(worker_info.num_workers)))
+            worker_id = worker_info.id
+            iter_start = start + worker_id * per_worker
+            iter_end = min(iter_start + per_worker, end)
+        return iter(range(iter_start, iter_end))
 
     def construct(self):
         """Constructs the input and target sources for the dataset."""
@@ -333,11 +349,12 @@ class CellMapDataset(Dataset):
     def class_counts(self) -> Dict[str, Dict[str, int]]:
         """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
         if self._class_counts is None:
-            class_counts = {}
+            class_counts = {"totals": {c: 0 for c in self.classes}}
             for array_name, sources in self.target_sources.items():
                 class_counts[array_name] = {}
                 for label, source in sources.items():
                     class_counts[array_name][label] = source.class_counts
+                    class_counts["totals"][label] += source.class_counts
             self._class_counts = class_counts
         return self._class_counts
 

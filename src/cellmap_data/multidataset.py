@@ -1,5 +1,7 @@
-from typing import Iterable, Sequence
-from torch.utils.data import ConcatDataset
+from typing import Iterable, Optional, Sequence
+import numpy as np
+import torch
+from torch.utils.data import ConcatDataset, WeightedRandomSampler
 
 from .dataset import CellMapDataset
 
@@ -13,6 +15,8 @@ class CellMapMultiDataset(ConcatDataset):
     input_arrays: dict[str, dict[str, Sequence[int | float]]]
     target_arrays: dict[str, dict[str, Sequence[int | float]]]
     datasets: Iterable[CellMapDataset]
+    _weighted_sampler: Optional[WeightedRandomSampler]
+    _class_counts: dict[str, int] = {}
 
     def __init__(
         self,
@@ -26,23 +30,47 @@ class CellMapMultiDataset(ConcatDataset):
         self.classes = classes
         self.datasets = datasets
         self.construct()
-        # TODO: SHOULD BE REPLACEABLE BY torch.utils.data.ConcatDataset
-
-    def __len__(self):
-        # TODO
-        ...
-
-    def __getitem__(self, idx: int):
-        # TODO
-        ...
-
-    def __iter__(self):
-        # TODO
-        ...
 
     def construct(self):
-        # TODO
-        ...
+        self._weighted_sampler = None
+
+    def weighted_sampler(
+        self, batch_size: int = 1, rng: Optional[torch.Generator] = None
+    ):
+        if self._weighted_sampler is None:
+            class_counts = {c: 0 for c in self.classes}
+            for dataset in self.datasets:
+                for c in self.classes:
+                    class_counts[c] += dataset.class_counts["totals"][c]
+            class_weights = {c: 1 / class_counts[c] for c in self.classes}
+            sample_weights = []
+            for dataset in self.datasets:
+                dataset_weight = np.sum(
+                    [
+                        dataset.class_counts["totals"][c] / class_weights[c]
+                        for c in self.classes
+                    ]
+                )
+                sample_weights += [dataset_weight] * len(dataset)
+
+            self._weighted_sampler = WeightedRandomSampler(
+                sample_weights, batch_size, replacement=False, generator=rng
+            )
+        return self._weighted_sampler
+
+    @property
+    def class_counts(self):
+        if not self._class_counts:
+            class_counts = {}
+            for c in self.classes:
+                class_counts[c] = {}
+                total: int = 0
+                for ds in self.datasets:
+                    total += ds.class_counts["totals"][c]
+                    class_counts[c][ds] = ds.class_counts["totals"][c]
+                class_counts[c]["total"] = total
+            self._class_counts = class_counts
+        return self._class_counts
 
 
 # TODO: make "last" and "current" variable names consistent
