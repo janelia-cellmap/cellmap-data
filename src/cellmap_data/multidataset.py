@@ -25,6 +25,7 @@ class CellMapMultiDataset(ConcatDataset):
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
         datasets: Iterable[CellMapDataset],
     ):
+        super().__init__(datasets)
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
         self.classes = classes

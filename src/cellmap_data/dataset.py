@@ -138,9 +138,7 @@ class CellMapDataset(Dataset):
         outputs = {}
         for array_name in self.input_arrays.keys():
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
-            outputs[array_name] = self.input_sources[array_name][center][
-                None, None, ...
-            ]
+            outputs[array_name] = self.input_sources[array_name][center][None, ...]
         # TODO: Allow for distribtion of array gathering to multiple threads
         for array_name in self.target_arrays.keys():
             class_arrays = []
@@ -149,7 +147,7 @@ class CellMapDataset(Dataset):
                     spatial_transforms
                 )
                 class_arrays.append(self.target_sources[array_name][label][center])
-            outputs[array_name] = torch.stack(class_arrays)[None, ...]
+            outputs[array_name] = torch.stack(class_arrays)
         return outputs
 
     def __iter__(self):
