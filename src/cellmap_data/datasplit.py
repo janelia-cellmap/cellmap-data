@@ -1,5 +1,5 @@
 import csv
-from typing import Callable, Dict, Iterable, Optional, Sequence
+from typing import Callable, Dict, Iterable, Mapping, Optional, Sequence
 import tensorstore
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
@@ -34,7 +34,7 @@ class CellMapDataSplit:
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
         classes: Sequence[str],
         datasets: Optional[Dict[str, Iterable[CellMapDataset]]] = None,
-        dataset_dict: Optional[Dict[str, Sequence[Dict[str, str]]]] = None,
+        dataset_dict: Optional[Mapping[str, Sequence[Dict[str, str]]]] = None,
         csv_path: Optional[str] = None,
         spatial_transforms: Optional[dict[str, any]] = None,
         raw_value_transforms: Optional[Callable] = None,
