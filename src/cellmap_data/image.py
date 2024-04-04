@@ -268,7 +268,7 @@ class EmptyImage:
         if store is not None:
             self.store = store
         else:
-            self.store = torch.zeros([self.output_shape[c] for c in self.axes])
+            self.store = torch.zeros([1] + [self.output_shape[c] for c in self.axes])
 
     def __getitem__(self, center: dict[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""

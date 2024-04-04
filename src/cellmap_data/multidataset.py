@@ -39,6 +39,7 @@ class CellMapMultiDataset(ConcatDataset):
         self, batch_size: int = 1, rng: Optional[torch.Generator] = None
     ):
         if self._weighted_sampler is None:
+            # TODO: calculate weights for each sample
             class_counts = {c: 0 for c in self.classes}
             for dataset in self.datasets:
                 for c in self.classes:
