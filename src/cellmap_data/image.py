@@ -82,7 +82,11 @@ class CellMapImage:
         # Apply any value transformations to the data
         if self.value_transform is not None:
             data = self.value_transform(data)
-        return data
+        return data.to(self.device)
+
+    def to(self, device: str) -> None:
+        """Sets what device returned image data will be loaded onto."""
+        self.device = device
 
     def construct(self):
         self._bounding_box = None
@@ -90,6 +94,7 @@ class CellMapImage:
         self._class_counts = None
         self._current_spatial_transforms = None
         self._last_coords = None
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.group = read_xarray(self.path)
         # Find correct multiscale level based on target scale
         self.scale_level = self.find_level(self.scale)
@@ -273,6 +278,10 @@ class EmptyImage:
     def __getitem__(self, center: dict[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
         return self.store
+
+    def to(self, device: str) -> None:
+        """Moves the image data to the given device."""
+        self.store = self.store.to(device)
 
     def set_spatial_transforms(self, transforms: dict[str, any] | None):
         pass

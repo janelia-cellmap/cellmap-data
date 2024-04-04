@@ -32,6 +32,11 @@ class CellMapMultiDataset(ConcatDataset):
         self.datasets = datasets
         self.construct()
 
+    def to(self, device: str):
+        for dataset in self.datasets:
+            dataset.to(device)
+        return self
+
     def construct(self):
         self._weighted_sampler = None
 

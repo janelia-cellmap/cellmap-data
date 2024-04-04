@@ -168,6 +168,18 @@ class CellMapDataset(Dataset):
             iter_end = min(iter_start + per_worker, end)
         return iter(range(iter_start, iter_end))
 
+    def to(self, device):
+        """Sets the device for the dataset."""
+        for source in list(self.input_sources.values()) + list(
+            self.target_sources.values()
+        ):
+            if isinstance(source, dict):
+                for source in source.values():
+                    source.to(device)
+            else:
+                source.to(device)
+        return self
+
     def construct(self):
         """Constructs the input and target sources for the dataset."""
         self._bounding_box = None

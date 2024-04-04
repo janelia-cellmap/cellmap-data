@@ -47,7 +47,9 @@ class CellMapDataLoader:
         else:
             self.sampler = None
         kwargs = {
-            "dataset": self.dataset,
+            "dataset": (
+                self.dataset.to("cuda") if torch.cuda.is_available() else self.dataset
+            ),
             "batch_size": self.batch_size,
             "num_workers": self.num_workers,
             "collate_fn": self.collate_fn,
