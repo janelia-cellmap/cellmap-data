@@ -192,7 +192,6 @@ class CellMapDataset(Dataset):
         self._iter_coords = None
         self._current_center = None
         self._current_spatial_transforms = None
-        self._rng = None
         self.input_sources = {}
         for array_name, array_info in self.input_arrays.items():
             self.input_sources[array_name] = CellMapImage(
@@ -235,6 +234,7 @@ class CellMapDataset(Dataset):
 
     def generate_spatial_transforms(self) -> Optional[dict[str, any]]:
         """Generates spatial transforms for the dataset."""
+        # TODO: use torch random number generator so accerlerators can synchronize across workers
         if self._rng is None:
             self._rng = np.random.default_rng()
         rng = self._rng
