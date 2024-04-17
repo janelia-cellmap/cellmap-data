@@ -1,5 +1,4 @@
 # %%
-import csv
 import math
 import os
 from typing import Callable, Dict, Sequence, Optional
@@ -53,7 +52,7 @@ class CellMapDataset(Dataset):
 
     def __init__(
         self,
-        raw_path: str,
+        raw_path: str,  # TODO: Switch "raw_path" to "input_path"
         gt_path: str,
         classes: Sequence[str],
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
@@ -67,6 +66,7 @@ class CellMapDataset(Dataset):
         axis_order: str = "zyx",
         context: Optional[tensorstore.Context] = None,  # type: ignore
         rng: Optional[np.random.Generator] = None,
+        force_has_data: bool = False,
     ):
         """Initializes the CellMapDataset class.
 
@@ -98,6 +98,7 @@ class CellMapDataset(Dataset):
             is_train (bool, optional): Whether the dataset is for training. Defaults to False.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
             rng (Optional[np.random.Generator], optional): A random number generator. Defaults to None.
+            force_has_data (bool, optional): Whether to force the dataset to report that it has data. Defaults to False.
         """
         self.raw_path = raw_path
         self.gt_paths = gt_path
@@ -113,10 +114,11 @@ class CellMapDataset(Dataset):
         self.context = context
         self._rng = rng
         self.construct()
+        self.force_has_data = force_has_data
 
     def __len__(self):
         """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for a cube."""
-        if not self.has_data:
+        if not self.has_data and not self.force_has_data:
             return 0
         if self._len is None:
             size = 1
@@ -153,20 +155,9 @@ class CellMapDataset(Dataset):
     def __iter__(self):
         """Iterates over the dataset, covering each section of the bounding box. For instance, for calculating validation scores."""
         # TODO : determine if this is right
-        worker_info = get_worker_info()
-        start = 0
-        end = len(self) - 1
-        # single-process data loading, return the full iterator
-        if worker_info is None:
-            iter_start = start
-            iter_end = end
-        else:  # in a worker process
-            # split workload
-            per_worker = int(math.ceil((end - start) / float(worker_info.num_workers)))
-            worker_id = worker_info.id
-            iter_start = start + worker_id * per_worker
-            iter_end = min(iter_start + per_worker, end)
-        return iter(range(iter_start, iter_end))
+        raise NotImplementedError("Iterating over the dataset is not implemented.")
+        # We need to iterate over idx's that are non-overlapping from within the sample_box
+        idxs = ...
 
     def to(self, device):
         """Sets the device for the dataset."""

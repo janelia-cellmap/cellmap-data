@@ -92,6 +92,7 @@ class CellMapDataSplit:
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
         self.classes = classes
+        self.force_has_data = force_has_data
         if datasets is not None:
             self.train_datasets = datasets["train"]
             self.validate_datasets = datasets["validate"]
@@ -104,7 +105,6 @@ class CellMapDataSplit:
         self.spatial_transforms = spatial_transforms
         self.raw_value_transforms = raw_value_transforms
         self.gt_value_transforms = gt_value_transforms
-        self.force_has_data = force_has_data
         self.context = context
         self.construct(self.dataset_dict)
 
@@ -137,34 +137,45 @@ class CellMapDataSplit:
                     self.raw_value_transforms,
                     self.gt_value_transforms,
                     is_train=True,
+                    context=self.context,
+                    force_has_data=self.force_has_data,
                 )
             )
 
-        # TODO: probably want larger arrays for validation
-
-        for data_paths in dataset_dict["validate"]:
-            self.validate_datasets.append(
-                CellMapDataset(
-                    data_paths["raw"],
-                    data_paths["gt"],
-                    self.classes,
-                    self.input_arrays,
-                    self.target_arrays,
-                    gt_value_transforms=self.gt_value_transforms,
-                )
-            )
         self.train_datasets_combined = CellMapMultiDataset(
             self.classes,
             self.input_arrays,
             self.target_arrays,
             [ds for ds in self.train_datasets if self.force_has_data or ds.has_data],
         )
-        self.validate_datasets_combined = CellMapMultiDataset(
-            self.classes,
-            self.input_arrays,
-            self.target_arrays,
-            [ds for ds in self.validate_datasets if self.force_has_data or ds.has_data],
-        )
+
+        # TODO: probably want larger arrays for validation
+
+        if "validate" in dataset_dict:
+            for data_paths in dataset_dict["validate"]:
+                self.validate_datasets.append(
+                    CellMapDataset(
+                        data_paths["raw"],
+                        data_paths["gt"],
+                        self.classes,
+                        self.input_arrays,
+                        self.target_arrays,
+                        gt_value_transforms=self.gt_value_transforms,
+                        is_train=False,
+                        context=self.context,
+                        force_has_data=self.force_has_data,
+                    )
+                )
+            self.validate_datasets_combined = CellMapMultiDataset(
+                self.classes,
+                self.input_arrays,
+                self.target_arrays,
+                [
+                    ds
+                    for ds in self.validate_datasets
+                    if self.force_has_data or ds.has_data
+                ],
+            )
 
     @property
     def class_counts(self):

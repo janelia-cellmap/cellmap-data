@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import DataLoader, ConcatDataset, WeightedRandomSampler
+from torch.utils.data import DataLoader, ConcatDataset, WeightedRandomSampler, Sampler
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 
@@ -16,6 +16,7 @@ class CellMapDataLoader:
     batch_size: int
     num_workers: int
     weighted_sampler: bool
+    sampler: Sampler | None
     is_train: bool
     rng: Optional[torch.Generator] = None
 
@@ -26,6 +27,7 @@ class CellMapDataLoader:
         batch_size: int = 1,
         num_workers: int = 0,
         weighted_sampler: bool = False,
+        sampler: Sampler | None = None,
         is_train: bool = True,
         rng: Optional[torch.Generator] = None,
     ):
@@ -34,18 +36,17 @@ class CellMapDataLoader:
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.weighted_sampler = weighted_sampler
+        self.sampler = sampler
         self.is_train = is_train
         self.rng = rng
         self.construct()
 
     def construct(self):
-        if self.weighted_sampler:
+        if self.sampler is None and self.weighted_sampler:
             assert isinstance(
                 self.dataset, CellMapMultiDataset
             ), "Weighted sampler only relevant for CellMapMultiDataset"
             self.sampler = self.dataset.weighted_sampler(self.batch_size, self.rng)
-        else:
-            self.sampler = None
         kwargs = {
             "dataset": (
                 self.dataset.to("cuda") if torch.cuda.is_available() else self.dataset
@@ -54,7 +55,7 @@ class CellMapDataLoader:
             "num_workers": self.num_workers,
             "collate_fn": self.collate_fn,
         }
-        if self.weighted_sampler:
+        if self.sampler is not None:
             kwargs["sampler"] = self.sampler
         elif self.is_train:
             kwargs["shuffle"] = True
