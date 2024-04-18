@@ -47,6 +47,16 @@ class CellMapImage:
 
         self.path = path
         self.label_class = target_class
+        # TODO: Below makes assumptions about image scale, and also locks which axis is sliced to 2D
+        if len(axis_order) > len(target_scale):
+            target_scale = [target_scale[0]] * (
+                len(axis_order) - len(target_scale)
+            ) + list(target_scale)
+        if len(axis_order) > len(target_voxel_shape):
+            target_voxel_shape = [1] * (
+                len(axis_order) - len(target_voxel_shape)
+            ) + list(target_voxel_shape)
+
         self.scale = {c: s for c, s in zip(axis_order, target_scale)}
         self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
         self.output_size = {
