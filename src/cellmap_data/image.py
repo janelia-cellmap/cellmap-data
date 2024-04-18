@@ -58,11 +58,11 @@ class CellMapImage:
             ) + list(target_voxel_shape)
 
         self.scale = {c: s for c, s in zip(axis_order, target_scale)}
-        self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
+        self.output_shape = {c: t for c, t in zip(axis_order, target_voxel_shape)}
         self.output_size = {
-            c: target_voxel_shape[i] * target_scale[i] for i, c in enumerate(axis_order)
+            c: t * s for c, t, s in zip(axis_order, target_voxel_shape, target_scale)
         }
-        self.axes = axis_order
+        self.axes = axis_order[: len(target_voxel_shape)]
         self.value_transform = value_transform
         self.context = context
         self.construct()

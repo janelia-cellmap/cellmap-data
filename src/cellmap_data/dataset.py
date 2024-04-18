@@ -140,7 +140,11 @@ class CellMapDataset(Dataset):
         outputs = {}
         for array_name in self.input_arrays.keys():
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
-            outputs[array_name] = self.input_sources[array_name][center][None, ...]
+            array = self.input_sources[array_name][center]
+            if array.shape[0] != 1:
+                outputs[array_name] = array[None, ...]
+            else:
+                outputs[array_name] = array
         # TODO: Allow for distribtion of array gathering to multiple threads
         for array_name in self.target_arrays.keys():
             class_arrays = []
