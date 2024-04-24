@@ -31,6 +31,7 @@ class CellMapImage:
         target_voxel_shape: Sequence[int],
         axis_order: str | Sequence[str] = "zyx",
         value_transform: Optional[Callable] = None,
+        # TODO: Add global grid enforcement to ensure that all images are on the same grid
         context: Optional[tensorstore.Context] = None,  # type: ignore
     ):
         """Initializes a CellMapImage object.
@@ -98,6 +99,7 @@ class CellMapImage:
         """Sets what device returned image data will be loaded onto."""
         self.device = device
 
+    # TODO: move into __init__
     def construct(self):
         self._bounding_box = None
         self._sampling_box = None

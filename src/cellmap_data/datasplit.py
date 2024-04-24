@@ -1,4 +1,5 @@
 import csv
+import os
 from typing import Callable, Dict, Iterable, Mapping, Optional, Sequence
 import tensorstore
 from .dataset import CellMapDataset
@@ -27,7 +28,6 @@ class CellMapDataSplit:
     force_has_data: bool = False
     context: Optional[tensorstore.Context] = None  # type: ignore
 
-    # TODO: may want different transforms for different arrays
     def __init__(
         self,
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
@@ -116,7 +116,12 @@ class CellMapDataSplit:
             for row in reader:
                 if row[0] not in dataset_dict:
                     dataset_dict[row[0]] = []
-                dataset_dict[row[0]].append({"raw": row[1], "gt": row[2]})
+                dataset_dict[row[0]].append(
+                    {
+                        "raw": os.path.join(row[1], row[2]),
+                        "gt": os.path.join(row[3], row[4]),
+                    }
+                )
 
         self.dataset_dict = dataset_dict
         self.construct(dataset_dict)
