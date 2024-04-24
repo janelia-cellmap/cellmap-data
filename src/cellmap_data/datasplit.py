@@ -119,7 +119,7 @@ class CellMapDataSplit:
                 dataset_dict[row[0]].append(
                     {
                         "raw": os.path.join(row[1], row[2]),
-                        "gt": os.path.join(row[3], row[4]),
+                        "gt": os.path.join(row[3], row[4]) if len(row) > 3 else "",
                     }
                 )
 
