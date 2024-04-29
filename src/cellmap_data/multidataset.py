@@ -32,6 +32,13 @@ class CellMapMultiDataset(ConcatDataset):
         self.datasets = datasets
         self.construct()
 
+    def __repr__(self) -> str:
+        out_string = f"CellMapMultiDataset(["
+        for dataset in self.datasets:
+            out_string += f"\n\t{dataset},"
+        out_string += "\n])"
+        return out_string
+
     def to(self, device: str):
         for dataset in self.datasets:
             dataset.to(device)

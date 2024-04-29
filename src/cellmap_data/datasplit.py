@@ -108,6 +108,9 @@ class CellMapDataSplit:
         self.context = context
         self.construct(self.dataset_dict)
 
+    def __repr__(self):
+        return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.raw_value_transforms}\n\tGT value transforms: {self.gt_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
+
     def from_csv(self, csv_path):
         # Load file data from csv file
         dataset_dict = {}

@@ -163,6 +163,10 @@ class CellMapDataset(Dataset):
         # We need to iterate over idx's that are non-overlapping from within the sample_box
         idxs = ...
 
+    def __repr__(self):
+        """Returns a string representation of the dataset."""
+        return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.gt_paths}\n\tClasses: {self.classes})"
+
     def to(self, device):
         """Sets the device for the dataset."""
         for source in list(self.input_sources.values()) + list(
