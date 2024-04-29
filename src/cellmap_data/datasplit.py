@@ -1,6 +1,6 @@
 import csv
 import os
-from typing import Callable, Dict, Iterable, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Sequence
 import tensorstore
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
@@ -20,7 +20,7 @@ class CellMapDataSplit:
     validate_datasets: Iterable[CellMapDataset]
     train_datasets_combined: CellMapMultiDataset
     validate_datasets_combined: CellMapMultiDataset
-    spatial_transforms: Optional[dict[str, any]] = None
+    spatial_transforms: Optional[dict[str, Any]] = None
     raw_value_transforms: Optional[Callable] = None
     gt_value_transforms: Optional[
         Callable | Sequence[Callable] | dict[str, Callable]
@@ -36,7 +36,7 @@ class CellMapDataSplit:
         datasets: Optional[Dict[str, Iterable[CellMapDataset]]] = None,
         dataset_dict: Optional[Mapping[str, Sequence[Dict[str, str]]]] = None,
         csv_path: Optional[str] = None,
-        spatial_transforms: Optional[dict[str, any]] = None,
+        spatial_transforms: Optional[dict[str, Any]] = None,
         raw_value_transforms: Optional[Callable] = None,
         gt_value_transforms: Optional[
             Callable | Sequence[Callable] | dict[str, Callable]
@@ -81,7 +81,7 @@ class CellMapDataSplit:
                 }. Defaults to None.
             csv_path (Optional[str], optional): A path to a csv file containing the dataset data. Defaults to None. Each row in the csv file should have the following structure:
                 train | validate, raw path, gt path
-            spatial_transforms (Optional[Sequence[dict[str, any]]], optional): A sequence of dictionaries containing the spatial transformations to apply to the data. The dictionary should have the following structure:
+            spatial_transforms (Optional[Sequence[dict[str, Any]]], optional): A sequence of dictionaries containing the spatial transformations to apply to the data. The dictionary should have the following structure:
                 {transform_name: {transform_args}}
                 Defaults to None.
             raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
@@ -99,9 +99,8 @@ class CellMapDataSplit:
             self.dataset_dict = {}
         elif dataset_dict is not None:
             self.dataset_dict = dataset_dict
-            self.construct(dataset_dict)
         elif csv_path is not None:
-            self.from_csv(csv_path)
+            self.dataset_dict = self.from_csv(csv_path)
         self.spatial_transforms = spatial_transforms
         self.raw_value_transforms = raw_value_transforms
         self.gt_value_transforms = gt_value_transforms
@@ -126,29 +125,31 @@ class CellMapDataSplit:
                     }
                 )
 
-        self.dataset_dict = dataset_dict
-        self.construct(dataset_dict)
+        return dataset_dict
 
     def construct(self, dataset_dict):
         self._class_counts = None
         self.train_datasets = []
         self.validate_datasets = []
         for data_paths in dataset_dict["train"]:
-            self.train_datasets.append(
-                CellMapDataset(
-                    data_paths["raw"],
-                    data_paths["gt"],
-                    self.classes,
-                    self.input_arrays,
-                    self.target_arrays,
-                    self.spatial_transforms,
-                    self.raw_value_transforms,
-                    self.gt_value_transforms,
-                    is_train=True,
-                    context=self.context,
-                    force_has_data=self.force_has_data,
+            try:
+                self.train_datasets.append(
+                    CellMapDataset(
+                        data_paths["raw"],
+                        data_paths["gt"],
+                        self.classes,
+                        self.input_arrays,
+                        self.target_arrays,
+                        self.spatial_transforms,
+                        self.raw_value_transforms,
+                        self.gt_value_transforms,
+                        is_train=True,
+                        context=self.context,
+                        force_has_data=self.force_has_data,
+                    )
                 )
-            )
+            except ValueError as e:
+                print(f"Error loading dataset: {e}")
 
         self.train_datasets_combined = CellMapMultiDataset(
             self.classes,
@@ -161,19 +162,23 @@ class CellMapDataSplit:
 
         if "validate" in dataset_dict:
             for data_paths in dataset_dict["validate"]:
-                self.validate_datasets.append(
-                    CellMapDataset(
-                        data_paths["raw"],
-                        data_paths["gt"],
-                        self.classes,
-                        self.input_arrays,
-                        self.target_arrays,
-                        gt_value_transforms=self.gt_value_transforms,
-                        is_train=False,
-                        context=self.context,
-                        force_has_data=self.force_has_data,
+                try:
+                    self.validate_datasets.append(
+                        CellMapDataset(
+                            data_paths["raw"],
+                            data_paths["gt"],
+                            self.classes,
+                            self.input_arrays,
+                            self.target_arrays,
+                            gt_value_transforms=self.gt_value_transforms,
+                            is_train=False,
+                            context=self.context,
+                            force_has_data=self.force_has_data,
+                        )
                     )
-                )
+                except ValueError as e:
+                    print(f"Error loading dataset: {e}")
+
             self.validate_datasets_combined = CellMapMultiDataset(
                 self.classes,
                 self.input_arrays,

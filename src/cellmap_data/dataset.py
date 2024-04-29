@@ -1,12 +1,10 @@
 # %%
-import math
 import os
-from typing import Callable, Dict, Sequence, Optional
+from typing import Any, Callable, Dict, Sequence, Optional
 import numpy as np
 import torch
-from torch.utils.data import Dataset, get_worker_info
+from torch.utils.data import Dataset
 import tensorstore
-from fibsem_tools.io.core import read, read_xarray
 from .image import CellMapImage, EmptyImage
 
 
@@ -113,8 +111,57 @@ class CellMapDataset(Dataset):
         self.axis_order = axis_order
         self.context = context
         self._rng = rng
-        self.construct()
         self.force_has_data = force_has_data
+        self._bounding_box = None
+        self._bounding_box_shape = None
+        self._sampling_box = None
+        self._sampling_box_shape = None
+        self._class_counts = None
+        self._largest_voxel_sizes = None
+        self._len = None
+        self._iter_coords = None
+        self._current_center = None
+        self._current_spatial_transforms = None
+        self.input_sources = {}
+        for array_name, array_info in self.input_arrays.items():
+            self.input_sources[array_name] = CellMapImage(
+                self.raw_path,
+                "raw",
+                array_info["scale"],
+                array_info["shape"],  # type: ignore
+                value_transform=self.raw_value_transforms,
+                context=self.context,
+            )
+        self.target_sources = {}
+        self.has_data = False
+        for array_name, array_info in self.target_arrays.items():
+            self.target_sources[array_name] = {}
+            empty_store = torch.zeros(array_info["shape"])  # type: ignore
+            for i, label in enumerate(self.classes):  # type: ignore
+                if label in self.classes_with_path:
+                    if isinstance(self.gt_value_transforms, dict):
+                        value_transform: Callable = self.gt_value_transforms[label]
+                    elif isinstance(self.gt_value_transforms, list):
+                        value_transform: Callable = self.gt_value_transforms[i]
+                    else:
+                        value_transform: Callable = self.gt_value_transforms  # type: ignore
+                    self.target_sources[array_name][label] = CellMapImage(
+                        self.gt_path_str.format(label=label),
+                        label,
+                        array_info["scale"],
+                        array_info["shape"],  # type: ignore
+                        value_transform=value_transform,
+                        context=self.context,
+                    )
+                    if not self.has_data:
+                        self.has_data = (
+                            self.has_data
+                            or self.target_sources[array_name][label].class_counts != 0
+                        )
+                else:
+                    self.target_sources[array_name][label] = EmptyImage(
+                        label, array_info["shape"], empty_store  # type: ignore
+                    )
 
     def __len__(self):
         """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for a cube."""
@@ -123,7 +170,7 @@ class CellMapDataset(Dataset):
         if self._len is None:
             size = 1
             for _, (start, stop) in self.sampling_box.items():
-                size *= stop - start
+                size *= abs(stop - start)
             size /= np.prod(list(self.largest_voxel_sizes.values()))
             self._len = int(size)
         return self._len
@@ -166,106 +213,6 @@ class CellMapDataset(Dataset):
     def __repr__(self):
         """Returns a string representation of the dataset."""
         return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.gt_paths}\n\tClasses: {self.classes})"
-
-    def to(self, device):
-        """Sets the device for the dataset."""
-        for source in list(self.input_sources.values()) + list(
-            self.target_sources.values()
-        ):
-            if isinstance(source, dict):
-                for source in source.values():
-                    source.to(device)
-            else:
-                source.to(device)
-        return self
-
-    def construct(self):
-        """Constructs the input and target sources for the dataset."""
-        self._bounding_box = None
-        self._bounding_box_shape = None
-        self._sampling_box = None
-        self._sampling_box_shape = None
-        self._class_counts = None
-        self._largest_voxel_sizes = None
-        self._len = None
-        self._iter_coords = None
-        self._current_center = None
-        self._current_spatial_transforms = None
-        self.input_sources = {}
-        for array_name, array_info in self.input_arrays.items():
-            self.input_sources[array_name] = CellMapImage(
-                self.raw_path,
-                "raw",
-                array_info["scale"],
-                array_info["shape"],  # type: ignore
-                value_transform=self.raw_value_transforms,
-                context=self.context,
-            )
-        self.target_sources = {}
-        self.has_data = False
-        for array_name, array_info in self.target_arrays.items():
-            self.target_sources[array_name] = {}
-            empty_store = torch.zeros(array_info["shape"])  # type: ignore
-            for i, label in enumerate(self.classes):  # type: ignore
-                if label in self.classes_with_path:
-                    if isinstance(self.gt_value_transforms, dict):
-                        value_transform: Callable = self.gt_value_transforms[label]
-                    elif isinstance(self.gt_value_transforms, list):
-                        value_transform: Callable = self.gt_value_transforms[i]
-                    else:
-                        value_transform: Callable = self.gt_value_transforms  # type: ignore
-                    self.target_sources[array_name][label] = CellMapImage(
-                        self.gt_path_str.format(label=label),
-                        label,
-                        array_info["scale"],
-                        array_info["shape"],  # type: ignore
-                        value_transform=value_transform,
-                        context=self.context,
-                    )
-                    self.has_data = (
-                        self.has_data
-                        or self.target_sources[array_name][label].class_counts != 0
-                    )
-                else:
-                    self.target_sources[array_name][label] = EmptyImage(
-                        label, array_info["shape"], empty_store  # type: ignore
-                    )
-
-    def generate_spatial_transforms(self) -> Optional[dict[str, any]]:
-        """Generates spatial transforms for the dataset."""
-        # TODO: use torch random number generator so accerlerators can synchronize across workers
-        if self._rng is None:
-            self._rng = np.random.default_rng()
-        rng = self._rng
-
-        if not self.is_train or self.spatial_transforms is None:
-            return None
-        spatial_transforms = {}
-        for transform, params in self.spatial_transforms.items():
-            if transform == "mirror":
-                # input: "mirror": {"axes": {"x": 0.5, "y": 0.5, "z":0.1}}
-                # output: {"mirror": ["x", "y"]}
-                spatial_transforms[transform] = []
-                for axis, prob in params["axes"].items():
-                    if rng.random() < prob:
-                        spatial_transforms[transform].append(axis)
-            elif transform == "transpose":
-                # only reorder axes specified in params
-                # input: "transpose": {"axes": ["x", "z"]}
-                # output: {"transpose": {"x": 2, "y": 1, "z": 0}}
-                axes = {axis: i for i, axis in enumerate(self.axis_order)}
-                shuffled_axes = rng.permutation(
-                    [axes[a] for a in params["axes"]]
-                )  # shuffle indices
-                shuffled_axes = {
-                    axis: shuffled_axes[i] for i, axis in enumerate(params["axes"])
-                }  # reassign axes
-                axes.update(shuffled_axes)
-                spatial_transforms[transform] = axes
-            else:
-                raise ValueError(f"Unknown spatial transform: {transform}")
-        self._current_spatial_transforms = spatial_transforms
-        return spatial_transforms
 
     @property
     def largest_voxel_sizes(self):
@@ -366,6 +313,54 @@ class CellMapDataset(Dataset):
                     class_counts["totals"][label] += source.class_counts
             self._class_counts = class_counts
         return self._class_counts
+
+    def to(self, device):
+        """Sets the device for the dataset."""
+        for source in list(self.input_sources.values()) + list(
+            self.target_sources.values()
+        ):
+            if isinstance(source, dict):
+                for source in source.values():
+                    source.to(device)
+            else:
+                source.to(device)
+        return self
+
+    def generate_spatial_transforms(self) -> Optional[dict[str, Any]]:
+        """Generates spatial transforms for the dataset."""
+        # TODO: use torch random number generator so accerlerators can synchronize across workers
+        if self._rng is None:
+            self._rng = np.random.default_rng()
+        rng = self._rng
+
+        if not self.is_train or self.spatial_transforms is None:
+            return None
+        spatial_transforms = {}
+        for transform, params in self.spatial_transforms.items():
+            if transform == "mirror":
+                # input: "mirror": {"axes": {"x": 0.5, "y": 0.5, "z":0.1}}
+                # output: {"mirror": ["x", "y"]}
+                spatial_transforms[transform] = []
+                for axis, prob in params["axes"].items():
+                    if rng.random() < prob:
+                        spatial_transforms[transform].append(axis)
+            elif transform == "transpose":
+                # only reorder axes specified in params
+                # input: "transpose": {"axes": ["x", "z"]}
+                # output: {"transpose": {"x": 2, "y": 1, "z": 0}}
+                axes = {axis: i for i, axis in enumerate(self.axis_order)}
+                shuffled_axes = rng.permutation(
+                    [axes[a] for a in params["axes"]]
+                )  # shuffle indices
+                shuffled_axes = {
+                    axis: shuffled_axes[i] for i, axis in enumerate(params["axes"])
+                }  # reassign axes
+                axes.update(shuffled_axes)
+                spatial_transforms[transform] = axes
+            else:
+                raise ValueError(f"Unknown spatial transform: {transform}")
+        self._current_spatial_transforms = spatial_transforms
+        return spatial_transforms
 
 
 # Example input arrays:

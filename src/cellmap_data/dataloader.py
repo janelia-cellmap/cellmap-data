@@ -39,9 +39,6 @@ class CellMapDataLoader:
         self.sampler = sampler
         self.is_train = is_train
         self.rng = rng
-        self.construct()
-
-    def construct(self):
         if self.sampler is None and self.weighted_sampler:
             assert isinstance(
                 self.dataset, CellMapMultiDataset

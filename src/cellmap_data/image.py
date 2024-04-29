@@ -1,5 +1,5 @@
 import os
-from typing import Callable, Iterable, Optional, Sequence
+from typing import Any, Callable, Iterable, Optional, Sequence
 import torch
 from fibsem_tools.io.core import read_xarray
 import xarray
@@ -12,12 +12,12 @@ import zarr
 
 class CellMapImage:
     path: str
-    translation: dict[str, float]
+    _translation: dict[str, float]
     scale: dict[str, float]
     output_shape: dict[str, int]
     output_size: dict[str, float]
     label_class: str
-    array: xarray.DataArray
+    _array: xarray.DataArray
     axes: str | Sequence[str]
     post_image_transforms: Sequence[str] = ["transpose"]
     value_transform: Optional[Callable]
@@ -66,7 +66,18 @@ class CellMapImage:
         self.axes = axis_order[: len(target_voxel_shape)]
         self.value_transform = value_transform
         self.context = context
-        self.construct()
+        self._array = None
+        self._bounding_box = None
+        self._sampling_box = None
+        self._class_counts = None
+        self._current_spatial_transforms = None
+        self._last_coords = None
+        self._translation = None
+        self._original_scale = None
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # self.xs = self.array.coords["x"]
+        # self.ys = self.array.coords["y"]
+        # self.zs = self.array.coords["z"]
 
     def __getitem__(self, center: dict[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
@@ -95,35 +106,97 @@ class CellMapImage:
             data = self.value_transform(data)
         return data.to(self.device)
 
+    def __repr__(self) -> str:
+        return f"CellMapImage({self.path})"
+
+    @property
+    def array(self) -> xarray.DataArray:
+        if self._array is None:
+            self.group = read_xarray(self.path)
+            # Find correct multiscale level based on target scale
+            self.scale_level = self.find_level(self.scale)
+            self.array_path = os.path.join(self.path, self.scale_level)
+            # Construct an xarray with Tensorstore backend
+            ds = read_xarray(self.array_path)
+            spec = xt._zarr_spec_from_path(self.array_path)
+            array_future = tensorstore.open(  # type: ignore
+                spec, read=True, write=False, context=self.context
+            )
+            array = array_future.result()
+            new_data = xt._TensorStoreAdapter(array)
+            self._array = ds.copy(data=new_data)  # type: ignore
+        return self._array  # type: ignore
+
+    @property
+    def translation(self) -> dict[str, float]:
+        """Returns the translation of the image."""
+        if self._translation is None:
+            # Get the translation of the image
+            self._translation = {c: min(self.array.coords[c].values) for c in self.axes}
+        return self._translation
+
+    @property
+    def original_scale(self) -> dict[str, Any] | None:
+        """Returns the original scale of the image."""
+        if self._original_scale is None:
+            # Get the original scale of the image from poorly formatted metadata
+            for level_data in self.group.attrs["multiscales"][0]["datasets"]:
+                if level_data["path"] == self.scale_level:
+                    level_data = level_data["coordinateTransformations"]
+                    for transform in level_data:
+                        if transform["type"] == "scale":
+                            self._original_scale = {
+                                c: transform["scale"][i]
+                                for i, c in enumerate(self.axes)
+                            }
+                    break
+        return self._original_scale
+
+    @property
+    def bounding_box(self) -> dict[str, list[float]]:
+        """Returns the bounding box of the dataset in world units."""
+        if self._bounding_box is None:
+            self._bounding_box = {
+                c: [self.translation[c], max(self.array.coords[c].values)]
+                for c in self.axes
+            }
+        return self._bounding_box
+
+    @property
+    def sampling_box(self) -> dict[str, list[float]]:
+        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units."""
+        if self._sampling_box is None:
+            self._sampling_box = {}
+            output_padding = {c: (s / 2) for c, s in self.output_size.items()}
+            for c, (start, stop) in self.bounding_box.items():
+                self._sampling_box[c] = [
+                    start + output_padding[c],
+                    stop - output_padding[c],
+                ]
+        return self._sampling_box
+
+    @property
+    def class_counts(self) -> int:
+        """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
+        if self._class_counts is None:
+            # Get from cellmap-schemas metadata, then normalize by resolution
+            try:
+                group = zarr.open(self.path, mode="r")
+                annotation_group = AnnotationGroup.from_zarr(group)  # type: ignore
+                self._class_counts = (
+                    np.prod(self.array.shape)
+                    - annotation_group.members[
+                        self.scale_level
+                    ].attrs.cellmap.annotation.complement_counts["absent"]
+                )
+            except Exception as e:
+                print(e)
+                self._class_counts = 0
+        return self._class_counts
+
     def to(self, device: str) -> None:
         """Sets what device returned image data will be loaded onto."""
         self.device = device
-
-    # TODO: move into __init__
-    def construct(self):
-        self._bounding_box = None
-        self._sampling_box = None
-        self._class_counts = None
-        self._current_spatial_transforms = None
-        self._last_coords = None
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.group = read_xarray(self.path)
-        # Find correct multiscale level based on target scale
-        self.scale_level = self.find_level(self.scale)
-        self.array_path = os.path.join(self.path, self.scale_level)
-        # Construct an xarray with Tensorstore backend
-        ds = read_xarray(self.array_path)
-        spec = xt._zarr_spec_from_path(self.array_path)
-        array_future = tensorstore.open(  # type: ignore
-            spec, read=True, write=False, context=self.context
-        )
-        array = array_future.result()
-        new_data = xt._TensorStoreAdapter(array)
-        self.array = ds.copy(data=new_data)  # type: ignore
-        self.get_spatial_metadata()
-        # self.xs = self.array.coords["x"]
-        # self.ys = self.array.coords["y"]
-        # self.zs = self.array.coords["z"]
 
     def find_level(self, target_scale: dict[str, float]) -> str:
         """Finds the multiscale level that is closest to the target scale."""
@@ -133,7 +206,7 @@ class CellMapImage:
             if axis["type"] == "space":
                 axes.append(axis["name"])
 
-        last_path: str = ""
+        last_path: str | None = None
         scale = {}
         for level in self.group.attrs["multiscales"][0]["datasets"]:
             for transform in level["coordinateTransformations"]:
@@ -149,23 +222,7 @@ class CellMapImage:
             last_path = level["path"]
         return last_path
 
-    def get_spatial_metadata(self):
-        """Gets the spatial metadata for the image."""
-        # Get the translation of the image
-        self.translation = {c: min(self.array.coords[c].values) for c in self.axes}
-
-        # Get the original scale of the image from poorly formatted metadata
-        for level_data in self.group.attrs["multiscales"][0]["datasets"]:
-            if level_data["path"] == self.scale_level:
-                level_data = level_data["coordinateTransformations"]
-                for transform in level_data:
-                    if transform["type"] == "scale":
-                        self.original_scale = {
-                            c: transform["scale"][i] for i, c in enumerate(self.axes)
-                        }
-                break
-
-    def set_spatial_transforms(self, transforms: dict[str, any] | None):
+    def set_spatial_transforms(self, transforms: dict[str, Any] | None):
         """Sets spatial transformations for the image data."""
         self._current_spatial_transforms = transforms
 
@@ -213,48 +270,6 @@ class CellMapImage:
 
         return data
 
-    @property
-    def bounding_box(self) -> dict[str, list[float]]:
-        """Returns the bounding box of the dataset in world units."""
-        if self._bounding_box is None:
-            self._bounding_box = {
-                c: [self.translation[c], max(self.array.coords[c].values)]
-                for c in self.axes
-            }
-        return self._bounding_box
-
-    @property
-    def sampling_box(self) -> dict[str, list[float]]:
-        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units."""
-        if self._sampling_box is None:
-            self._sampling_box = {}
-            output_padding = {c: (s / 2) for c, s in self.output_size.items()}
-            for c, (start, stop) in self.bounding_box.items():
-                self._sampling_box[c] = [
-                    start + output_padding[c],
-                    stop - output_padding[c],
-                ]
-        return self._sampling_box
-
-    @property
-    def class_counts(self) -> int:
-        """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
-        if self._class_counts is None:
-            # Get from cellmap-schemas metadata, then normalize by resolution
-            try:
-                group = zarr.open(self.path, mode="r")
-                annotation_group = AnnotationGroup.from_zarr(group)  # type: ignore
-                self._class_counts = (
-                    np.prod(self.array.shape)
-                    - annotation_group.members[
-                        self.scale_level
-                    ].attrs.cellmap.annotation.complement_counts["absent"]
-                )
-            except Exception as e:
-                print(e)
-                self._class_counts = -1
-        return self._class_counts
-
 
 class EmptyImage:
     label_class: str
@@ -291,13 +306,6 @@ class EmptyImage:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
         return self.store
 
-    def to(self, device: str) -> None:
-        """Moves the image data to the given device."""
-        self.store = self.store.to(device)
-
-    def set_spatial_transforms(self, transforms: dict[str, any] | None):
-        pass
-
     @property
     def bounding_box(self) -> None:
         """Returns the bounding box of the dataset."""
@@ -312,3 +320,10 @@ class EmptyImage:
     def class_counts(self) -> int:
         """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
         return self._class_counts
+
+    def to(self, device: str) -> None:
+        """Moves the image data to the given device."""
+        self.store = self.store.to(device)
+
+    def set_spatial_transforms(self, transforms: dict[str, Any] | None):
+        pass
