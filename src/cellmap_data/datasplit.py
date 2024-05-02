@@ -94,9 +94,11 @@ class CellMapDataSplit:
         self.classes = classes
         self.force_has_data = force_has_data
         if datasets is not None:
+            self.datasets = datasets
             self.train_datasets = datasets["train"]
-            self.validate_datasets = datasets["validate"]
-            self.dataset_dict = {}
+            if "validate" in datasets:
+                self.validate_datasets = datasets["validate"]
+            self.dataset_dict = None
         elif dataset_dict is not None:
             self.dataset_dict = dataset_dict
         elif csv_path is not None:
@@ -105,7 +107,8 @@ class CellMapDataSplit:
         self.raw_value_transforms = raw_value_transforms
         self.gt_value_transforms = gt_value_transforms
         self.context = context
-        self.construct(self.dataset_dict)
+        if self.dataset_dict is not None:
+            self.construct(self.dataset_dict)
 
     def __repr__(self):
         return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.raw_value_transforms}\n\tGT value transforms: {self.gt_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
@@ -131,6 +134,7 @@ class CellMapDataSplit:
         self._class_counts = None
         self.train_datasets = []
         self.validate_datasets = []
+        self.datasets = {}
         for data_paths in dataset_dict["train"]:
             try:
                 self.train_datasets.append(
@@ -150,6 +154,8 @@ class CellMapDataSplit:
                 )
             except ValueError as e:
                 print(f"Error loading dataset: {e}")
+
+        self.datasets["train"] = self.train_datasets
 
         self.train_datasets_combined = CellMapMultiDataset(
             self.classes,
@@ -178,6 +184,8 @@ class CellMapDataSplit:
                     )
                 except ValueError as e:
                     print(f"Error loading dataset: {e}")
+
+            self.datasets["validate"] = self.validate_datasets
 
             self.validate_datasets_combined = CellMapMultiDataset(
                 self.classes,

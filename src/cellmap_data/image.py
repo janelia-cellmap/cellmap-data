@@ -66,13 +66,11 @@ class CellMapImage:
         self.axes = axis_order[: len(target_voxel_shape)]
         self.value_transform = value_transform
         self.context = context
-        self._array = None
         self._bounding_box = None
         self._sampling_box = None
         self._class_counts = None
         self._current_spatial_transforms = None
         self._last_coords = None
-        self._translation = None
         self._original_scale = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         # self.xs = self.array.coords["x"]
@@ -85,13 +83,15 @@ class CellMapImage:
         coords = {}
         for c in self.axes:
             if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
-                raise ValueError(
+                RuntimeWarning(
                     f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
                 )
+                center[c] = self.bounding_box[c][0] + self.output_size[c] / 2
             if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
-                raise ValueError(
+                RuntimeWarning(
                     f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
                 )
+                center[c] = self.bounding_box[c][1] - self.output_size[c] / 2
             coords[c] = np.linspace(
                 center[c] - self.output_size[c] / 2,
                 center[c] + self.output_size[c] / 2,
@@ -111,7 +111,7 @@ class CellMapImage:
 
     @property
     def array(self) -> xarray.DataArray:
-        if self._array is None:
+        if not hasattr(self, "_array"):
             self.group = read_xarray(self.path)
             # Find correct multiscale level based on target scale
             self.scale_level = self.find_level(self.scale)
@@ -130,7 +130,7 @@ class CellMapImage:
     @property
     def translation(self) -> dict[str, float]:
         """Returns the translation of the image."""
-        if self._translation is None:
+        if not hasattr(self, "_translation"):
             # Get the translation of the image
             self._translation = {c: min(self.array.coords[c].values) for c in self.axes}
         return self._translation
@@ -220,7 +220,7 @@ class CellMapImage:
                     else:
                         return last_path
             last_path = level["path"]
-        return last_path
+        return last_path  # type: ignore
 
     def set_spatial_transforms(self, transforms: dict[str, Any] | None):
         """Sets spatial transformations for the image data."""
@@ -292,6 +292,8 @@ class EmptyImage:
             axis_order (str, optional): The order of the axes in the image. Defaults to "zyx".
         """
         self.label_class = target_class
+        if len(target_voxel_shape) < len(axis_order):
+            axis_order = axis_order[-len(target_voxel_shape) :]
         self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
         self.axes = axis_order
         self._bounding_box = None
