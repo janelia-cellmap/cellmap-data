@@ -172,12 +172,14 @@ class CellMapDataset(Dataset):
             for _, (start, stop) in self.sampling_box.items():
                 size *= abs(stop - start)
             size /= np.prod(list(self.largest_voxel_sizes.values()))
-            self._len = int(size)
+            self._len = int(np.floor(size))
         return self._len
 
     def __getitem__(self, idx):
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
-        center = np.unravel_index(idx, list(self.sampling_box_shape.values()))
+        center = np.unravel_index(
+            idx, [self.sampling_box_shape[c] for c in self.axis_order]
+        )
         center = {
             c: center[i] * self.largest_voxel_sizes[c] + self.sampling_box[c][0]
             for i, c in enumerate(self.axis_order)
@@ -205,13 +207,6 @@ class CellMapDataset(Dataset):
                 class_arrays.append(array)
             outputs[array_name] = torch.stack(class_arrays)
         return outputs
-
-    def __iter__(self):
-        """Iterates over the dataset, covering each section of the bounding box. For instance, for calculating validation scores."""
-        # TODO : determine if this is right
-        raise NotImplementedError("Iterating over the dataset is not implemented.")
-        # We need to iterate over idx's that are non-overlapping from within the sample_box
-        idxs = ...
 
     def __repr__(self):
         """Returns a string representation of the dataset."""
@@ -248,11 +243,11 @@ class CellMapDataset(Dataset):
             for source in list(self.input_sources.values()) + list(
                 self.target_sources.values()
             ):
-                if source.bounding_box is None:
-                    continue
-                for c, (start, stop) in source.bounding_box.items():
-                    bounding_box[c][0] = max(bounding_box[c][0], start)
-                    bounding_box[c][1] = min(bounding_box[c][1], stop)
+                if isinstance(source, dict):
+                    for label, source in source.items():
+                        bounding_box = self._get_box(source.bounding_box, bounding_box)
+                else:
+                    bounding_box = self._get_box(source.bounding_box, bounding_box)
             self._bounding_box = bounding_box
         return self._bounding_box
 
@@ -278,17 +273,9 @@ class CellMapDataset(Dataset):
             ):
                 if isinstance(source, dict):
                     for label, source in source.items():
-                        if source.sampling_box is None:
-                            continue
-                        for c, (start, stop) in source.sampling_box.items():
-                            sampling_box[c][0] = max(sampling_box[c][0], start)
-                            sampling_box[c][1] = min(sampling_box[c][1], stop)
+                        sampling_box = self._get_box(source.sampling_box, sampling_box)
                 else:
-                    if source.sampling_box is None:
-                        continue
-                    for c, (start, stop) in source.sampling_box.items():
-                        sampling_box[c][0] = max(sampling_box[c][0], start)
-                        sampling_box[c][1] = min(sampling_box[c][1], stop)
+                    sampling_box = self._get_box(source.sampling_box, sampling_box)
             self._sampling_box = sampling_box
         return self._sampling_box
 
@@ -296,11 +283,11 @@ class CellMapDataset(Dataset):
     def sampling_box_shape(self):
         """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size."""
         if self._sampling_box_shape is None:
-            sampling_box_shape = {c: 0 for c in self.axis_order}
+            sampling_box_shape = {}
             for c, (start, stop) in self.sampling_box.items():
                 size = stop - start
                 size /= self.largest_voxel_sizes[c]
-                sampling_box_shape[c] = int(size)
+                sampling_box_shape[c] = int(np.floor(size))
             self._sampling_box_shape = sampling_box_shape
         return self._sampling_box_shape
 
@@ -316,6 +303,40 @@ class CellMapDataset(Dataset):
                     class_counts["totals"][label] += source.class_counts
             self._class_counts = class_counts
         return self._class_counts
+
+    def _get_box(
+        self, source_box: dict[str, list[int]], current_box: dict[str, list[int]]
+    ) -> dict[str, list[int]]:
+        if source_box is not None:
+            for c, (start, stop) in source_box.items():
+                assert stop > start
+                current_box[c][0] = max(current_box[c][0], start)
+                current_box[c][1] = min(current_box[c][1], stop)
+        return current_box
+
+    def get_indices(self, chunk_size: dict[str, int]) -> Sequence[int]:
+        # TODO: ADD TEST
+        """Returns the indices of the dataset that will tile the dataset according to the chunk_size."""
+        # Get padding per axis
+        indices_dict = {}
+        for c, size in chunk_size.items():
+            indices_dict[c] = np.arange(0, self.sampling_box_shape[c], size, dtype=int)
+
+        indices = []
+        # Generate linear indices by unraveling all combinations of axes indices
+        for i in np.ndindex(*[len(indices_dict[c]) for c in self.axis_order]):
+            index = [indices_dict[c][j] for c, j in zip(self.axis_order, i)]
+            index = np.ravel_multi_index(index, self.sampling_box_shape)
+            indices.append(index)
+
+        return indices
+
+    def get_validation_indices(self) -> Sequence[int]:
+        """Returns the indices of the dataset that will tile the dataset for validation."""
+        chunk_size = {}
+        for c, size in self.bounding_box_shape.items():
+            chunk_size[c] = np.ceil(size - self.sampling_box_shape[c], dtype=int)
+        return self.get_indices(chunk_size)
 
     def to(self, device):
         """Sets the device for the dataset."""

@@ -1,7 +1,8 @@
 import csv
 import os
-from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 import tensorstore
+import torch
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 
@@ -15,11 +16,9 @@ class CellMapDataSplit:
     target_arrays: dict[str, dict[str, Sequence[int | float]]]
     classes: Sequence[str]
     to_target: Callable
-    datasets: dict[str, Iterable[CellMapDataset]]
-    train_datasets: Iterable[CellMapDataset]
-    validate_datasets: Iterable[CellMapDataset]
-    train_datasets_combined: CellMapMultiDataset
-    validate_datasets_combined: CellMapMultiDataset
+    datasets: dict[str, Sequence[CellMapDataset]]
+    train_datasets: Sequence[CellMapDataset]
+    validation_datasets: Sequence[CellMapDataset]
     spatial_transforms: Optional[dict[str, Any]] = None
     raw_value_transforms: Optional[Callable] = None
     gt_value_transforms: Optional[
@@ -33,7 +32,7 @@ class CellMapDataSplit:
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
         classes: Sequence[str],
-        datasets: Optional[Dict[str, Iterable[CellMapDataset]]] = None,
+        datasets: Optional[Dict[str, Sequence[CellMapDataset]]] = None,
         dataset_dict: Optional[Mapping[str, Sequence[Dict[str, str]]]] = None,
         csv_path: Optional[str] = None,
         spatial_transforms: Optional[dict[str, Any]] = None,
@@ -97,7 +96,9 @@ class CellMapDataSplit:
             self.datasets = datasets
             self.train_datasets = datasets["train"]
             if "validate" in datasets:
-                self.validate_datasets = datasets["validate"]
+                self.validation_datasets = datasets["validate"]
+            else:
+                self.validation_datasets = []
             self.dataset_dict = None
         elif dataset_dict is not None:
             self.dataset_dict = dataset_dict
@@ -130,10 +131,58 @@ class CellMapDataSplit:
 
         return dataset_dict
 
+    @property
+    def train_datasets_combined(self):
+        if not hasattr(self, "_train_datasets_combined"):
+            self._train_datasets_combined = CellMapMultiDataset(
+                self.classes,
+                self.input_arrays,
+                self.target_arrays,
+                [
+                    ds
+                    for ds in self.train_datasets
+                    if self.force_has_data or ds.has_data
+                ],
+            )
+        return self._train_datasets_combined
+
+    @property
+    def validation_datasets_combined(self):
+        assert len(self.validation_datasets) > 0, "Validation datasets not loaded."
+        if not hasattr(self, "_validation_datasets_combined"):
+            self._validation_datasets_combined = CellMapMultiDataset(
+                self.classes,
+                self.input_arrays,
+                self.target_arrays,
+                [
+                    ds
+                    for ds in self.validation_datasets
+                    if self.force_has_data or ds.has_data
+                ],
+            )
+        return self._validation_datasets_combined
+
+    @property
+    def validation_blocks(self):
+        if not hasattr(self, "_validation_blocks"):
+            self._validation_blocks = torch.utils.data.Subset(
+                self.validation_datasets_combined,
+                self.validation_datasets_combined.get_validation_indices(),
+            )
+        return self._validation_blocks
+
+    @property
+    def class_counts(self):
+        if not hasattr(self, "_class_counts"):
+            self._class_counts = {
+                "train": self.train_datasets_combined.class_counts,
+                "validate": self.validation_datasets_combined.class_counts,
+            }
+        return self._class_counts
+
     def construct(self, dataset_dict):
-        self._class_counts = None
         self.train_datasets = []
-        self.validate_datasets = []
+        self.validation_datasets = []
         self.datasets = {}
         for data_paths in dataset_dict["train"]:
             try:
@@ -157,19 +206,12 @@ class CellMapDataSplit:
 
         self.datasets["train"] = self.train_datasets
 
-        self.train_datasets_combined = CellMapMultiDataset(
-            self.classes,
-            self.input_arrays,
-            self.target_arrays,
-            [ds for ds in self.train_datasets if self.force_has_data or ds.has_data],
-        )
-
         # TODO: probably want larger arrays for validation
 
         if "validate" in dataset_dict:
             for data_paths in dataset_dict["validate"]:
                 try:
-                    self.validate_datasets.append(
+                    self.validation_datasets.append(
                         CellMapDataset(
                             data_paths["raw"],
                             data_paths["gt"],
@@ -185,27 +227,7 @@ class CellMapDataSplit:
                 except ValueError as e:
                     print(f"Error loading dataset: {e}")
 
-            self.datasets["validate"] = self.validate_datasets
-
-            self.validate_datasets_combined = CellMapMultiDataset(
-                self.classes,
-                self.input_arrays,
-                self.target_arrays,
-                [
-                    ds
-                    for ds in self.validate_datasets
-                    if self.force_has_data or ds.has_data
-                ],
-            )
-
-    @property
-    def class_counts(self):
-        if self._class_counts is None:
-            self._class_counts = {
-                "train": self.train_datasets_combined.class_counts,
-                "validate": self.validate_datasets_combined.class_counts,
-            }
-        return self._class_counts
+            self.datasets["validate"] = self.validation_datasets
 
 
 # Example input arrays:

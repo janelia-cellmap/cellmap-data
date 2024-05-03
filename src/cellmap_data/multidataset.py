@@ -23,7 +23,7 @@ class CellMapMultiDataset(ConcatDataset):
         classes: Sequence[str],
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
-        datasets: Iterable[CellMapDataset],
+        datasets: Sequence[CellMapDataset],
     ):
         super().__init__(datasets)
         self.input_arrays = input_arrays
@@ -39,39 +39,9 @@ class CellMapMultiDataset(ConcatDataset):
         out_string += "\n])"
         return out_string
 
-    def to(self, device: str):
-        for dataset in self.datasets:
-            dataset.to(device)
-        return self
-
-    def weighted_sampler(
-        self, batch_size: int = 1, rng: Optional[torch.Generator] = None
-    ):
-        if self._weighted_sampler is None:
-            # TODO: calculate weights for each sample
-            class_counts = {c: 0 for c in self.classes}
-            for dataset in self.datasets:
-                for c in self.classes:
-                    class_counts[c] += dataset.class_counts["totals"][c]
-            class_weights = {c: 1 / class_counts[c] for c in self.classes}
-            sample_weights = []
-            for dataset in self.datasets:
-                dataset_weight = np.sum(
-                    [
-                        dataset.class_counts["totals"][c] / class_weights[c]
-                        for c in self.classes
-                    ]
-                )
-                sample_weights += [dataset_weight] * len(dataset)
-
-            self._weighted_sampler = WeightedRandomSampler(
-                sample_weights, batch_size, replacement=False, generator=rng
-            )
-        return self._weighted_sampler
-
     @property
     def class_counts(self):
-        if not self._class_counts:
+        if not hasattr(self, "_class_counts"):
             class_counts = {}
             for c in self.classes:
                 class_counts[c] = {}
@@ -82,6 +52,110 @@ class CellMapMultiDataset(ConcatDataset):
                 class_counts[c]["total"] = total
             self._class_counts = class_counts
         return self._class_counts
+
+    def to(self, device: str):
+        for dataset in self.datasets:
+            dataset.to(device)
+        return self
+
+    def weighted_sampler(
+        self, batch_size: int = 1, rng: Optional[torch.Generator] = None
+    ):
+        if self._weighted_sampler is None:
+            # TODO: calculate weights for each sample
+            sample_weights = self.get_sample_weights()
+
+            self._weighted_sampler = WeightedRandomSampler(
+                sample_weights, batch_size, replacement=False, generator=rng
+            )
+        return self._weighted_sampler
+
+    def get_subset_random_sampler(
+        self,
+        num_samples: int,
+        weighted: bool = True,
+        rng: Optional[torch.Generator] = None,
+    ):
+        """
+        Returns a random sampler that samples num_samples from the dataset.
+        """
+        if not weighted:
+            return torch.utils.data.SubsetRandomSampler(
+                torch.randint(0, len(self) - 1, [num_samples], generator=rng),
+                generator=rng,
+            )
+        else:
+            dataset_weights = self.get_dataset_weights()
+
+            datasets_sampled = torch.multinomial(
+                torch.tensor(dataset_weights), num_samples, replacement=True
+            )
+            indices = []
+            index_offset = 0
+            for i, dataset in enumerate(self.datasets):
+                if len(dataset) == 0:
+                    continue
+                count = (datasets_sampled == i).sum().item()
+                dataset_indices = torch.randint(
+                    0, len(dataset) - 1, [count], generator=rng
+                )
+                indices.append(dataset_indices + index_offset)
+                index_offset += len(dataset)
+            indices = torch.cat(indices).flatten()
+            indices = indices[torch.randperm(len(indices), generator=rng)]
+            return torch.utils.data.SubsetRandomSampler(indices, generator=rng)
+
+    def get_dataset_weights(self):
+        """
+        Returns the weights for each dataset in the multi-dataset based on the number of samples in each dataset.
+        """
+
+        class_counts = {c: 0 for c in self.classes}
+        for dataset in self.datasets:
+            for c in self.classes:
+                class_counts[c] += dataset.class_counts["totals"][c]
+        class_weights = {c: 1 / class_counts[c] for c in self.classes}
+        dataset_weights = []
+        for dataset in self.datasets:
+            dataset_weight = np.sum(
+                [
+                    dataset.class_counts["totals"][c] / class_weights[c]
+                    for c in self.classes
+                ]
+            )
+            dataset_weights.append(dataset_weight)
+        return dataset_weights
+
+    def get_sample_weights(self):
+        """
+        Returns the weights for each sample in the multi-dataset based on the number of samples in each dataset.
+        """
+
+        dataset_weights = self.get_dataset_weights()
+        sample_weights = []
+        for dataset, dataset_weight in dataset_weights.items():
+            sample_weights += [dataset_weight] * len(dataset)
+        return sample_weights
+
+    def get_validation_indices(self) -> Sequence[int]:
+        """
+        Returns the indices of the validation set for each dataset in the multi-dataset.
+        """
+        validation_indices = []
+        index_offset = 0
+        for dataset in self.datasets:
+            validation_indices.append(dataset.get_validation_indices())
+            index_offset += len(dataset)
+        return validation_indices
+
+    def get_indices(self, chunk_size: dict[str, int]) -> Sequence[int]:
+        """Returns the indices of the dataset that will tile the dataset according to the chunk_size."""
+        indices = []
+        index_offset = 0
+        for dataset in self.datasets:
+            indices.append(dataset.get_indices(chunk_size))
+            index_offset += len(dataset)
+        return indices
 
 
 # TODO: make "last" and "current" variable names consistent

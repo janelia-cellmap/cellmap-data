@@ -83,15 +83,15 @@ class CellMapImage:
         coords = {}
         for c in self.axes:
             if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
-                RuntimeWarning(
+                raise ValueError(
                     f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
                 )
-                center[c] = self.bounding_box[c][0] + self.output_size[c] / 2
+                # center[c] = self.bounding_box[c][0] + self.output_size[c] / 2
             if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
-                RuntimeWarning(
+                raise ValueError(
                     f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
                 )
-                center[c] = self.bounding_box[c][1] - self.output_size[c] / 2
+                # center[c] = self.bounding_box[c][1] - self.output_size[c] / 2
             coords[c] = np.linspace(
                 center[c] - self.output_size[c] / 2,
                 center[c] + self.output_size[c] / 2,
@@ -107,6 +107,7 @@ class CellMapImage:
         return data.to(self.device)
 
     def __repr__(self) -> str:
+        # TODO: array_path instead of path
         return f"CellMapImage({self.path})"
 
     @property
@@ -132,7 +133,9 @@ class CellMapImage:
         """Returns the translation of the image."""
         if not hasattr(self, "_translation"):
             # Get the translation of the image
-            self._translation = {c: min(self.array.coords[c].values) for c in self.axes}
+            self._translation = {
+                c: self.array.coords[c].values.min() for c in self.axes
+            }
         return self._translation
 
     @property
@@ -157,7 +160,7 @@ class CellMapImage:
         """Returns the bounding box of the dataset in world units."""
         if self._bounding_box is None:
             self._bounding_box = {
-                c: [self.translation[c], max(self.array.coords[c].values)]
+                c: [self.translation[c], self.array.coords[c].values.max()]
                 for c in self.axes
             }
         return self._bounding_box
@@ -167,12 +170,15 @@ class CellMapImage:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units."""
         if self._sampling_box is None:
             self._sampling_box = {}
-            output_padding = {c: (s / 2) for c, s in self.output_size.items()}
+            output_padding = {c: np.ceil(s / 2) for c, s in self.output_size.items()}
             for c, (start, stop) in self.bounding_box.items():
                 self._sampling_box[c] = [
                     start + output_padding[c],
                     stop - output_padding[c],
                 ]
+                assert (
+                    self._sampling_box[c][0] < self._sampling_box[c][1]
+                ), f"Sampling box for axis {c} is invalid: {self._sampling_box[c]} for image {self.path}. Image is not large enough to sample from as requested."
         return self._sampling_box
 
     @property
