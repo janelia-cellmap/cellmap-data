@@ -5,6 +5,7 @@ import tensorstore
 import torch
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
+from .subdataset import CellMapSubset
 
 
 class CellMapDataSplit:
@@ -20,7 +21,7 @@ class CellMapDataSplit:
     train_datasets: Sequence[CellMapDataset]
     validation_datasets: Sequence[CellMapDataset]
     spatial_transforms: Optional[dict[str, Any]] = None
-    raw_value_transforms: Optional[Callable] = None
+    train_raw_value_transforms: Optional[Callable] = None
     target_value_transforms: Optional[
         Callable | Sequence[Callable] | dict[str, Callable]
     ] = None
@@ -36,7 +37,8 @@ class CellMapDataSplit:
         dataset_dict: Optional[Mapping[str, Sequence[Dict[str, str]]]] = None,
         csv_path: Optional[str] = None,
         spatial_transforms: Optional[dict[str, Any]] = None,
-        raw_value_transforms: Optional[Callable] = None,
+        train_raw_value_transforms: Optional[Callable] = None,
+        val_raw_value_transforms: Optional[Callable] = None,
         target_value_transforms: Optional[
             Callable | Sequence[Callable] | dict[str, Callable]
         ] = None,
@@ -105,7 +107,8 @@ class CellMapDataSplit:
         elif csv_path is not None:
             self.dataset_dict = self.from_csv(csv_path)
         self.spatial_transforms = spatial_transforms
-        self.raw_value_transforms = raw_value_transforms
+        self.train_raw_value_transforms = train_raw_value_transforms
+        self.val_raw_value_transforms = val_raw_value_transforms
         self.target_value_transforms = target_value_transforms
         self.context = context
         if self.dataset_dict is not None:
@@ -113,7 +116,7 @@ class CellMapDataSplit:
         self.verify_datasets()
 
     def __repr__(self):
-        return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.raw_value_transforms}\n\tGT value transforms: {self.target_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
+        return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.train_raw_value_transforms}\n\tGT value transforms: {self.target_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
 
     def from_csv(self, csv_path):
         # Load file data from csv file
@@ -166,7 +169,7 @@ class CellMapDataSplit:
     @property
     def validation_blocks(self):
         if not hasattr(self, "_validation_blocks"):
-            self._validation_blocks = torch.utils.data.Subset(
+            self._validation_blocks = CellMapSubset(
                 self.validation_datasets_combined,
                 self.validation_datasets_combined.get_validation_indices(),
             )
@@ -195,7 +198,7 @@ class CellMapDataSplit:
                         self.input_arrays,
                         self.target_arrays,
                         self.spatial_transforms,
-                        self.raw_value_transforms,
+                        self.train_raw_value_transforms,
                         self.target_value_transforms,
                         is_train=True,
                         context=self.context,
@@ -219,6 +222,7 @@ class CellMapDataSplit:
                             self.classes,
                             self.input_arrays,
                             self.target_arrays,
+                            raw_value_transforms=self.val_raw_value_transforms,
                             target_value_transforms=self.target_value_transforms,
                             is_train=False,
                             context=self.context,
@@ -231,6 +235,8 @@ class CellMapDataSplit:
             self.datasets["validate"] = self.validation_datasets
 
     def verify_datasets(self):
+        if self.force_has_data:
+            return
         verified_datasets = []
         for ds in self.train_datasets:
             if ds.verify():
@@ -243,10 +249,18 @@ class CellMapDataSplit:
                 verified_datasets.append(ds)
         self.validation_datasets = verified_datasets
 
-    def set_raw_value_transforms(self, transforms: Callable):
+    def set_raw_value_transforms(
+        self, train_transforms: Callable, val_transforms: Callable
+    ):
         """Sets the raw value transforms for each dataset in the training multi-dataset."""
         for dataset in self.train_datasets:
-            dataset.set_raw_value_transforms(transforms)
+            dataset.set_raw_value_transforms(train_transforms)
+        if hasattr(self, "_train_datasets_combined"):
+            self._train_datasets_combined.set_raw_value_transforms(train_transforms)
+        for dataset in self.validation_datasets:
+            dataset.set_raw_value_transforms(val_transforms)
+        if hasattr(self, "_validation_datasets_combined"):
+            self._validation_datasets_combined.set_raw_value_transforms(val_transforms)
 
     def set_target_value_transforms(self, transforms: Callable):
         """Sets the target value transforms for each dataset in the multi-datasets."""

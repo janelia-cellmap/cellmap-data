@@ -85,7 +85,7 @@ class CellMapMultiDataset(ConcatDataset):
                 generator=rng,
             )
         else:
-            dataset_weights = self.get_dataset_weights()
+            dataset_weights = list(self.get_dataset_weights().values())
 
             datasets_sampled = torch.multinomial(
                 torch.tensor(dataset_weights), num_samples, replacement=True
@@ -120,7 +120,7 @@ class CellMapMultiDataset(ConcatDataset):
         class_weights = {
             c: 1 - (class_counts[c] / class_count_sum) for c in self.classes
         }
-        dataset_weights = []
+        dataset_weights = {}
         for dataset in self.datasets:
             dataset_weight = np.sum(
                 [
@@ -128,7 +128,7 @@ class CellMapMultiDataset(ConcatDataset):
                     for c in self.classes
                 ]
             )
-            dataset_weights.append(dataset_weight)
+            dataset_weights[dataset] = dataset_weight
         return dataset_weights
 
     def get_sample_weights(self):
@@ -149,7 +149,7 @@ class CellMapMultiDataset(ConcatDataset):
         validation_indices = []
         index_offset = 0
         for dataset in self.datasets:
-            validation_indices.append(dataset.get_validation_indices())
+            validation_indices.extend(dataset.get_validation_indices())
             index_offset += len(dataset)
         return validation_indices
 

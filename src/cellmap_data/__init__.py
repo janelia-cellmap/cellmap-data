@@ -20,3 +20,4 @@ from .dataloader import CellMapDataLoader
 from .datasplit import CellMapDataSplit
 from .dataset import CellMapDataset
 from .image import CellMapImage
+from .subdataset import CellMapSubset

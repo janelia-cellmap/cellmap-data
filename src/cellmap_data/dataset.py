@@ -205,8 +205,8 @@ class CellMapDataset(Dataset):
                     spatial_transforms
                 )
                 array = self.target_sources[array_name][label][center]
-                if array.shape[0] != 1:
-                    array = array[None, ...]
+                # if array.shape[0] != 1:
+                #     array = array[None, ...]
                 class_arrays.append(array)
             outputs[array_name] = torch.stack(class_arrays)
         return outputs
