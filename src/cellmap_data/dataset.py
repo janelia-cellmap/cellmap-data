@@ -8,7 +8,7 @@ import tensorstore
 from .image import CellMapImage, EmptyImage
 
 
-def split_gt_path(path: str) -> tuple[str, list[str]]:
+def split_target_path(path: str) -> tuple[str, list[str]]:
     """Splits a path to groundtruth data into the main path string, and the classes supplied for it."""
     try:
         path_prefix, path_rem = path.split("[")
@@ -26,7 +26,7 @@ class CellMapDataset(Dataset):
     """This subclasses PyTorch Dataset to load CellMap data for training. It maintains the same API as the Dataset class. Importantly, it maintains information about and handles for the sources for raw and groundtruth data. This information includes the path to the data, the classes for segmentation, and the arrays to input to the network and use as targets for the network. The dataset constructs the sources for the raw and groundtruth data, and retrieves the data from the sources. The dataset also provides methods to get the number of pixels for each class in the ground truth data, normalized by the resolution. Additionally, random crops of the data can be generated for training, because the CellMapDataset maintains information about the extents of its source arrays. This object additionally combines images for different classes into a single output array, which is useful for training segmentation networks."""
 
     raw_path: str
-    gt_path: str
+    target_path: str
     classes: Sequence[str]
     input_arrays: dict[str, dict[str, Sequence[int | float]]]
     target_arrays: dict[str, dict[str, Sequence[int | float]]]
@@ -34,7 +34,9 @@ class CellMapDataset(Dataset):
     target_sources: dict[str, dict[str, CellMapImage | EmptyImage]]
     spatial_transforms: Optional[dict[str, any]]  # type: ignore
     raw_value_transforms: Optional[Callable]
-    gt_value_transforms: Optional[Callable | Sequence[Callable] | dict[str, Callable]]
+    target_value_transforms: Optional[
+        Callable | Sequence[Callable] | dict[str, Callable]
+    ]
     has_data: bool
     is_train: bool
     axis_order: str
@@ -51,13 +53,13 @@ class CellMapDataset(Dataset):
     def __init__(
         self,
         raw_path: str,  # TODO: Switch "raw_path" to "input_path"
-        gt_path: str,
+        target_path: str,
         classes: Sequence[str],
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
         spatial_transforms: Optional[dict[str, any]] = None,  # type: ignore
         raw_value_transforms: Optional[Callable] = None,
-        gt_value_transforms: Optional[
+        target_value_transforms: Optional[
             Callable | Sequence[Callable] | dict[str, Callable]
         ] = None,
         is_train: bool = False,
@@ -70,7 +72,7 @@ class CellMapDataset(Dataset):
 
         Args:
             raw_path (str): The path to the raw data.
-            gt_path (str): The path to the ground truth data.
+            target_path (str): The path to the ground truth data.
             classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with zeros.
             input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure:
                 {
@@ -92,21 +94,21 @@ class CellMapDataset(Dataset):
                 {transform_name: {transform_args}}
                 Defaults to None.
             raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
-            gt_value_transforms (Optional[Callable | Sequence[Callable] | dict[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
+            target_value_transforms (Optional[Callable | Sequence[Callable] | dict[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
             is_train (bool, optional): Whether the dataset is for training. Defaults to False.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
             rng (Optional[np.random.Generator], optional): A random number generator. Defaults to None.
             force_has_data (bool, optional): Whether to force the dataset to report that it has data. Defaults to False.
         """
         self.raw_path = raw_path
-        self.gt_paths = gt_path
-        self.gt_path_str, self.classes_with_path = split_gt_path(gt_path)
+        self.target_paths = target_path
+        self.target_path_str, self.classes_with_path = split_target_path(target_path)
         self.classes = classes
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
         self.spatial_transforms = spatial_transforms
         self.raw_value_transforms = raw_value_transforms
-        self.gt_value_transforms = gt_value_transforms
+        self.target_value_transforms = target_value_transforms
         self.is_train = is_train
         self.axis_order = axis_order
         self.context = context
@@ -139,14 +141,14 @@ class CellMapDataset(Dataset):
             empty_store = torch.zeros(array_info["shape"])  # type: ignore
             for i, label in enumerate(self.classes):  # type: ignore
                 if label in self.classes_with_path:
-                    if isinstance(self.gt_value_transforms, dict):
-                        value_transform: Callable = self.gt_value_transforms[label]
-                    elif isinstance(self.gt_value_transforms, list):
-                        value_transform: Callable = self.gt_value_transforms[i]
+                    if isinstance(self.target_value_transforms, dict):
+                        value_transform: Callable = self.target_value_transforms[label]
+                    elif isinstance(self.target_value_transforms, list):
+                        value_transform: Callable = self.target_value_transforms[i]
                     else:
-                        value_transform: Callable = self.gt_value_transforms  # type: ignore
+                        value_transform: Callable = self.target_value_transforms  # type: ignore
                     self.target_sources[array_name][label] = CellMapImage(
-                        self.gt_path_str.format(label=label),
+                        self.target_path_str.format(label=label),
                         label,
                         array_info["scale"],
                         array_info["shape"],  # type: ignore
@@ -184,6 +186,7 @@ class CellMapDataset(Dataset):
             c: center[i] * self.largest_voxel_sizes[c] + self.sampling_box[c][0]
             for i, c in enumerate(self.axis_order)
         }
+        self._current_idx = idx
         self._current_center = center
         spatial_transforms = self.generate_spatial_transforms()
         outputs = {}
@@ -210,7 +213,7 @@ class CellMapDataset(Dataset):
 
     def __repr__(self):
         """Returns a string representation of the dataset."""
-        return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.gt_paths}\n\tClasses: {self.classes})"
+        return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.target_paths}\n\tClasses: {self.classes})"
 
     @property
     def largest_voxel_sizes(self):
@@ -314,6 +317,16 @@ class CellMapDataset(Dataset):
                 current_box[c][1] = min(current_box[c][1], stop)
         return current_box
 
+    def verify(self):
+        """Verifies that the dataset is valid."""
+        # TODO: make more robust
+        try:
+            length = len(self)
+            return True
+        except Exception as e:
+            # print(e)
+            return False
+
     def get_indices(self, chunk_size: dict[str, int]) -> Sequence[int]:
         # TODO: ADD TEST
         """Returns the indices of the dataset that will tile the dataset according to the chunk_size."""
@@ -326,7 +339,7 @@ class CellMapDataset(Dataset):
         # Generate linear indices by unraveling all combinations of axes indices
         for i in np.ndindex(*[len(indices_dict[c]) for c in self.axis_order]):
             index = [indices_dict[c][j] for c, j in zip(self.axis_order, i)]
-            index = np.ravel_multi_index(index, self.sampling_box_shape)
+            index = np.ravel_multi_index(index, list(self.sampling_box_shape.values()))
             indices.append(index)
 
         return indices
@@ -335,7 +348,7 @@ class CellMapDataset(Dataset):
         """Returns the indices of the dataset that will tile the dataset for validation."""
         chunk_size = {}
         for c, size in self.bounding_box_shape.items():
-            chunk_size[c] = np.ceil(size - self.sampling_box_shape[c], dtype=int)
+            chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
         return self.get_indices(chunk_size)
 
     def to(self, device):
@@ -385,6 +398,20 @@ class CellMapDataset(Dataset):
                 raise ValueError(f"Unknown spatial transform: {transform}")
         self._current_spatial_transforms = spatial_transforms
         return spatial_transforms
+
+    def set_raw_value_transforms(self, transforms: Callable):
+        """Sets the raw value transforms for the dataset."""
+        self.raw_value_transforms = transforms
+        for source in self.input_sources.values():
+            source.value_transform = transforms
+
+    def set_target_value_transforms(self, transforms: Callable):
+        """Sets the ground truth value transforms for the dataset."""
+        self.target_value_transforms = transforms
+        for sources in self.target_sources.values():
+            for source in sources.values():
+                if isinstance(source, CellMapImage):
+                    source.value_transform = transforms
 
 
 # Example input arrays:

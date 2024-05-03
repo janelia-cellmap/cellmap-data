@@ -21,7 +21,7 @@ class CellMapDataSplit:
     validation_datasets: Sequence[CellMapDataset]
     spatial_transforms: Optional[dict[str, Any]] = None
     raw_value_transforms: Optional[Callable] = None
-    gt_value_transforms: Optional[
+    target_value_transforms: Optional[
         Callable | Sequence[Callable] | dict[str, Callable]
     ] = None
     force_has_data: bool = False
@@ -37,7 +37,7 @@ class CellMapDataSplit:
         csv_path: Optional[str] = None,
         spatial_transforms: Optional[dict[str, Any]] = None,
         raw_value_transforms: Optional[Callable] = None,
-        gt_value_transforms: Optional[
+        target_value_transforms: Optional[
             Callable | Sequence[Callable] | dict[str, Callable]
         ] = None,
         force_has_data: bool = False,
@@ -84,7 +84,7 @@ class CellMapDataSplit:
                 {transform_name: {transform_args}}
                 Defaults to None.
             raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
-            gt_value_transforms (Optional[Callable | Sequence[Callable] | dict[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
+            target_value_transforms (Optional[Callable | Sequence[Callable] | dict[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
             force_has_data (bool, optional): Whether to force the dataset to have data. Defaults to False.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
         """
@@ -106,13 +106,14 @@ class CellMapDataSplit:
             self.dataset_dict = self.from_csv(csv_path)
         self.spatial_transforms = spatial_transforms
         self.raw_value_transforms = raw_value_transforms
-        self.gt_value_transforms = gt_value_transforms
+        self.target_value_transforms = target_value_transforms
         self.context = context
         if self.dataset_dict is not None:
             self.construct(self.dataset_dict)
+        self.verify_datasets()
 
     def __repr__(self):
-        return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.raw_value_transforms}\n\tGT value transforms: {self.gt_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
+        return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.raw_value_transforms}\n\tGT value transforms: {self.target_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
 
     def from_csv(self, csv_path):
         # Load file data from csv file
@@ -195,7 +196,7 @@ class CellMapDataSplit:
                         self.target_arrays,
                         self.spatial_transforms,
                         self.raw_value_transforms,
-                        self.gt_value_transforms,
+                        self.target_value_transforms,
                         is_train=True,
                         context=self.context,
                         force_has_data=self.force_has_data,
@@ -218,7 +219,7 @@ class CellMapDataSplit:
                             self.classes,
                             self.input_arrays,
                             self.target_arrays,
-                            gt_value_transforms=self.gt_value_transforms,
+                            target_value_transforms=self.target_value_transforms,
                             is_train=False,
                             context=self.context,
                             force_has_data=self.force_has_data,
@@ -228,6 +229,38 @@ class CellMapDataSplit:
                     print(f"Error loading dataset: {e}")
 
             self.datasets["validate"] = self.validation_datasets
+
+    def verify_datasets(self):
+        verified_datasets = []
+        for ds in self.train_datasets:
+            if ds.verify():
+                verified_datasets.append(ds)
+        self.train_datasets = verified_datasets
+
+        verified_datasets = []
+        for ds in self.validation_datasets:
+            if ds.verify():
+                verified_datasets.append(ds)
+        self.validation_datasets = verified_datasets
+
+    def set_raw_value_transforms(self, transforms: Callable):
+        """Sets the raw value transforms for each dataset in the training multi-dataset."""
+        for dataset in self.train_datasets:
+            dataset.set_raw_value_transforms(transforms)
+
+    def set_target_value_transforms(self, transforms: Callable):
+        """Sets the target value transforms for each dataset in the multi-datasets."""
+        for dataset in self.train_datasets:
+            dataset.set_target_value_transforms(transforms)
+        if hasattr(self, "_train_datasets_combined"):
+            self._train_datasets_combined.set_target_value_transforms(transforms)
+
+        for dataset in self.validation_datasets:
+            dataset.set_target_value_transforms(transforms)
+        if hasattr(self, "_validation_datasets_combined"):
+            self._validation_datasets_combined.set_target_value_transforms(transforms)
+        if hasattr(self, "_validation_blocks"):
+            self._validation_blocks.set_target_value_transforms(transforms)
 
 
 # Example input arrays:

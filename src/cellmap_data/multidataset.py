@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Sequence
+from typing import Callable, Iterable, Optional, Sequence
 import numpy as np
 import torch
 from torch.utils.data import ConcatDataset, WeightedRandomSampler
@@ -111,15 +111,20 @@ class CellMapMultiDataset(ConcatDataset):
         """
 
         class_counts = {c: 0 for c in self.classes}
+        class_count_sum = 0
         for dataset in self.datasets:
             for c in self.classes:
                 class_counts[c] += dataset.class_counts["totals"][c]
-        class_weights = {c: 1 / class_counts[c] for c in self.classes}
+                class_count_sum += dataset.class_counts["totals"][c]
+
+        class_weights = {
+            c: 1 - (class_counts[c] / class_count_sum) for c in self.classes
+        }
         dataset_weights = []
         for dataset in self.datasets:
             dataset_weight = np.sum(
                 [
-                    dataset.class_counts["totals"][c] / class_weights[c]
+                    dataset.class_counts["totals"][c] * class_weights[c]
                     for c in self.classes
                 ]
             )
@@ -156,6 +161,16 @@ class CellMapMultiDataset(ConcatDataset):
             indices.append(dataset.get_indices(chunk_size))
             index_offset += len(dataset)
         return indices
+
+    def set_raw_value_transforms(self, transforms: Callable):
+        """Sets the raw value transforms for each dataset in the multi-dataset."""
+        for dataset in self.datasets:
+            dataset.set_raw_value_transforms(transforms)
+
+    def set_target_value_transforms(self, transforms: Callable):
+        """Sets the target value transforms for each dataset in the multi-dataset."""
+        for dataset in self.datasets:
+            dataset.set_target_value_transforms(transforms)
 
 
 # TODO: make "last" and "current" variable names consistent

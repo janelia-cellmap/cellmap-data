@@ -1,16 +1,20 @@
 import torch
-from torch.utils.data import DataLoader, ConcatDataset, WeightedRandomSampler, Sampler
+from torch.utils.data import DataLoader, Sampler, Subset
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 
-from typing import Callable, Iterable, Optional
+from typing import Iterable, Optional
 
 
 class CellMapDataLoader:
     # TODO: docstring corrections
     """This subclasses PyTorch DataLoader to load CellMap data for training. It maintains the same API as the DataLoader class. This includes applying augmentations to the data and returning the data in the correct format for training, such as generating the target arrays (e.g. signed distance transform of labels). It retrieves raw and groundtruth data from a CellMapDataSplit object, which is a subclass of PyTorch Dataset. Training and validation data are split using the CellMapDataSplit object, and separate dataloaders are maintained as `train_loader` and `validate_loader` respectively."""
 
-    dataset: CellMapMultiDataset | CellMapDataset
+    dataset: (
+        CellMapMultiDataset
+        | CellMapDataset
+        | Subset[CellMapDataset | CellMapMultiDataset]
+    )
     classes: Iterable[str]
     loader = DataLoader
     batch_size: int
@@ -22,7 +26,11 @@ class CellMapDataLoader:
 
     def __init__(
         self,
-        dataset: CellMapMultiDataset | CellMapDataset,
+        dataset: (
+            CellMapMultiDataset
+            | CellMapDataset
+            | Subset[CellMapDataset | CellMapMultiDataset]
+        ),
         classes: Iterable[str],
         batch_size: int = 1,
         num_workers: int = 0,
@@ -44,10 +52,14 @@ class CellMapDataLoader:
                 self.dataset, CellMapMultiDataset
             ), "Weighted sampler only relevant for CellMapMultiDataset"
             self.sampler = self.dataset.weighted_sampler(self.batch_size, self.rng)
+        if torch.cuda.is_available():
+            if isinstance(self.dataset, Subset):
+                self.dataset.dataset.to("cuda")  # type: ignore
+            else:
+                self.dataset.to("cuda")
         kwargs = {
-            "dataset": (
-                self.dataset.to("cuda") if torch.cuda.is_available() else self.dataset
-            ),
+            "dataset": self.dataset,
+            "dataset": self.dataset,
             "batch_size": self.batch_size,
             "num_workers": self.num_workers,
             "collate_fn": self.collate_fn,
