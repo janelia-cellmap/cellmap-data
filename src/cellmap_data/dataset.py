@@ -142,7 +142,10 @@ class CellMapDataset(Dataset):
         self.has_data = False
         for array_name, array_info in self.target_arrays.items():
             self.target_sources[array_name] = {}
-            empty_store = torch.zeros(array_info["shape"])  # type: ignore
+            # TODO: This approach to empty store doesn't work for multiple classes, at least with cross entropy loss in cellmap-train
+            empty_store = torch.zeros(
+                array_info["shape"]
+            )  # * torch.nan  # type: ignore
             for i, label in enumerate(self.classes):  # type: ignore
                 if label in self.classes_with_path:
                     if isinstance(self.target_value_transforms, dict):

@@ -110,16 +110,20 @@ class CellMapMultiDataset(ConcatDataset):
         Returns the weights for each dataset in the multi-dataset based on the number of samples in each dataset.
         """
 
-        class_counts = {c: 0 for c in self.classes}
-        class_count_sum = 0
-        for dataset in self.datasets:
-            for c in self.classes:
-                class_counts[c] += dataset.class_counts["totals"][c]
-                class_count_sum += dataset.class_counts["totals"][c]
+        if len(self.classes) > 1:
+            class_counts = {c: 0 for c in self.classes}
+            class_count_sum = 0
+            for dataset in self.datasets:
+                for c in self.classes:
+                    class_counts[c] += dataset.class_counts["totals"][c]
+                    class_count_sum += dataset.class_counts["totals"][c]
 
-        class_weights = {
-            c: 1 - (class_counts[c] / class_count_sum) for c in self.classes
-        }
+            class_weights = {
+                c: 1 - (class_counts[c] / class_count_sum) for c in self.classes
+            }
+        else:
+            class_weights = {self.classes[0]: 1}
+
         dataset_weights = {}
         for dataset in self.datasets:
             dataset_weight = np.sum(

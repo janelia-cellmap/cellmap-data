@@ -194,7 +194,7 @@ class CellMapImage:
                     - annotation_group.members[
                         self.scale_level
                     ].attrs.cellmap.annotation.complement_counts["absent"]
-                ) / np.prod(list(self.scale.values()))
+                ) * np.prod(list(self.scale.values()))
             except Exception as e:
                 print(e)
                 self._class_counts = 0
