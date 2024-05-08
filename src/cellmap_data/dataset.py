@@ -425,6 +425,24 @@ class CellMapDataset(Dataset):
                 if isinstance(source, CellMapImage):
                     source.value_transform = transforms
 
+    def get_class_weights(self):
+        """
+        Returns the class weights for the multi-dataset based on the number of samples in each class.
+        """
+        if len(self.classes) > 1:
+            class_counts = {c: 0 for c in self.classes}
+            class_count_sum = 0
+            for c in self.classes:
+                class_counts[c] += self.class_counts["totals"][c]
+                class_count_sum += self.class_counts["totals"][c]
+
+            class_weights = {
+                c: 1 - (class_counts[c] / class_count_sum) for c in self.classes
+            }
+        else:
+            class_weights = {self.classes[0]: 0.1}  # less than 1 to avoid overflow
+        return class_weights
+
 
 # Example input arrays:
 # {'0_input': {'shape': (90, 90, 90), 'scale': (32, 32, 32)},
