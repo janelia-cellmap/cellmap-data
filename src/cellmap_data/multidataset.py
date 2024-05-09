@@ -41,7 +41,11 @@ class CellMapMultiDataset(ConcatDataset):
 
     @property
     def class_counts(self):
-        if not hasattr(self, "_class_counts"):
+        if (
+            not hasattr(self, "_class_counts")
+            or self._class_counts is None
+            or len(self._class_counts) == 0
+        ):
             class_counts = {}
             for c in self.classes:
                 class_counts[c] = {}
