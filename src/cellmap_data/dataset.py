@@ -116,7 +116,7 @@ class CellMapDataset(Dataset):
         self.is_train = is_train
         self.axis_order = axis_order
         self.context = context
-        self.rng = rng
+        self._rng = rng
         self.force_has_data = force_has_data
         self._bounding_box = None
         self._bounding_box_shape = None
@@ -400,7 +400,6 @@ class CellMapDataset(Dataset):
 
     def generate_spatial_transforms(self) -> Optional[dict[str, Any]]:
         """Generates spatial transforms for the dataset."""
-        # *TODO: use torch random number generator so accerlerators can synchronize across workers
 
         if not self.is_train or self.spatial_transforms is None:
             return None
@@ -411,7 +410,7 @@ class CellMapDataset(Dataset):
                 # output: {"mirror": ["x", "y"]}
                 spatial_transforms[transform] = []
                 for axis, prob in params["axes"].items():
-                    if torch.rand(1, generator=self.rng).item() < prob:
+                    if torch.rand(1, generator=self._rng).item() < prob:
                         spatial_transforms[transform].append(axis)
             elif transform == "transpose":
                 # only reorder axes specified in params
@@ -422,8 +421,9 @@ class CellMapDataset(Dataset):
                 # shuffled_axes = [0, 2]
                 shuffled_axes = [axes[a] for a in params["axes"]]
                 # shuffled_axes = [2, 0]
-                shuffled_axes = shuffled_axes[
-                    torch.randperm(len(shuffled_axes), generator=self.rng)
+                shuffled_axes = [
+                    shuffled_axes[i]
+                    for i in torch.randperm(len(shuffled_axes), generator=self._rng)
                 ]  # shuffle indices
                 # shuffled_axes = {"x": 2, "z": 0}
                 shuffled_axes = {
