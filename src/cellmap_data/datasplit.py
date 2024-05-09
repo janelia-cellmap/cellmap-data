@@ -171,7 +171,7 @@ class CellMapDataSplit:
         if not hasattr(self, "_validation_blocks"):
             self._validation_blocks = CellMapSubset(
                 self.validation_datasets_combined,
-                self.validation_datasets_combined.get_validation_indices(),
+                self.validation_datasets_combined.validation_indices,
             )
         return self._validation_blocks
 

@@ -307,6 +307,30 @@ class CellMapDataset(Dataset):
         return self._sampling_box_shape
 
     @property
+    def class_weights(self):
+        """
+        Returns the class weights for the multi-dataset based on the number of samples in each class.
+        """
+        if len(self.classes) > 1:
+            class_counts = {c: 0 for c in self.classes}
+            class_count_sum = 0
+            for c in self.classes:
+                class_counts[c] += self.class_counts["totals"][c]
+                class_count_sum += self.class_counts["totals"][c]
+
+            class_weights = {
+                c: (
+                    1 - (class_counts[c] / class_count_sum)
+                    if class_counts[c] != class_count_sum
+                    else 0.1
+                )
+                for c in self.classes
+            }
+        else:
+            class_weights = {self.classes[0]: 0.1}  # less than 1 to avoid overflow
+        return class_weights
+
+    @property
     def class_counts(self) -> Dict[str, Dict[str, int]]:
         """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
         if self._class_counts is None:
@@ -318,6 +342,14 @@ class CellMapDataset(Dataset):
                     class_counts["totals"][label] += source.class_counts
             self._class_counts = class_counts
         return self._class_counts
+
+    @property
+    def validation_indices(self) -> Sequence[int]:
+        """Returns the indices of the dataset that will tile the dataset for validation."""
+        chunk_size = {}
+        for c, size in self.bounding_box_shape.items():
+            chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
+        return self.get_indices(chunk_size)
 
     def _get_box(
         self, source_box: dict[str, list[int]], current_box: dict[str, list[int]]
@@ -355,13 +387,6 @@ class CellMapDataset(Dataset):
             indices.append(index)
 
         return indices
-
-    def get_validation_indices(self) -> Sequence[int]:
-        """Returns the indices of the dataset that will tile the dataset for validation."""
-        chunk_size = {}
-        for c, size in self.bounding_box_shape.items():
-            chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
-        return self.get_indices(chunk_size)
 
     def to(self, device):
         """Sets the device for the dataset."""
@@ -424,24 +449,6 @@ class CellMapDataset(Dataset):
             for source in sources.values():
                 if isinstance(source, CellMapImage):
                     source.value_transform = transforms
-
-    def get_class_weights(self):
-        """
-        Returns the class weights for the multi-dataset based on the number of samples in each class.
-        """
-        if len(self.classes) > 1:
-            class_counts = {c: 0 for c in self.classes}
-            class_count_sum = 0
-            for c in self.classes:
-                class_counts[c] += self.class_counts["totals"][c]
-                class_count_sum += self.class_counts["totals"][c]
-
-            class_weights = {
-                c: 1 - (class_counts[c] / class_count_sum) for c in self.classes
-            }
-        else:
-            class_weights = {self.classes[0]: 0.1}  # less than 1 to avoid overflow
-        return class_weights
 
 
 # Example input arrays:

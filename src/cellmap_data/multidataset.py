@@ -16,7 +16,7 @@ class CellMapMultiDataset(ConcatDataset):
     target_arrays: dict[str, dict[str, Sequence[int | float]]]
     datasets: Iterable[CellMapDataset]
     _weighted_sampler: Optional[WeightedRandomSampler]
-    _class_counts: dict[str, int] = {}
+    _class_counts: dict[str, dict[str, int]]
 
     def __init__(
         self,
@@ -53,6 +53,72 @@ class CellMapMultiDataset(ConcatDataset):
             self._class_counts = class_counts
         return self._class_counts
 
+    @property
+    def class_weights(self):
+        """
+        Returns the class weights for the multi-dataset based on the number of samples in each class.
+        """
+        if len(self.classes) > 1:
+            class_counts = {}
+            class_count_sum = 0
+            for c in self.classes:
+                class_counts[c] = self.class_counts[c]["total"]
+                class_count_sum += class_counts[c]
+
+            class_weights = {
+                c: (
+                    1 - (class_counts[c] / class_count_sum)
+                    if class_counts[c] != class_count_sum
+                    else 0.1
+                )
+                for c in self.classes
+            }
+        else:
+            class_weights = {self.classes[0]: 0.1}  # less than 1 to avoid overflow
+        return class_weights
+
+    @property
+    def dataset_weights(self):
+        """
+        Returns the weights for each dataset in the multi-dataset based on the number of samples in each dataset.
+        """
+        class_weights = self.class_weights
+
+        dataset_weights = {}
+        for dataset in self.datasets:
+            dataset_weight = np.sum(
+                [
+                    dataset.class_counts["totals"][c] * class_weights[c]
+                    for c in self.classes
+                ]
+            )
+            dataset_weights[dataset] = dataset_weight
+        return dataset_weights
+
+    @property
+    def sample_weights(self):
+        """
+        Returns the weights for each sample in the multi-dataset based on the number of samples in each dataset.
+        """
+
+        dataset_weights = self.dataset_weights
+        sample_weights = []
+        for dataset, dataset_weight in dataset_weights.items():
+            sample_weights += [dataset_weight] * len(dataset)
+        return sample_weights
+
+    @property
+    def validation_indices(self) -> Sequence[int]:
+        """
+        Returns the indices of the validation set for each dataset in the multi-dataset.
+        """
+        validation_indices = []
+        index_offset = 0
+        for dataset in self.datasets:
+            validation_indices.extend(dataset.validation_indices)
+            index_offset += len(dataset)
+        return validation_indices
+
     def to(self, device: str):
         for dataset in self.datasets:
             dataset.to(device)
@@ -63,7 +129,7 @@ class CellMapMultiDataset(ConcatDataset):
     ):
         if self._weighted_sampler is None:
             # TODO: calculate weights for each sample
-            sample_weights = self.get_sample_weights()
+            sample_weights = self.sample_weights
 
             self._weighted_sampler = WeightedRandomSampler(
                 sample_weights, batch_size, replacement=False, generator=rng
@@ -85,7 +151,7 @@ class CellMapMultiDataset(ConcatDataset):
                 generator=rng,
             )
         else:
-            dataset_weights = list(self.get_dataset_weights().values())
+            dataset_weights = list(self.dataset_weights.values())
 
             datasets_sampled = torch.multinomial(
                 torch.tensor(dataset_weights), num_samples, replacement=True
@@ -104,64 +170,6 @@ class CellMapMultiDataset(ConcatDataset):
             indices = torch.cat(indices).flatten()
             indices = indices[torch.randperm(len(indices), generator=rng)]
             return torch.utils.data.SubsetRandomSampler(indices, generator=rng)
-
-    def get_class_weights(self):
-        """
-        Returns the class weights for the multi-dataset based on the number of samples in each class.
-        """
-        if len(self.classes) > 1:
-            class_counts = {c: 0 for c in self.classes}
-            class_count_sum = 0
-            for dataset in self.datasets:
-                for c in self.classes:
-                    class_counts[c] += dataset.class_counts["totals"][c]
-                    class_count_sum += dataset.class_counts["totals"][c]
-
-            class_weights = {
-                c: 1 - (class_counts[c] / class_count_sum) for c in self.classes
-            }
-        else:
-            class_weights = {self.classes[0]: 0.1}  # less than 1 to avoid overflow
-        return class_weights
-
-    def get_dataset_weights(self):
-        """
-        Returns the weights for each dataset in the multi-dataset based on the number of samples in each dataset.
-        """
-        class_weights = self.get_class_weights()
-
-        dataset_weights = {}
-        for dataset in self.datasets:
-            dataset_weight = np.sum(
-                [
-                    dataset.class_counts["totals"][c] * class_weights[c]
-                    for c in self.classes
-                ]
-            )
-            dataset_weights[dataset] = dataset_weight
-        return dataset_weights
-
-    def get_sample_weights(self):
-        """
-        Returns the weights for each sample in the multi-dataset based on the number of samples in each dataset.
-        """
-
-        dataset_weights = self.get_dataset_weights()
-        sample_weights = []
-        for dataset, dataset_weight in dataset_weights.items():
-            sample_weights += [dataset_weight] * len(dataset)
-        return sample_weights
-
-    def get_validation_indices(self) -> Sequence[int]:
-        """
-        Returns the indices of the validation set for each dataset in the multi-dataset.
-        """
-        validation_indices = []
-        index_offset = 0
-        for dataset in self.datasets:
-            validation_indices.extend(dataset.get_validation_indices())
-            index_offset += len(dataset)
-        return validation_indices
 
     def get_indices(self, chunk_size: dict[str, int]) -> Sequence[int]:
         """Returns the indices of the dataset that will tile the dataset according to the chunk_size."""
