@@ -114,6 +114,7 @@ class CellMapDataSplit:
         if self.dataset_dict is not None:
             self.construct(self.dataset_dict)
         self.verify_datasets()
+        assert len(self.train_datasets) > 0, "No valid training datasets found."
 
     def __repr__(self):
         return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.train_raw_value_transforms}\n\tGT value transforms: {self.target_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"

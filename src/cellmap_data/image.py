@@ -288,6 +288,7 @@ class EmptyImage:
         target_voxel_shape: Sequence[int],
         store: Optional[torch.Tensor] = None,
         axis_order: str = "zyx",
+        empty_value: float | int = -100,
     ):
         """Initializes an empty image object.
 
@@ -305,10 +306,14 @@ class EmptyImage:
         self._bounding_box = None
         self._class_counts = 0
         self.scale = {c: 1 for c in self.axes}
+        self.empty_value = empty_value
         if store is not None:
             self.store = store
         else:
-            self.store = torch.zeros([1] + [self.output_shape[c] for c in self.axes])
+            self.store = (
+                torch.ones([1] + [self.output_shape[c] for c in self.axes])
+                * self.empty_value
+            )
 
     def __getitem__(self, center: dict[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""

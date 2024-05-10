@@ -119,9 +119,7 @@ class CellMapDataset(Dataset):
         self._rng = rng
         self.force_has_data = force_has_data
         self._bounding_box = None
-        self._bounding_box_shape = None
         self._sampling_box = None
-        self._sampling_box_shape = None
         self._class_counts = None
         self._largest_voxel_sizes = None
         self._len = None
@@ -193,7 +191,7 @@ class CellMapDataset(Dataset):
             )
             logger.warning(f"Returning closest index in bounds")
             # TODO: This is a hacky temprorary fix. Need to figure out why this is happening
-            center = [self.sampling_box_shape[c] for c in self.axis_order]
+            center = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
         center = {
             c: center[i] * self.largest_voxel_sizes[c] + self.sampling_box[c][0]
             for i, c in enumerate(self.axis_order)
@@ -267,13 +265,8 @@ class CellMapDataset(Dataset):
     @property
     def bounding_box_shape(self):
         """Returns the shape of the bounding box of the dataset in voxels of the largest voxel size."""
-        if self._bounding_box_shape is None:
-            bounding_box_shape = {c: 0 for c in self.axis_order}
-            for c, (start, stop) in self.bounding_box.items():
-                size = stop - start
-                size /= self.largest_voxel_sizes[c]
-                bounding_box_shape[c] = int(size)
-            self._bounding_box_shape = bounding_box_shape
+        if not hasattr(self, "_bounding_box_shape"):
+            self._bounding_box_shape = self._get_box_shape(self.bounding_box)
         return self._bounding_box_shape
 
     @property
@@ -295,13 +288,8 @@ class CellMapDataset(Dataset):
     @property
     def sampling_box_shape(self):
         """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size."""
-        if self._sampling_box_shape is None:
-            sampling_box_shape = {}
-            for c, (start, stop) in self.sampling_box.items():
-                size = stop - start
-                size /= self.largest_voxel_sizes[c]
-                sampling_box_shape[c] = int(np.floor(size))
-            self._sampling_box_shape = sampling_box_shape
+        if not hasattr(self, "_sampling_box_shape"):
+            self._sampling_box_shape = self._get_box_shape(self.sampling_box)
         return self._sampling_box_shape
 
     @property
@@ -349,6 +337,14 @@ class CellMapDataset(Dataset):
             chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
         return self.get_indices(chunk_size)
 
+    def _get_box_shape(self, source_box: dict[str, list[int]]) -> dict[str, int]:
+        box_shape = {}
+        for c, (start, stop) in source_box.items():
+            size = stop - start
+            size /= self.largest_voxel_sizes[c]
+            box_shape[c] = int(np.floor(size))
+        return box_shape
+
     def _get_box(
         self, source_box: dict[str, list[int]], current_box: dict[str, list[int]]
     ) -> dict[str, list[int]]:
@@ -363,8 +359,7 @@ class CellMapDataset(Dataset):
         """Verifies that the dataset is valid."""
         # TODO: make more robust
         try:
-            length = len(self)
-            return True
+            return len(self) > 0
         except Exception as e:
             # print(e)
             return False
