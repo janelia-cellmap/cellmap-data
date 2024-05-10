@@ -83,12 +83,14 @@ class CellMapImage:
         coords = {}
         for c in self.axes:
             if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
-                raise ValueError(
+                # raise ValueError(
+                UserWarning(
                     f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
                 )
                 # center[c] = self.bounding_box[c][0] + self.output_size[c] / 2
             if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
-                raise ValueError(
+                # raise ValueError(
+                UserWarning(
                     f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
                 )
                 # center[c] = self.bounding_box[c][1] - self.output_size[c] / 2
@@ -303,7 +305,7 @@ class EmptyImage:
             axis_order = axis_order[-len(target_voxel_shape) :]
         self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
         self.axes = axis_order
-        self._bounding_box = None
+        self._bounding_box = {c: [0, 2**32] for c in axis_order}
         self._class_counts = 0
         self.scale = {c: 1 for c in self.axes}
         self.empty_value = empty_value
@@ -320,12 +322,12 @@ class EmptyImage:
         return self.store
 
     @property
-    def bounding_box(self) -> None:
+    def bounding_box(self) -> dict[str, list[float]]:
         """Returns the bounding box of the dataset."""
         return self._bounding_box
 
     @property
-    def sampling_box(self) -> None:
+    def sampling_box(self) -> dict[str, list[float]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
         return self._bounding_box
 

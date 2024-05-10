@@ -119,9 +119,14 @@ class CellMapMultiDataset(ConcatDataset):
         validation_indices = []
         index_offset = 0
         for dataset in self.datasets:
-            validation_indices.extend(dataset.validation_indices)
+            try:
+                validation_indices.extend(dataset.validation_indices)
+            except AttributeError:
+                UserWarning(
+                    f"Unable to get validation indices for dataset {dataset}\n skipping"
+                )
             index_offset += len(dataset)
-        return validation_indices
+        return list(np.array(validation_indices) + index_offset)
 
     def to(self, device: str):
         for dataset in self.datasets:

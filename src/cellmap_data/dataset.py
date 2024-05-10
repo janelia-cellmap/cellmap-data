@@ -45,14 +45,13 @@ class CellMapDataset(Dataset):
     is_train: bool
     axis_order: str
     context: Optional[tensorstore.Context]  # type: ignore
-    _bounding_box: Optional[Dict[str, list[int]]]
-    _bounding_box_shape: Optional[Dict[str, int]]
-    _sampling_box: Optional[Dict[str, list[int]]]
-    _sampling_box_shape: Optional[Dict[str, int]]
-    _class_counts: Optional[Dict[str, Dict[str, int]]]
-    _largest_voxel_sizes: Optional[Dict[str, int]]
+    _bounding_box: Dict[str, list[float]]
+    _bounding_box_shape: Dict[str, int]
+    _sampling_box: Dict[str, list[float]]
+    _sampling_box_shape: Dict[str, int]
+    _class_counts: Dict[str, Dict[str, int]]
+    _largest_voxel_sizes: Dict[str, float]
     _len: Optional[int]
-    _iter_coords: Optional[Sequence[float]]
 
     def __init__(
         self,
@@ -118,12 +117,7 @@ class CellMapDataset(Dataset):
         self.context = context
         self._rng = rng
         self.force_has_data = force_has_data
-        self._bounding_box = None
-        self._sampling_box = None
-        self._class_counts = None
-        self._largest_voxel_sizes = None
         self._len = None
-        self._iter_coords = None
         self._current_center = None
         self._current_spatial_transforms = None
         self.input_sources = {}
@@ -224,9 +218,9 @@ class CellMapDataset(Dataset):
         return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.target_paths}\n\tClasses: {self.classes})"
 
     @property
-    def largest_voxel_sizes(self):
+    def largest_voxel_sizes(self) -> dict[str, float]:
         """Returns the largest voxel size of the dataset."""
-        if self._largest_voxel_sizes is None:
+        if not hasattr(self, "_largest_voxel_sizes"):
             largest_voxel_size = {c: 0 for c in self.axis_order}
             for source in list(self.input_sources.values()) + list(
                 self.target_sources.values()
@@ -247,9 +241,9 @@ class CellMapDataset(Dataset):
         return self._largest_voxel_sizes
 
     @property
-    def bounding_box(self):
+    def bounding_box(self) -> dict[str, list[float]]:
         """Returns the bounding box of the dataset."""
-        if self._bounding_box is None:
+        if not hasattr(self, "_bounding_box"):
             bounding_box = {c: [0, 2**32] for c in self.axis_order}
             for source in list(self.input_sources.values()) + list(
                 self.target_sources.values()
@@ -263,16 +257,16 @@ class CellMapDataset(Dataset):
         return self._bounding_box
 
     @property
-    def bounding_box_shape(self):
+    def bounding_box_shape(self) -> dict[str, int]:
         """Returns the shape of the bounding box of the dataset in voxels of the largest voxel size."""
         if not hasattr(self, "_bounding_box_shape"):
             self._bounding_box_shape = self._get_box_shape(self.bounding_box)
         return self._bounding_box_shape
 
     @property
-    def sampling_box(self):
+    def sampling_box(self) -> dict[str, list[float]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
-        if self._sampling_box is None:
+        if not hasattr(self, "_sampling_box"):
             sampling_box = {c: [0, 2**32] for c in self.axis_order}
             for source in list(self.input_sources.values()) + list(
                 self.target_sources.values()
@@ -286,14 +280,14 @@ class CellMapDataset(Dataset):
         return self._sampling_box
 
     @property
-    def sampling_box_shape(self):
+    def sampling_box_shape(self) -> dict[str, int]:
         """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size."""
         if not hasattr(self, "_sampling_box_shape"):
             self._sampling_box_shape = self._get_box_shape(self.sampling_box)
         return self._sampling_box_shape
 
     @property
-    def class_weights(self):
+    def class_weights(self) -> dict[str, float]:
         """
         Returns the class weights for the multi-dataset based on the number of samples in each class.
         """
@@ -319,7 +313,7 @@ class CellMapDataset(Dataset):
     @property
     def class_counts(self) -> Dict[str, Dict[str, int]]:
         """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
-        if self._class_counts is None:
+        if not hasattr(self, "_class_counts"):
             class_counts = {"totals": {c: 0 for c in self.classes}}
             for array_name, sources in self.target_sources.items():
                 class_counts[array_name] = {}
@@ -337,7 +331,7 @@ class CellMapDataset(Dataset):
             chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
         return self.get_indices(chunk_size)
 
-    def _get_box_shape(self, source_box: dict[str, list[int]]) -> dict[str, int]:
+    def _get_box_shape(self, source_box: dict[str, list[float]]) -> dict[str, int]:
         box_shape = {}
         for c, (start, stop) in source_box.items():
             size = stop - start
@@ -346,8 +340,10 @@ class CellMapDataset(Dataset):
         return box_shape
 
     def _get_box(
-        self, source_box: dict[str, list[int]], current_box: dict[str, list[int]]
-    ) -> dict[str, list[int]]:
+        self,
+        source_box: dict[str, list[float]],
+        current_box: dict[str, list[float]],
+    ) -> dict[str, list[float]]:
         if source_box is not None:
             for c, (start, stop) in source_box.items():
                 assert stop > start
