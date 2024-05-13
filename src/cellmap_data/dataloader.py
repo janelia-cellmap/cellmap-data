@@ -45,7 +45,7 @@ class CellMapDataLoader:
             assert isinstance(
                 self.dataset, CellMapMultiDataset
             ), "Weighted sampler only relevant for CellMapMultiDataset"
-            self.sampler = self.dataset.weighted_sampler(self.batch_size, self.rng)
+            self.sampler = self.dataset.get_weighted_sampler(self.batch_size, self.rng)
         if torch.cuda.is_available():
             self.dataset.to("cuda")
         kwargs.update(

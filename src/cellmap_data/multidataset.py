@@ -28,7 +28,6 @@ class CellMapMultiDataset(ConcatDataset):
         self.target_arrays = target_arrays
         self.classes = classes
         self.datasets = datasets
-        self._weighted_sampler = None
 
     def __repr__(self) -> str:
         out_string = f"CellMapMultiDataset(["
@@ -138,17 +137,12 @@ class CellMapMultiDataset(ConcatDataset):
             dataset.to(device)
         return self
 
-    def weighted_sampler(
+    def get_weighted_sampler(
         self, batch_size: int = 1, rng: Optional[torch.Generator] = None
     ):
-        if self._weighted_sampler is None:
-            # TODO: calculate weights for each sample
-            sample_weights = self.sample_weights
-
-            self._weighted_sampler = WeightedRandomSampler(
-                sample_weights, batch_size, replacement=False, generator=rng
-            )
-        return self._weighted_sampler
+        return WeightedRandomSampler(
+            self.sample_weights, batch_size, replacement=False, generator=rng
+        )
 
     def get_subset_random_sampler(
         self,
