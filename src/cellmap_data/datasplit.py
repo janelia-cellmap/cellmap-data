@@ -119,23 +119,6 @@ class CellMapDataSplit:
     def __repr__(self):
         return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.train_raw_value_transforms}\n\tGT value transforms: {self.target_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
 
-    def from_csv(self, csv_path):
-        # Load file data from csv file
-        dataset_dict = {}
-        with open(csv_path, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if row[0] not in dataset_dict:
-                    dataset_dict[row[0]] = []
-                dataset_dict[row[0]].append(
-                    {
-                        "raw": os.path.join(row[1], row[2]),
-                        "gt": os.path.join(row[3], row[4]) if len(row) > 3 else "",
-                    }
-                )
-
-        return dataset_dict
-
     @property
     def train_datasets_combined(self):
         if not hasattr(self, "_train_datasets_combined"):
@@ -184,6 +167,23 @@ class CellMapDataSplit:
                 "validate": self.validation_datasets_combined.class_counts,
             }
         return self._class_counts
+
+    def from_csv(self, csv_path):
+        # Load file data from csv file
+        dataset_dict = {}
+        with open(csv_path, "r") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if row[0] not in dataset_dict:
+                    dataset_dict[row[0]] = []
+                dataset_dict[row[0]].append(
+                    {
+                        "raw": os.path.join(row[1], row[2]),
+                        "gt": os.path.join(row[3], row[4]) if len(row) > 3 else "",
+                    }
+                )
+
+        return dataset_dict
 
     def construct(self, dataset_dict):
         self.train_datasets = []

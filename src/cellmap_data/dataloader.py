@@ -31,6 +31,7 @@ class CellMapDataLoader:
         sampler: Sampler | None = None,
         is_train: bool = True,
         rng: Optional[torch.Generator] = None,
+        **kwargs,
     ):
         self.dataset = dataset
         self.classes = classes
@@ -47,19 +48,22 @@ class CellMapDataLoader:
             self.sampler = self.dataset.weighted_sampler(self.batch_size, self.rng)
         if torch.cuda.is_available():
             self.dataset.to("cuda")
-        kwargs = {
-            "dataset": self.dataset,
-            "dataset": self.dataset,
-            "batch_size": self.batch_size,
-            "num_workers": self.num_workers,
-            "collate_fn": self.collate_fn,
-        }
+        kwargs.update(
+            {
+                "dataset": self.dataset,
+                "dataset": self.dataset,
+                "batch_size": self.batch_size,
+                "num_workers": self.num_workers,
+                "collate_fn": self.collate_fn,
+            }
+        )
         if self.sampler is not None:
             kwargs["sampler"] = self.sampler
         elif self.is_train:
             kwargs["shuffle"] = True
         else:
             kwargs["shuffle"] = False
+        # TODO: Try persistent workers
         self.loader = DataLoader(**kwargs)
 
     def collate_fn(self, batch):

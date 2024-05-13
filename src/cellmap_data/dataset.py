@@ -110,7 +110,6 @@ class CellMapDataset(Dataset):
         self.context = context
         self._rng = rng
         self.force_has_data = force_has_data
-        self._len = None
         self._current_center = None
         self._current_spatial_transforms = None
         self.input_sources = {}
@@ -161,7 +160,7 @@ class CellMapDataset(Dataset):
         """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for a cube."""
         if not self.has_data and not self.force_has_data:
             return 0
-        if self._len is None:
+        if not hasattr(self, "_len"):
             size = np.prod([self.sampling_box_shape[c] for c in self.axis_order])
             self._len = int(size)
         return self._len
@@ -282,26 +281,28 @@ class CellMapDataset(Dataset):
     @property
     def class_weights(self) -> dict[str, float]:
         """
-        Returns the class weights for the multi-dataset based on the number of samples in each class.
+        Returns the class weights for the dataset based on the number of samples in each class.
         """
-        if len(self.classes) > 1:
-            class_counts = {c: 0 for c in self.classes}
-            class_count_sum = 0
-            for c in self.classes:
-                class_counts[c] += self.class_counts["totals"][c]
-                class_count_sum += self.class_counts["totals"][c]
+        if not hasattr(self, "_class_weights"):
+            if len(self.classes) > 1:
+                class_counts = {c: 0 for c in self.classes}
+                class_count_sum = 0
+                for c in self.classes:
+                    class_counts[c] += self.class_counts["totals"][c]
+                    class_count_sum += self.class_counts["totals"][c]
 
-            class_weights = {
-                c: (
-                    1 - (class_counts[c] / class_count_sum)
-                    if class_counts[c] != class_count_sum
-                    else 0.1
-                )
-                for c in self.classes
-            }
-        else:
-            class_weights = {self.classes[0]: 0.1}  # less than 1 to avoid overflow
-        return class_weights
+                class_weights = {
+                    c: (
+                        1 - (class_counts[c] / class_count_sum)
+                        if class_counts[c] != class_count_sum
+                        else 0.1
+                    )
+                    for c in self.classes
+                }
+            else:
+                class_weights = {self.classes[0]: 0.1}  # less than 1 to avoid overflow
+            self._class_weights = class_weights
+        return self._class_weights
 
     @property
     def class_counts(self) -> Dict[str, Dict[str, int]]:
@@ -319,10 +320,12 @@ class CellMapDataset(Dataset):
     @property
     def validation_indices(self) -> Sequence[int]:
         """Returns the indices of the dataset that will tile the dataset for validation."""
-        chunk_size = {}
-        for c, size in self.bounding_box_shape.items():
-            chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
-        return self.get_indices(chunk_size)
+        if not hasattr(self, "_validation_indices"):
+            chunk_size = {}
+            for c, size in self.bounding_box_shape.items():
+                chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
+            self._validation_indices = self.get_indices(chunk_size)
+        return self._validation_indices
 
     def _get_box_shape(self, source_box: dict[str, list[float]]) -> dict[str, int]:
         box_shape = {}
@@ -345,7 +348,7 @@ class CellMapDataset(Dataset):
         return current_box
 
     def verify(self):
-        """Verifies that the dataset is valid."""
+        """Verifies that the dataset is valid to draw samples from."""
         # TODO: make more robust
         try:
             return len(self) > 0
@@ -367,7 +370,6 @@ class CellMapDataset(Dataset):
             index = [indices_dict[c][j] for c, j in zip(self.axis_order, i)]
             index = np.ravel_multi_index(index, list(self.sampling_box_shape.values()))
             indices.append(index)
-
         return indices
 
     def to(self, device):
