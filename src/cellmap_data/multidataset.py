@@ -15,8 +15,6 @@ class CellMapMultiDataset(ConcatDataset):
     input_arrays: dict[str, dict[str, Sequence[int | float]]]
     target_arrays: dict[str, dict[str, Sequence[int | float]]]
     datasets: Iterable[CellMapDataset]
-    _weighted_sampler: Optional[WeightedRandomSampler]
-    _class_counts: dict[str, dict[str, int]]
 
     def __init__(
         self,

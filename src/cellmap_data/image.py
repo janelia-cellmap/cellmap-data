@@ -12,12 +12,10 @@ import zarr
 
 class CellMapImage:
     path: str
-    _translation: dict[str, float]
     scale: dict[str, float]
     output_shape: dict[str, int]
     output_size: dict[str, float]
     label_class: str
-    _array: xarray.DataArray
     axes: str | Sequence[str]
     post_image_transforms: Sequence[str] = ["transpose"]
     value_transform: Optional[Callable]
@@ -305,7 +303,7 @@ class EmptyImage:
             axis_order = axis_order[-len(target_voxel_shape) :]
         self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
         self.axes = axis_order
-        self._bounding_box = {c: [0, 2**32] for c in axis_order}
+        self._bounding_box = None
         self._class_counts = 0
         self.scale = {c: 1 for c in self.axes}
         self.empty_value = empty_value
@@ -322,12 +320,12 @@ class EmptyImage:
         return self.store
 
     @property
-    def bounding_box(self) -> dict[str, list[float]]:
+    def bounding_box(self) -> None:
         """Returns the bounding box of the dataset."""
         return self._bounding_box
 
     @property
-    def sampling_box(self) -> dict[str, list[float]]:
+    def sampling_box(self) -> None:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
         return self._bounding_box
 

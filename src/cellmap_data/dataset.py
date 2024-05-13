@@ -45,13 +45,6 @@ class CellMapDataset(Dataset):
     is_train: bool
     axis_order: str
     context: Optional[tensorstore.Context]  # type: ignore
-    _bounding_box: Dict[str, list[float]]
-    _bounding_box_shape: Dict[str, int]
-    _sampling_box: Dict[str, list[float]]
-    _sampling_box_shape: Dict[str, int]
-    _class_counts: Dict[str, Dict[str, int]]
-    _largest_voxel_sizes: Dict[str, float]
-    _len: Optional[int]
 
     def __init__(
         self,
