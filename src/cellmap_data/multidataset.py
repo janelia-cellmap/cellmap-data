@@ -185,7 +185,7 @@ class CellMapMultiDataset(ConcatDataset):
         index_offset = 0
         for dataset in self.datasets:
             indices.append(dataset.get_indices(chunk_size))
-            index_offset += len(dataset)
+            index_offset += len(dataset) - 1
         return indices
 
     def set_raw_value_transforms(self, transforms: Callable):

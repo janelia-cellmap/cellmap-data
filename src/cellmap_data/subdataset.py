@@ -1,18 +1,15 @@
-from typing import Callable
-from torch.utils.data import Dataset
+from typing import Callable, Sequence
+from torch.utils.data import Subset
+from .dataset import CellMapDataset
 
 
-class CellMapSubset(Dataset):
-    def __init__(self, dataset, indices):
-        super().__init__()
-        self.dataset = dataset
-        self.indices = indices
+class CellMapSubset(Subset):
 
-    def __getitem__(self, idx):
-        return self.dataset[self.indices[idx]]
+    dataset: CellMapDataset
+    indices: Sequence[int]
 
-    def __len__(self):
-        return len(self.indices)
+    def __init__(self, dataset: CellMapDataset, indices: Sequence[int]) -> None:
+        super().__init__(dataset, indices)
 
     @property
     def classes(self):
