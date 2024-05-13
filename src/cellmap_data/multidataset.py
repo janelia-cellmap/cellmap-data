@@ -119,17 +119,18 @@ class CellMapMultiDataset(ConcatDataset):
         Returns the indices of the validation set for each dataset in the multi-dataset.
         """
         if not hasattr(self, "_validation_indices"):
-            validation_indices = []
-            index_offset = 0
-            for dataset in self.datasets:
+            indices = []
+            for i, dataset in enumerate(self.datasets):
                 try:
-                    validation_indices.extend(dataset.validation_indices)
+                    sample_indices = (
+                        np.array(dataset.validation_indices) + self.cummulative_sizes[i]
+                    )
+                    indices.extend(list(sample_indices))
                 except AttributeError:
                     UserWarning(
                         f"Unable to get validation indices for dataset {dataset}\n skipping"
                     )
-                index_offset += len(dataset)
-            self._validation_indices = list(np.array(validation_indices) + index_offset)
+            self._validation_indices = indices
         return self._validation_indices
 
     def to(self, device: str):
@@ -180,12 +181,13 @@ class CellMapMultiDataset(ConcatDataset):
             return torch.utils.data.SubsetRandomSampler(indices, generator=rng)
 
     def get_indices(self, chunk_size: dict[str, int]) -> Sequence[int]:
-        """Returns the indices of the dataset that will tile the dataset according to the chunk_size."""
+        """Returns the indices of the dataset that will tile all of the datasets according to the chunk_size."""
         indices = []
-        index_offset = 0
-        for dataset in self.datasets:
-            indices.append(dataset.get_indices(chunk_size))
-            index_offset += len(dataset) - 1
+        for i, dataset in enumerate(self.datasets):
+            sample_indices = (
+                np.array(dataset.get_indices(chunk_size)) + self.cummulative_sizes[i]
+            )
+            indices.extend(list(sample_indices))
         return indices
 
     def set_raw_value_transforms(self, transforms: Callable):

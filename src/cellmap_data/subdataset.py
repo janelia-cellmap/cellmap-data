@@ -1,14 +1,17 @@
 from typing import Callable, Sequence
 from torch.utils.data import Subset
 from .dataset import CellMapDataset
+from .multidataset import CellMapMultiDataset
 
 
 class CellMapSubset(Subset):
 
-    dataset: CellMapDataset
+    dataset: CellMapDataset | CellMapMultiDataset
     indices: Sequence[int]
 
-    def __init__(self, dataset: CellMapDataset, indices: Sequence[int]) -> None:
+    def __init__(
+        self, dataset: CellMapDataset | CellMapMultiDataset, indices: Sequence[int]
+    ) -> None:
         super().__init__(dataset, indices)
 
     @property
