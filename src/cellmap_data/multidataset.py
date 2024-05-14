@@ -122,9 +122,11 @@ class CellMapMultiDataset(ConcatDataset):
             indices = []
             for i, dataset in enumerate(self.datasets):
                 try:
-                    sample_indices = (
-                        np.array(dataset.validation_indices) + self.cummulative_sizes[i]
-                    )
+                    if i == 0:
+                        offset = 0
+                    else:
+                        offset = self.cummulative_sizes[i - 1]
+                    sample_indices = np.array(dataset.validation_indices) + offset
                     indices.extend(list(sample_indices))
                 except AttributeError:
                     UserWarning(
@@ -184,9 +186,11 @@ class CellMapMultiDataset(ConcatDataset):
         """Returns the indices of the dataset that will tile all of the datasets according to the chunk_size."""
         indices = []
         for i, dataset in enumerate(self.datasets):
-            sample_indices = (
-                np.array(dataset.get_indices(chunk_size)) + self.cummulative_sizes[i]
-            )
+            if i == 0:
+                offset = 0
+            else:
+                offset = self.cummulative_sizes[i - 1]
+            sample_indices = np.array(dataset.get_indices(chunk_size)) + offset
             indices.extend(list(sample_indices))
         return indices
 
