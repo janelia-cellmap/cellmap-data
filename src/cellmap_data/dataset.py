@@ -189,18 +189,19 @@ class CellMapDataset(Dataset):
         for array_name in self.input_arrays.keys():
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
             array = self.input_sources[array_name][center]
+            # TODO: Assumes 1 channel (i.e. grayscale)
             if array.shape[0] != 1:
                 outputs[array_name] = array[None, ...]
             else:
                 outputs[array_name] = array
-        # TODO: Allow for distribtion of array gathering to multiple threads
+        # TODO: Allow for distribution of array gathering to multiple threads
         for array_name in self.target_arrays.keys():
             class_arrays = []
             for label in self.classes:
                 self.target_sources[array_name][label].set_spatial_transforms(
                     spatial_transforms
                 )
-                array = self.target_sources[array_name][label][center]
+                array = self.target_sources[array_name][label][center].squeeze()
                 class_arrays.append(array)
             outputs[array_name] = torch.stack(class_arrays)
         return outputs
