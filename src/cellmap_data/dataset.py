@@ -63,6 +63,7 @@ class CellMapDataset(Dataset):
         context: Optional[tensorstore.Context] = None,  # type: ignore
         rng: Optional[torch.Generator] = None,
         force_has_data: bool = False,
+        empty_value: float | int = -100,
     ):
         """Initializes the CellMapDataset class.
 
@@ -95,6 +96,7 @@ class CellMapDataset(Dataset):
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
             rng (Optional[torch.Generator], optional): A random number generator. Defaults to None.
             force_has_data (bool, optional): Whether to force the dataset to report that it has data. Defaults to False.
+            empty_value (float | int, optional): The value to fill in for empty data. Defaults to -100.
         """
         self.raw_path = raw_path
         self.target_paths = target_path
@@ -110,6 +112,7 @@ class CellMapDataset(Dataset):
         self.context = context
         self._rng = rng
         self.force_has_data = force_has_data
+        self.empty_value = empty_value
         self._current_center = None
         self._current_spatial_transforms = None
         self.input_sources = {}
@@ -127,9 +130,7 @@ class CellMapDataset(Dataset):
         for array_name, array_info in self.target_arrays.items():
             self.target_sources[array_name] = {}
             # TODO: This approach to empty store doesn't work for multiple classes, at least with cross entropy loss in cellmap-train
-            empty_store = torch.zeros(
-                array_info["shape"]
-            )  # * torch.nan  # type: ignore
+            empty_store = torch.ones(array_info["shape"]) * self.empty_value  # type: ignore
             for i, label in enumerate(self.classes):  # type: ignore
                 if label in self.classes_with_path:
                     if isinstance(self.target_value_transforms, dict):
