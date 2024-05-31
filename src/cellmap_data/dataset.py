@@ -63,7 +63,7 @@ class CellMapDataset(Dataset):
         context: Optional[tensorstore.Context] = None,  # type: ignore
         rng: Optional[torch.Generator] = None,
         force_has_data: bool = False,
-        empty_value: float | int = -100,
+        empty_value: float | int = 0,
     ):
         """Initializes the CellMapDataset class.
 
@@ -96,7 +96,7 @@ class CellMapDataset(Dataset):
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
             rng (Optional[torch.Generator], optional): A random number generator. Defaults to None.
             force_has_data (bool, optional): Whether to force the dataset to report that it has data. Defaults to False.
-            empty_value (float | int, optional): The value to fill in for empty data. Defaults to -100.
+            empty_value (float | int, optional): The value to fill in for empty data. Defaults to 0.
         """
         self.raw_path = raw_path
         self.target_paths = target_path
