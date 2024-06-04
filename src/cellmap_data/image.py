@@ -273,7 +273,7 @@ class CellMapImage:
             **coords,  # type: ignore
             method="nearest",
         )
-
+        # assert not data.isnull().any(), f"Data is null for image {self.path}"
         return data
 
 

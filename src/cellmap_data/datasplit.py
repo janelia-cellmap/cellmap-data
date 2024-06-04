@@ -33,6 +33,7 @@ class CellMapDataSplit:
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
         classes: Sequence[str],
+        empty_value: int = 0,
         datasets: Optional[Dict[str, Sequence[CellMapDataset]]] = None,
         dataset_dict: Optional[Mapping[str, Sequence[Dict[str, str]]]] = None,
         csv_path: Optional[str] = None,
@@ -64,9 +65,8 @@ class CellMapDataSplit:
                     },
                     ...
                 }
-            classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with zeros.
-            to_target (Callable): A function to convert the ground truth data to target arrays. The function should have the following structure:
-                def to_target(gt: torch.Tensor, classes: Sequence[str]) -> dict[str, torch.Tensor]:
+            classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays.
+            empty_value (int, optional): The value to use for classes without ground truth. Defaults to 0.
             datasets (Optional[Dict[str, CellMapDataset]], optional): A dictionary containing the dataset objects. The dictionary should have the following structure:
                 {
                     "train": Iterable[CellMapDataset],
@@ -93,6 +93,7 @@ class CellMapDataSplit:
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
         self.classes = classes
+        self.empty_value = empty_value
         self.force_has_data = force_has_data
         if datasets is not None:
             self.datasets = datasets
@@ -204,6 +205,7 @@ class CellMapDataSplit:
                         is_train=True,
                         context=self.context,
                         force_has_data=self.force_has_data,
+                        empty_value=self.empty_value,
                     )
                 )
             except ValueError as e:
@@ -228,6 +230,7 @@ class CellMapDataSplit:
                             is_train=False,
                             context=self.context,
                             force_has_data=self.force_has_data,
+                            empty_value=self.empty_value,
                         )
                     )
                 except ValueError as e:
