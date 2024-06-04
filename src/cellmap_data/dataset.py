@@ -41,6 +41,7 @@ class CellMapDataset(Dataset):
     target_value_transforms: Optional[
         Callable | Sequence[Callable] | dict[str, Callable]
     ]
+    empty_value: float | int | str
     has_data: bool
     is_train: bool
     axis_order: str
@@ -212,6 +213,7 @@ class CellMapDataset(Dataset):
                 array = self.target_sources[array_name][label][center].squeeze()
                 if self.masked:
                     mask = array == -100  # Get all places where the array is empty
+                    mask = mask.cpu()  # Convert to CPU to avoid memory issues
                     array[mask] = 0  # Set all empty places to 0
                     mask_arrays.append(
                         mask == 0
