@@ -13,35 +13,35 @@ class CellMapDataSplit:
     This subclasses PyTorch Dataset to split data into training and validation sets. It maintains the same API as the Dataset class. It retrieves raw and groundtruth data from CellMapDataset objects.
     """
 
-    input_arrays: dict[str, dict[str, Sequence[int | float]]]
-    target_arrays: dict[str, dict[str, Sequence[int | float]]]
+    input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]]
+    target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]]
     classes: Sequence[str]
     to_target: Callable
-    datasets: dict[str, Sequence[CellMapDataset]]
+    datasets: Mapping[str, Sequence[CellMapDataset]]
     train_datasets: Sequence[CellMapDataset]
     validation_datasets: Sequence[CellMapDataset]
-    spatial_transforms: Optional[dict[str, Any]] = None
+    spatial_transforms: Optional[Mapping[str, Any]] = None
     train_raw_value_transforms: Optional[Callable] = None
     target_value_transforms: Optional[
-        Callable | Sequence[Callable] | dict[str, Callable]
+        Callable | Sequence[Callable] | Mapping[str, Callable]
     ] = None
     force_has_data: bool = False
     context: Optional[tensorstore.Context] = None  # type: ignore
 
     def __init__(
         self,
-        input_arrays: dict[str, dict[str, Sequence[int | float]]],
-        target_arrays: dict[str, dict[str, Sequence[int | float]]],
+        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
+        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
         classes: Sequence[str],
-        empty_value: int = 0,
-        datasets: Optional[Dict[str, Sequence[CellMapDataset]]] = None,
-        dataset_dict: Optional[Mapping[str, Sequence[Dict[str, str]]]] = None,
+        empty_value: int | float | str = 0,
+        datasets: Optional[Mapping[str, Sequence[CellMapDataset]]] = None,
+        dataset_dict: Optional[Mapping[str, Sequence[Mapping[str, str]]]] = None,
         csv_path: Optional[str] = None,
-        spatial_transforms: Optional[dict[str, Any]] = None,
+        spatial_transforms: Optional[Mapping[str, Any]] = None,
         train_raw_value_transforms: Optional[Callable] = None,
         val_raw_value_transforms: Optional[Callable] = None,
         target_value_transforms: Optional[
-            Callable | Sequence[Callable] | dict[str, Callable]
+            Callable | Sequence[Callable] | Mapping[str, Callable]
         ] = None,
         force_has_data: bool = False,
         context: Optional[tensorstore.Context] = None,  # type: ignore
@@ -66,7 +66,7 @@ class CellMapDataSplit:
                     ...
                 }
             classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays.
-            empty_value (int, optional): The value to use for classes without ground truth. Defaults to 0.
+            empty_value (int | float | str, optional): The value to use for empty data. Defaults to 0. If "mask" is specified, the datasets will produce training masks alongside the input and target arrays.
             datasets (Optional[Dict[str, CellMapDataset]], optional): A dictionary containing the dataset objects. The dictionary should have the following structure:
                 {
                     "train": Iterable[CellMapDataset],

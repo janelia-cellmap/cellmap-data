@@ -41,6 +41,7 @@ class CellMapDataset(Dataset):
     target_value_transforms: Optional[
         Callable | Sequence[Callable] | dict[str, Callable]
     ]
+    empty_value: float | int | str
     has_data: bool
     is_train: bool
     axis_order: str
@@ -63,7 +64,7 @@ class CellMapDataset(Dataset):
         context: Optional[tensorstore.Context] = None,  # type: ignore
         rng: Optional[torch.Generator] = None,
         force_has_data: bool = False,
-        empty_value: float | int = 0,
+        empty_value: float | int | str = 0,
     ):
         """Initializes the CellMapDataset class.
 
@@ -96,7 +97,7 @@ class CellMapDataset(Dataset):
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
             rng (Optional[torch.Generator], optional): A random number generator. Defaults to None.
             force_has_data (bool, optional): Whether to force the dataset to report that it has data. Defaults to False.
-            empty_value (float | int, optional): The value to fill in for empty data. Defaults to 0.
+            empty_value (float | int | str, optional): The value to fill in for empty data. If set to "mask" will also produce training masks for empty data (data in target arrays will be 0). Defaults to 0.
         """
         self.raw_path = raw_path
         self.target_paths = target_path
@@ -130,7 +131,13 @@ class CellMapDataset(Dataset):
         for array_name, array_info in self.target_arrays.items():
             self.target_sources[array_name] = {}
             # TODO: This approach to empty store doesn't work for multiple classes, at least with cross entropy loss in cellmap-train
-            empty_store = torch.ones(array_info["shape"]) * self.empty_value  # type: ignore
+            if empty_value == "mask":
+                empty_store = torch.ones(array_info["shape"]) * -100  # type: ignore
+            else:
+                assert isinstance(
+                    empty_value, (float, int)
+                ), "Empty value must be `mask` or a number."
+                empty_store = torch.ones(array_info["shape"]) * self.empty_value  # type: ignore
             for i, label in enumerate(self.classes):  # type: ignore
                 if label in self.classes_with_path:
                     if isinstance(self.target_value_transforms, dict):
@@ -198,18 +205,33 @@ class CellMapDataset(Dataset):
         # TODO: Allow for distribution of array gathering to multiple threads
         for array_name in self.target_arrays.keys():
             class_arrays = []
+            mask_arrays = []
             for label in self.classes:
                 self.target_sources[array_name][label].set_spatial_transforms(
                     spatial_transforms
                 )
                 array = self.target_sources[array_name][label][center].squeeze()
+                if self.masked:
+                    mask = array == -100  # Get all places where the array is empty
+                    mask = mask.cpu()  # Convert to CPU to avoid memory issues
+                    array[mask] = 0  # Set all empty places to 0
+                    mask_arrays.append(
+                        mask == 0
+                    )  # Take the inverse of the empty places mask to use for masking the loss
                 class_arrays.append(array)
             outputs[array_name] = torch.stack(class_arrays)
+            if self.masked:
+                outputs[array_name + "_mask"] = torch.stack(mask_arrays)
         return outputs
 
     def __repr__(self):
         """Returns a string representation of the dataset."""
         return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.target_paths}\n\tClasses: {self.classes})"
+
+    @property
+    def masked(self):
+        """Returns whether the dataset returns training masks, alongside input and target arrays."""
+        return self.empty_value == "mask"
 
     @property
     def largest_voxel_sizes(self) -> dict[str, float]:
