@@ -1,6 +1,6 @@
 # %%
 import os
-from typing import Any, Callable, Dict, Sequence, Optional
+from typing import Any, Callable, Dict, Mapping, Sequence, Optional
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -35,12 +35,13 @@ class CellMapDataset(Dataset):
     input_arrays: dict[str, dict[str, Sequence[int | float]]]
     target_arrays: dict[str, dict[str, Sequence[int | float]]]
     input_sources: dict[str, CellMapImage]
-    target_sources: dict[str, dict[str, CellMapImage | EmptyImage]]
+    target_sources: dict[str, dict[str, CellMapImage | EmptyImage | Sequence[str]]]
     spatial_transforms: Optional[dict[str, any]]  # type: ignore
     raw_value_transforms: Optional[Callable]
     target_value_transforms: Optional[
         Callable | Sequence[Callable] | dict[str, Callable]
     ]
+    class_relation_dict: Optional[Mapping[str, Sequence[str]]]
     empty_value: float | int | str
     has_data: bool
     is_train: bool
@@ -59,6 +60,7 @@ class CellMapDataset(Dataset):
         target_value_transforms: Optional[
             Callable | Sequence[Callable] | dict[str, Callable]
         ] = None,
+        class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
         is_train: bool = False,
         axis_order: str = "zyx",
         context: Optional[tensorstore.Context] = None,  # type: ignore
@@ -108,6 +110,7 @@ class CellMapDataset(Dataset):
         self.spatial_transforms = spatial_transforms
         self.raw_value_transforms = raw_value_transforms
         self.target_value_transforms = target_value_transforms
+        self.class_relation_dict = class_relation_dict
         self.is_train = is_train
         self.axis_order = axis_order
         self.context = context
@@ -129,40 +132,69 @@ class CellMapDataset(Dataset):
         self.target_sources = {}
         self.has_data = False
         for array_name, array_info in self.target_arrays.items():
-            self.target_sources[array_name] = {}
-            # TODO: This approach to empty store doesn't work for multiple classes, at least with cross entropy loss in cellmap-train
-            if empty_value == "mask":
-                empty_store = torch.ones(array_info["shape"]) * -100  # type: ignore
+            self.target_sources[array_name] = self.get_target_array(array_info)
+
+    def get_empty_store(self, array_info):
+        if self.empty_value == "mask":
+            empty_store = torch.ones(array_info["shape"]) * -100  # type: ignore
+        else:
+            assert isinstance(
+                self.empty_value, (float, int)
+            ), "Empty value must be `mask` or a number."
+            empty_store = torch.ones(array_info["shape"]) * self.empty_value  # type: ignore
+        return empty_store
+
+    def get_target_array(self, array_info):
+        empty_store = self.get_empty_store(array_info)
+        target_array = {}
+        for i, label in enumerate(self.classes):  # type: ignore
+            target_array[label] = self.get_label_array(
+                label, i, array_info, empty_store
+            )
+        # Check to make sure we aren't trying to define true negatives with non-existent images
+        for label in self.classes:
+            if isinstance(target_array[label], (CellMapImage, EmptyImage)):
+                continue
+            is_empty = True
+            for other_label in target_array[label]:
+                if isinstance(target_array[other_label], (CellMapImage, EmptyImage)):
+                    is_empty = False
+                    break
+            if is_empty:
+                target_array[label] = empty_store
+
+        return target_array
+
+    def get_label_array(self, label, i, array_info, empty_store):
+        if label in self.classes_with_path:
+            if isinstance(self.target_value_transforms, dict):
+                value_transform: Callable = self.target_value_transforms[label]
+            elif isinstance(self.target_value_transforms, list):
+                value_transform: Callable = self.target_value_transforms[i]
             else:
-                assert isinstance(
-                    empty_value, (float, int)
-                ), "Empty value must be `mask` or a number."
-                empty_store = torch.ones(array_info["shape"]) * self.empty_value  # type: ignore
-            for i, label in enumerate(self.classes):  # type: ignore
-                if label in self.classes_with_path:
-                    if isinstance(self.target_value_transforms, dict):
-                        value_transform: Callable = self.target_value_transforms[label]
-                    elif isinstance(self.target_value_transforms, list):
-                        value_transform: Callable = self.target_value_transforms[i]
-                    else:
-                        value_transform: Callable = self.target_value_transforms  # type: ignore
-                    self.target_sources[array_name][label] = CellMapImage(
-                        self.target_path_str.format(label=label),
-                        label,
-                        array_info["scale"],
-                        array_info["shape"],  # type: ignore
-                        value_transform=value_transform,
-                        context=self.context,
-                    )
-                    if not self.has_data:
-                        self.has_data = (
-                            self.has_data
-                            or self.target_sources[array_name][label].class_counts != 0
-                        )
-                else:
-                    self.target_sources[array_name][label] = EmptyImage(
-                        label, array_info["shape"], empty_store  # type: ignore
-                    )
+                value_transform: Callable = self.target_value_transforms  # type: ignore
+            array = CellMapImage(
+                self.target_path_str.format(label=label),
+                label,
+                array_info["scale"],
+                array_info["shape"],  # type: ignore
+                value_transform=value_transform,
+                context=self.context,
+            )
+            if not self.has_data:
+                self.has_data = self.has_data or array.class_counts != 0  # type: ignore
+        else:
+            if (
+                self.class_relation_dict is not None
+                and label in self.class_relation_dict
+            ):
+                # Add lookup of source images for true-negatives in absence of annotations
+                array = self.class_relation_dict[label]
+            else:
+                array = EmptyImage(
+                    label, array_info["shape"], empty_store  # type: ignore
+                )
+        return array
 
     def __len__(self):
         """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for a cube."""
@@ -204,24 +236,44 @@ class CellMapDataset(Dataset):
                 outputs[array_name] = array
         # TODO: Allow for distribution of array gathering to multiple threads
         for array_name in self.target_arrays.keys():
-            class_arrays = []
-            mask_arrays = []
+            class_arrays = {}
+            mask_arrays = {}
+            inferred_arrays = []
             for label in self.classes:
                 self.target_sources[array_name][label].set_spatial_transforms(
                     spatial_transforms
                 )
-                array = self.target_sources[array_name][label][center].squeeze()
-                if self.masked:
-                    mask = array == -100  # Get all places where the array is empty
+                if isinstance(
+                    self.target_sources[array_name][label], (CellMapImage, EmptyImage)
+                ):
+                    array = self.target_sources[array_name][label][center].squeeze()
+                else:
+                    # Add to list of arrays to infer
+                    inferred_arrays.append(label)
+                    array = None
+                class_arrays[label] = array
+
+            for label in inferred_arrays:
+                # Make array of true negatives
+                array = self.get_empty_store(self.target_arrays[array_name])
+                for other_label in self.target_sources[array_name][label]:  # type: ignore
+                    array[class_arrays[other_label] > 0] = 0
+                class_arrays[label] = array
+
+            if self.masked:
+                for label in self.classes:
+                    # TODO: Find a better way to do this
+                    # TODO: This will break with inferred arrays
+                    mask = (
+                        class_arrays[label] == -100
+                    )  # Get all places where the array is empty
                     mask = mask.cpu()  # Convert to CPU to avoid memory issues
-                    array[mask] = 0  # Set all empty places to 0
-                    mask_arrays.append(
+                    class_arrays[label][mask] = 0  # Set all empty places to 0
+                    mask_arrays[label] = (
                         mask == 0
                     )  # Take the inverse of the empty places mask to use for masking the loss
-                class_arrays.append(array)
-            outputs[array_name] = torch.stack(class_arrays)
-            if self.masked:
-                outputs[array_name + "_mask"] = torch.stack(mask_arrays)
+                outputs[array_name + "_mask"] = torch.stack(list(mask_arrays.values()))
+            outputs[array_name] = torch.stack(list(class_arrays.values()))
         return outputs
 
     def __repr__(self):
@@ -231,7 +283,13 @@ class CellMapDataset(Dataset):
     @property
     def masked(self):
         """Returns whether the dataset returns training masks, alongside input and target arrays."""
-        return self.empty_value == "mask"
+        if not hasattr(self, "_masked"):
+            self._masked = self.empty_value == "mask"
+            if self._masked:
+                DeprecationWarning(
+                    "The `masked` attribute is deprecated, and not recommended due to increased memory overhead."
+                )
+        return self._masked
 
     @property
     def largest_voxel_sizes(self) -> dict[str, float]:

@@ -25,6 +25,7 @@ class CellMapDataSplit:
     target_value_transforms: Optional[
         Callable | Sequence[Callable] | Mapping[str, Callable]
     ] = None
+    class_relation_dict: Optional[Mapping[str, Sequence[str]]]
     force_has_data: bool = False
     context: Optional[tensorstore.Context] = None  # type: ignore
 
@@ -43,6 +44,7 @@ class CellMapDataSplit:
         target_value_transforms: Optional[
             Callable | Sequence[Callable] | Mapping[str, Callable]
         ] = None,
+        class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
         force_has_data: bool = False,
         context: Optional[tensorstore.Context] = None,  # type: ignore
     ):
@@ -111,6 +113,7 @@ class CellMapDataSplit:
         self.train_raw_value_transforms = train_raw_value_transforms
         self.val_raw_value_transforms = val_raw_value_transforms
         self.target_value_transforms = target_value_transforms
+        self.class_relation_dict = class_relation_dict
         self.context = context
         if self.dataset_dict is not None:
             self.construct(self.dataset_dict)
@@ -206,6 +209,7 @@ class CellMapDataSplit:
                         context=self.context,
                         force_has_data=self.force_has_data,
                         empty_value=self.empty_value,
+                        class_relation_dict=self.class_relation_dict,
                     )
                 )
             except ValueError as e:
@@ -231,6 +235,7 @@ class CellMapDataSplit:
                             context=self.context,
                             force_has_data=self.force_has_data,
                             empty_value=self.empty_value,
+                            class_relation_dict=self.class_relation_dict,
                         )
                     )
                 except ValueError as e:

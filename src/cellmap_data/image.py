@@ -236,14 +236,14 @@ class CellMapImage:
         self, coords: dict[str, Sequence[float]]
     ) -> torch.Tensor:
         """Applies spatial transformations to the given coordinates."""
-        # Apply spatial transformations to the coordinates
         # TODO: Implement non-90 degree rotations
+
+        # Apply spatial transformations to the coordinates
         if self._current_spatial_transforms is not None:
             for transform, params in self._current_spatial_transforms.items():
                 if transform not in self.post_image_transforms:
                     if transform == "mirror":
                         for axis in params:
-                            # TODO: Make sure this works and doesn't collapse to coords
                             coords[axis] = coords[axis][::-1]
                     else:
                         raise ValueError(f"Unknown spatial transform: {transform}")
@@ -258,8 +258,6 @@ class CellMapImage:
             for transform, params in self._current_spatial_transforms.items():
                 if transform in self.post_image_transforms:
                     if transform == "transpose":
-                        # TODO ... make sure this works
-                        # data = data.transpose(*params)
                         new_order = [params[c] for c in self.axes]
                         data = np.transpose(data, new_order)
                     else:

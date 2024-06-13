@@ -8,9 +8,9 @@ utilizing PyTorch, TensorStore, and PyDantic.
 from importlib.metadata import PackageNotFoundError, version
 
 try:
-    __version__ = version("cellmap.data")
+    __version__ = version("cellmap_data")
 except PackageNotFoundError:
-    __version__ = "0.0.0"
+    __version__ = "0.0.1"
 
 __author__ = "Jeff Rhoades"
 __email__ = "rhoadesj@hhmi.org"
@@ -23,3 +23,4 @@ from .image import CellMapImage
 from .subdataset import CellMapSubset
 from . import samplers
 from . import transforms
+from . import utils
