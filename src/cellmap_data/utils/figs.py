@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 
 
 def get_image_grid(
-    input_data, target_data, outputs, classes, batch_size=None, fig_size=3, clim=[0, 1]
+    input_data, target_data, outputs, classes, batch_size=None, fig_size=3, clim=None
 ):
     if batch_size is None:
         batch_size = input_data.shape[0]
@@ -33,7 +33,15 @@ def get_image_grid(
         x_pad, y_pad = (input_img.shape[1] - output.shape[1]) // 2, (
             input_img.shape[0] - output.shape[0]
         ) // 2
-        ax[b, 1].imshow(input_img[x_pad:-x_pad, y_pad:-y_pad], cmap="gray", clim=clim)
+        if x_pad <= 0:
+            x_slice = slice(0, input_img.shape[1])
+        else:
+            x_slice = slice(x_pad, -x_pad)
+        if y_pad <= 0:
+            y_slice = slice(0, input_img.shape[0])
+        else:
+            y_slice = slice(y_pad, -y_pad)
+        ax[b, 1].imshow(input_img[x_slice, y_slice], cmap="gray", clim=clim)
         ax[b, 1].axis("off")
         ax[b, 1].set_title("Raw")
         ax[b, 0].imshow(input_img, cmap="gray", clim=clim)

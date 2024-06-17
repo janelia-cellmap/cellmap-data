@@ -142,7 +142,7 @@ class CellMapDataset(Dataset):
                 self.empty_value, (float, int)
             ), "Empty value must be `mask` or a number."
             empty_store = torch.ones(array_info["shape"]) * self.empty_value  # type: ignore
-        return empty_store
+        return empty_store.squeeze()
 
     def get_target_array(self, array_info):
         empty_store = self.get_empty_store(array_info)
@@ -157,7 +157,9 @@ class CellMapDataset(Dataset):
                 continue
             is_empty = True
             for other_label in target_array[label]:
-                if isinstance(target_array[other_label], (CellMapImage, EmptyImage)):
+                if other_label in target_array and isinstance(
+                    target_array[other_label], (CellMapImage, EmptyImage)
+                ):
                     is_empty = False
                     break
             if is_empty:
@@ -240,12 +242,12 @@ class CellMapDataset(Dataset):
             mask_arrays = {}
             inferred_arrays = []
             for label in self.classes:
-                self.target_sources[array_name][label].set_spatial_transforms(
-                    spatial_transforms
-                )
                 if isinstance(
                     self.target_sources[array_name][label], (CellMapImage, EmptyImage)
                 ):
+                    self.target_sources[array_name][label].set_spatial_transforms(
+                        spatial_transforms
+                    )
                     array = self.target_sources[array_name][label][center].squeeze()
                 else:
                     # Add to list of arrays to infer
@@ -255,9 +257,13 @@ class CellMapDataset(Dataset):
 
             for label in inferred_arrays:
                 # Make array of true negatives
-                array = self.get_empty_store(self.target_arrays[array_name])
+                array = self.get_empty_store(self.target_arrays[array_name]).to(
+                    self.device
+                )
                 for other_label in self.target_sources[array_name][label]:  # type: ignore
-                    array[class_arrays[other_label] > 0] = 0
+                    if class_arrays[other_label] is not None:
+                        mask = class_arrays[other_label] > 0
+                        array[mask] = 0
                 class_arrays[label] = array
 
             if self.masked:
@@ -301,12 +307,12 @@ class CellMapDataset(Dataset):
             ):
                 if isinstance(source, dict):
                     for label, source in source.items():
-                        if source.scale is None:
+                        if not hasattr(source, "scale") or source.scale is None:
                             continue
                         for c, size in source.scale.items():
                             largest_voxel_size[c] = max(largest_voxel_size[c], size)
                 else:
-                    if source.scale is None:
+                    if not hasattr(source, "scale") or source.scale is None:
                         continue
                     for c, size in source.scale.items():
                         largest_voxel_size[c] = max(largest_voxel_size[c], size)
@@ -324,8 +330,12 @@ class CellMapDataset(Dataset):
             ):
                 if isinstance(source, dict):
                     for label, source in source.items():
+                        if not hasattr(source, "bounding_box"):
+                            continue
                         bounding_box = self._get_box(source.bounding_box, bounding_box)
                 else:
+                    if not hasattr(source, "bounding_box"):
+                        continue
                     bounding_box = self._get_box(source.bounding_box, bounding_box)
             self._bounding_box = bounding_box
         return self._bounding_box
@@ -347,8 +357,12 @@ class CellMapDataset(Dataset):
             ):
                 if isinstance(source, dict):
                     for label, source in source.items():
+                        if not hasattr(source, "sampling_box"):
+                            continue
                         sampling_box = self._get_box(source.sampling_box, sampling_box)
                 else:
+                    if not hasattr(source, "sampling_box"):
+                        continue
                     sampling_box = self._get_box(source.sampling_box, sampling_box)
             self._sampling_box = sampling_box
         return self._sampling_box
@@ -394,8 +408,12 @@ class CellMapDataset(Dataset):
             for array_name, sources in self.target_sources.items():
                 class_counts[array_name] = {}
                 for label, source in sources.items():
-                    class_counts[array_name][label] = source.class_counts
-                    class_counts["totals"][label] += source.class_counts
+                    if isinstance(source, list):
+                        class_counts[array_name][label] = 0
+                        class_counts["totals"][label] += 0
+                    else:
+                        class_counts[array_name][label] = source.class_counts
+                        class_counts["totals"][label] += source.class_counts
             self._class_counts = class_counts
         return self._class_counts
 
@@ -454,15 +472,33 @@ class CellMapDataset(Dataset):
             indices.append(index)
         return indices
 
+    @property
+    def device(self):
+        """Returns the device for the dataset."""
+        if not hasattr(self, "_device"):
+            if torch.cuda.is_available():
+                self._device = torch.device("cuda")
+            elif torch.backends.mps.is_available():
+                self._device = torch.device("mps")
+            else:
+                self._device = torch.device("cpu")
+        return self._device
+
     def to(self, device):
         """Sets the device for the dataset."""
+        if not hasattr(self, "_device"):
+            self._device = device
         for source in list(self.input_sources.values()) + list(
             self.target_sources.values()
         ):
             if isinstance(source, dict):
                 for source in source.values():
+                    if not hasattr(source, "to"):
+                        continue
                     source.to(device)
             else:
+                if not hasattr(source, "to"):
+                    continue
                 source.to(device)
         return self
 
