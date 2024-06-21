@@ -285,6 +285,19 @@ class CellMapDataSplit:
         if hasattr(self, "_validation_blocks"):
             self._validation_blocks.set_target_value_transforms(transforms)
 
+    def set_spatial_transforms(self, spatial_transforms: dict[str, Any] | None):
+        """Sets the raw value transforms for each dataset in the training multi-dataset."""
+        for dataset in self.train_datasets:
+            dataset.spatial_transforms = spatial_transforms
+        if hasattr(self, "_train_datasets_combined"):
+            self._train_datasets_combined.set_spatial_transforms(spatial_transforms)
+        for dataset in self.validation_datasets:
+            dataset.spatial_transforms = spatial_transforms
+        if hasattr(self, "_validation_datasets_combined"):
+            self._validation_datasets_combined.set_spatial_transforms(
+                spatial_transforms
+            )
+
 
 # Example input arrays:
 # {'0_input': {'shape': (90, 90, 90), 'scale': (32, 32, 32)},

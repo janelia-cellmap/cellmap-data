@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Optional, Sequence
+from typing import Any, Callable, Iterable, Optional, Sequence
 import numpy as np
 import torch
 from torch.utils.data import ConcatDataset, WeightedRandomSampler
@@ -203,6 +203,11 @@ class CellMapMultiDataset(ConcatDataset):
         """Sets the target value transforms for each dataset in the multi-dataset."""
         for dataset in self.datasets:
             dataset.set_target_value_transforms(transforms)
+
+    def set_spatial_transforms(self, spatial_transforms: dict[str, Any] | None):
+        """Sets the raw value transforms for each dataset in the training multi-dataset."""
+        for dataset in self.datasets:
+            dataset.spatial_transforms = spatial_transforms
 
 
 # TODO: make "last" and "current" variable names consistent

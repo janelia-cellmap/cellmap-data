@@ -194,7 +194,7 @@ class CellMapDataset(Dataset):
                 array = self.class_relation_dict[label]
             else:
                 array = EmptyImage(
-                    label, array_info["shape"], empty_store  # type: ignore
+                    label, array_info["scale"], array_info["shape"], empty_store  # type: ignore
                 )
         return array
 
@@ -381,16 +381,17 @@ class CellMapDataset(Dataset):
         """
         if not hasattr(self, "_class_weights"):
             if len(self.classes) > 1:
-                class_counts = {c: 0 for c in self.classes}
                 class_count_sum = 0
                 for c in self.classes:
-                    class_counts[c] += self.class_counts["totals"][c]
                     class_count_sum += self.class_counts["totals"][c]
+                class_count_sum += self.class_counts["totals"]["bg"]
 
                 class_weights = {
                     c: (
-                        1 - (class_counts[c] / class_count_sum)
-                        if class_counts[c] != class_count_sum
+                        # CLASS_WEIGHTS SHOULD BE > 1 FOR FOREGROUND CLASSES - I THINK THIS NEEDS TO BE THE INVERSE, NOT 1 - ...
+                        # BUT THAT WILL BE PRETTY BIG...
+                        1 - (self.class_counts["totals"][c] / class_count_sum)
+                        if self.class_counts["totals"][c] != class_count_sum
                         else 0.1
                     )
                     for c in self.classes
@@ -405,15 +406,18 @@ class CellMapDataset(Dataset):
         """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
         if not hasattr(self, "_class_counts"):
             class_counts = {"totals": {c: 0 for c in self.classes}}
+            class_counts["totals"]["bg"] = 0
             for array_name, sources in self.target_sources.items():
                 class_counts[array_name] = {}
                 for label, source in sources.items():
-                    if isinstance(source, list):
+                    if isinstance(source, Sequence):
                         class_counts[array_name][label] = 0
-                        class_counts["totals"][label] += 0
+                        # class_counts["totals"][label] += 0
                     else:
                         class_counts[array_name][label] = source.class_counts
                         class_counts["totals"][label] += source.class_counts
+                        class_counts["totals"]["bg"] += source.bg_count
+
             self._class_counts = class_counts
         return self._class_counts
 
@@ -555,8 +559,7 @@ class CellMapDataset(Dataset):
             for source in sources.values():
                 if isinstance(source, CellMapImage):
                     source.value_transform = transforms
-
-
+        
 # Example input arrays:
 # {'0_input': {'shape': (90, 90, 90), 'scale': (32, 32, 32)},
 #  '1_input': {'shape': (114, 114, 114), 'scale': (8, 8, 8)}}

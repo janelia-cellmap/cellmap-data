@@ -64,12 +64,8 @@ class CellMapImage:
         self.axes = axis_order[: len(target_voxel_shape)]
         self.value_transform = value_transform
         self.context = context
-        self._bounding_box = None
-        self._sampling_box = None
-        self._class_counts = None
         self._current_spatial_transforms = None
         self._last_coords = None
-        self._original_scale = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         # self.xs = self.array.coords["x"]
         # self.ys = self.array.coords["y"]
@@ -139,9 +135,9 @@ class CellMapImage:
         return self._translation
 
     @property
-    def original_scale(self) -> dict[str, Any] | None:
+    def original_scale(self) -> dict[str, Any]:
         """Returns the original scale of the image."""
-        if self._original_scale is None:
+        if not hasattr(self, "_original_scale"):
             # Get the original scale of the image from poorly formatted metadata
             for level_data in self.group.attrs["multiscales"][0]["datasets"]:
                 if level_data["path"] == self.scale_level:
@@ -158,7 +154,7 @@ class CellMapImage:
     @property
     def bounding_box(self) -> dict[str, list[float]]:
         """Returns the bounding box of the dataset in world units."""
-        if self._bounding_box is None:
+        if not hasattr(self, "_bounding_box"):
             self._bounding_box = {
                 c: [self.translation[c], self.array.coords[c].values.max()]
                 for c in self.axes
@@ -168,7 +164,7 @@ class CellMapImage:
     @property
     def sampling_box(self) -> dict[str, list[float]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units."""
-        if self._sampling_box is None:
+        if not hasattr(self, "_sampling_box"):
             self._sampling_box = {}
             output_padding = {c: np.ceil(s / 2) for c, s in self.output_size.items()}
             for c, (start, stop) in self.bounding_box.items():
@@ -182,19 +178,28 @@ class CellMapImage:
         return self._sampling_box
 
     @property
+    def bg_count(self) -> int:
+        """Returns the number of background pixels in the ground truth data, normalized by the resolution."""
+        if hasattr(self, "_bg_count"):
+            # Get from cellmap-schemas metadata, then normalize by resolution - get class counts at same time
+            _ = self.class_counts
+        return self._bg_count
+
+    @property
     def class_counts(self) -> int:
         """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
-        if self._class_counts is None:
+        if not hasattr(self, "_class_counts"):
             # Get from cellmap-schemas metadata, then normalize by resolution
             try:
                 group = zarr.open(self.path, mode="r")
                 annotation_group = AnnotationGroup.from_zarr(group)  # type: ignore
-                self._class_counts = (
-                    np.prod(self.array.shape)
-                    - annotation_group.members[
-                        self.scale_level
-                    ].attrs.cellmap.annotation.complement_counts["absent"]
-                ) * np.prod(list(self.scale.values()))
+                bg_count = annotation_group.members[
+                    self.scale_level
+                ].attrs.cellmap.annotation.complement_counts["absent"]
+                self._class_counts = (np.prod(self.array.shape) - bg_count) * np.prod(
+                    list(self.scale.values())
+                )
+                self._bg_count = bg_count * np.prod(list(self.scale.values()))
             except Exception as e:
                 print(e)
                 self._class_counts = 0
@@ -279,10 +284,13 @@ class EmptyImage:
     label_class: str
     axes: str
     store: torch.Tensor
+    shape: dict[str, int]
+    scale: dict[str, float]
 
     def __init__(
         self,
         target_class: str,
+        target_scale: Sequence[float],
         target_voxel_shape: Sequence[int],
         store: Optional[torch.Tensor] = None,
         axis_order: str = "zyx",
@@ -297,6 +305,7 @@ class EmptyImage:
             axis_order (str, optional): The order of the axes in the image. Defaults to "zyx".
         """
         self.label_class = target_class
+        self.target_scale = target_scale
         if len(target_voxel_shape) < len(axis_order):
             axis_order = axis_order[-len(target_voxel_shape) :]
         self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
@@ -326,6 +335,13 @@ class EmptyImage:
     def sampling_box(self) -> None:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
         return self._bounding_box
+
+    @property
+    def bg_count(self) -> int:
+        """Returns the number of background pixels in the ground truth data, normalized by the resolution."""
+        return np.prod(
+            [s * sc for s, sc in zip(self.output_shape.values(), self.scale.values())]
+        ).astype(int)
 
     @property
     def class_counts(self) -> int:
