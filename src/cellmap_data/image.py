@@ -178,7 +178,7 @@ class CellMapImage:
         return self._sampling_box
 
     @property
-    def bg_count(self) -> int:
+    def bg_count(self) -> float:
         """Returns the number of background pixels in the ground truth data, normalized by the resolution."""
         if hasattr(self, "_bg_count"):
             # Get from cellmap-schemas metadata, then normalize by resolution - get class counts at same time
@@ -186,7 +186,7 @@ class CellMapImage:
         return self._bg_count
 
     @property
-    def class_counts(self) -> int:
+    def class_counts(self) -> float:
         """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
         if not hasattr(self, "_class_counts"):
             # Get from cellmap-schemas metadata, then normalize by resolution
@@ -284,7 +284,8 @@ class EmptyImage:
     label_class: str
     axes: str
     store: torch.Tensor
-    shape: dict[str, int]
+    output_shape: dict[str, int]
+    output_size: dict[str, float]
     scale: dict[str, float]
 
     def __init__(
@@ -309,10 +310,13 @@ class EmptyImage:
         if len(target_voxel_shape) < len(axis_order):
             axis_order = axis_order[-len(target_voxel_shape) :]
         self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
+        self.output_size = {
+            c: t * s for c, t, s in zip(axis_order, target_voxel_shape, target_scale)
+        }
         self.axes = axis_order
         self._bounding_box = None
         self._class_counts = 0
-        self.scale = {c: 1 for c in self.axes}
+        self.scale = {c: sc for c, sc in zip(self.axes, self.target_scale)}
         self.empty_value = empty_value
         if store is not None:
             self.store = store
@@ -337,14 +341,14 @@ class EmptyImage:
         return self._bounding_box
 
     @property
-    def bg_count(self) -> int:
+    def bg_count(self) -> float:
         """Returns the number of background pixels in the ground truth data, normalized by the resolution."""
         return np.prod(
             [s * sc for s, sc in zip(self.output_shape.values(), self.scale.values())]
         ).astype(int)
 
     @property
-    def class_counts(self) -> int:
+    def class_counts(self) -> float:
         """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
         return self._class_counts
 

@@ -46,7 +46,7 @@ class CellMapMultiDataset(ConcatDataset):
             class_counts = {}
             for c in self.classes:
                 class_counts[c] = {}
-                total: int = 0
+                total = 0.0
                 for ds in self.datasets:
                     total += ds.class_counts["totals"][c]
                     class_counts[c][ds] = ds.class_counts["totals"][c]

@@ -375,6 +375,32 @@ class CellMapDataset(Dataset):
         return self._sampling_box_shape
 
     @property
+    def class_counts(self) -> Dict[str, Dict[str, float]]:
+        """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
+        if not hasattr(self, "_class_counts"):
+            class_counts = {"totals": {c: 0.0 for c in self.classes}}
+            class_counts["totals"]["bg"] = 0.0
+            for array_name, sources in self.target_sources.items():
+                class_counts[array_name] = {}
+                bg_count = -1.0
+                for label, source in sources.items():
+                    if isinstance(source, Sequence):
+                        class_counts[array_name][label] = 0
+                        # class_counts["totals"][label] += 0
+                    else:
+                        if bg_count < 0.0:
+                            bg_count = np.prod(
+                                list(source.output_size.values()), dtype=float
+                            )
+                        bg_count -= source.class_counts
+                        class_counts[array_name][label] = source.class_counts
+                        class_counts["totals"][label] += source.class_counts
+                class_counts[array_name]["bg"] = bg_count
+                class_counts["totals"]["bg"] += bg_count
+            self._class_counts = class_counts
+        return self._class_counts
+
+    @property
     def class_weights(self) -> dict[str, float]:
         """
         Returns the class weights for the dataset based on the number of samples in each class.
@@ -400,26 +426,6 @@ class CellMapDataset(Dataset):
                 class_weights = {self.classes[0]: 0.1}  # less than 1 to avoid overflow
             self._class_weights = class_weights
         return self._class_weights
-
-    @property
-    def class_counts(self) -> Dict[str, Dict[str, int]]:
-        """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
-        if not hasattr(self, "_class_counts"):
-            class_counts = {"totals": {c: 0 for c in self.classes}}
-            class_counts["totals"]["bg"] = 0
-            for array_name, sources in self.target_sources.items():
-                class_counts[array_name] = {}
-                for label, source in sources.items():
-                    if isinstance(source, Sequence):
-                        class_counts[array_name][label] = 0
-                        # class_counts["totals"][label] += 0
-                    else:
-                        class_counts[array_name][label] = source.class_counts
-                        class_counts["totals"][label] += source.class_counts
-                        class_counts["totals"]["bg"] += source.bg_count
-
-            self._class_counts = class_counts
-        return self._class_counts
 
     @property
     def validation_indices(self) -> Sequence[int]:
@@ -559,7 +565,8 @@ class CellMapDataset(Dataset):
             for source in sources.values():
                 if isinstance(source, CellMapImage):
                     source.value_transform = transforms
-        
+
+
 # Example input arrays:
 # {'0_input': {'shape': (90, 90, 90), 'scale': (32, 32, 32)},
 #  '1_input': {'shape': (114, 114, 114), 'scale': (8, 8, 8)}}
