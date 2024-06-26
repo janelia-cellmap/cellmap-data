@@ -37,14 +37,13 @@ class CellMapMultiDataset(ConcatDataset):
         return out_string
 
     @property
-    def class_counts(self):
-        if (
-            not hasattr(self, "_class_counts")
-            or self._class_counts is None  # This should be overkill...
-            or len(self._class_counts) == 0
-        ):
+    def class_counts(self) -> dict[str, dict[str, float]]:
+        """
+        Returns the number of samples in each class for each dataset in the multi-dataset, as well as the total number of samples in each class.
+        """
+        if not hasattr(self, "_class_counts"):
             class_counts = {}
-            for c in self.classes:
+            for c in list(self.classes) + ["bg"]:
                 class_counts[c] = {}
                 total = 0.0
                 for ds in self.datasets:
@@ -59,24 +58,24 @@ class CellMapMultiDataset(ConcatDataset):
         """
         Returns the class weights for the multi-dataset based on the number of samples in each class.
         """
+        # TODO: review this implementation
         if not hasattr(self, "_class_weights"):
-            if len(self.classes) > 1:
-                class_counts = {}
-                class_count_sum = 0
-                for c in self.classes:
-                    class_counts[c] = self.class_counts[c]["total"]
-                    class_count_sum += class_counts[c]
+            # TODO: Review this implementation - not weighting compared to background class seems wrong
+            class_counts = {}
+            class_count_sum = 0
+            for c in self.classes:
+                class_counts[c] = self.class_counts[c]["total"]
+                class_count_sum += class_counts[c]
+            # class_count_sum += self.class_counts["bg"]["total"]
 
-                class_weights = {
-                    c: (
-                        1 - (class_counts[c] / class_count_sum)
-                        if class_counts[c] != class_count_sum
-                        else 0.1
-                    )
-                    for c in self.classes
-                }
-            else:
-                class_weights = {self.classes[0]: 0.1}  # less than 1 to avoid overflow
+            class_weights = {
+                c: (
+                    class_count_sum / class_counts[c]
+                    if class_counts[c] != 0
+                    else np.NaN
+                )
+                for c in self.classes
+            }
             self._class_weights = class_weights
         return self._class_weights
 
@@ -86,13 +85,11 @@ class CellMapMultiDataset(ConcatDataset):
         Returns the weights for each dataset in the multi-dataset based on the number of samples in each dataset.
         """
         if not hasattr(self, "_dataset_weights"):
-            class_weights = self.class_weights
-
             dataset_weights = {}
             for dataset in self.datasets:
                 dataset_weight = np.sum(
                     [
-                        dataset.class_counts["totals"][c] * class_weights[c]
+                        dataset.class_counts["totals"][c] * self.class_weights[c]
                         for c in self.classes
                     ]
                 )
@@ -162,7 +159,7 @@ class CellMapMultiDataset(ConcatDataset):
                 generator=rng,
             )
         else:
-            dataset_weights = list(self.dataset_weights.values())
+            dataset_weights = [self.dataset_weights[ds] for ds in self.datasets]
 
             datasets_sampled = torch.multinomial(
                 torch.tensor(dataset_weights), num_samples, replacement=True
@@ -171,8 +168,11 @@ class CellMapMultiDataset(ConcatDataset):
             index_offset = 0
             for i, dataset in enumerate(self.datasets):
                 if len(dataset) == 0:
+                    RuntimeWarning(f"Dataset {dataset} has no samples, skipping")
                     continue
                 count = (datasets_sampled == i).sum().item()
+                if count == 0:
+                    continue
                 dataset_indices = torch.randint(
                     0, len(dataset) - 1, [count], generator=rng
                 )

@@ -107,11 +107,21 @@ class CellMapImage:
         return f"CellMapImage({self.path})"
 
     @property
+    def scale_level(self) -> str:
+        """Returns the multiscale level of the image."""
+        if not hasattr(self, "_scale_level"):
+            self._scale_level = self.find_level(self.scale)
+        return self._scale_level
+
+    @property
+    def group(self) -> xarray.DataArray:
+        if not hasattr(self, "_group"):
+            self._group = read_xarray(self.path)
+        return self._group  # type: ignore
+
+    @property
     def array(self) -> xarray.DataArray:
         if not hasattr(self, "_array"):
-            self.group = read_xarray(self.path)
-            # Find correct multiscale level based on target scale
-            self.scale_level = self.find_level(self.scale)
             self.array_path = os.path.join(self.path, self.scale_level)
             # Construct an xarray with Tensorstore backend
             ds = read_xarray(self.array_path)
@@ -315,7 +325,8 @@ class EmptyImage:
         }
         self.axes = axis_order
         self._bounding_box = None
-        self._class_counts = 0
+        self._class_counts = 0.0
+        self._bg_count = 0.0
         self.scale = {c: sc for c, sc in zip(self.axes, self.target_scale)}
         self.empty_value = empty_value
         if store is not None:
@@ -343,9 +354,7 @@ class EmptyImage:
     @property
     def bg_count(self) -> float:
         """Returns the number of background pixels in the ground truth data, normalized by the resolution."""
-        return np.prod(
-            [s * sc for s, sc in zip(self.output_shape.values(), self.scale.values())]
-        ).astype(int)
+        return self._bg_count
 
     @property
     def class_counts(self) -> float:

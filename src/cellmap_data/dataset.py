@@ -376,54 +376,57 @@ class CellMapDataset(Dataset):
 
     @property
     def class_counts(self) -> Dict[str, Dict[str, float]]:
-        """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
+        """
+        Returns the number of pixels for each class in the ground truth data, normalized by the resolution.
+        """
         if not hasattr(self, "_class_counts"):
             class_counts = {"totals": {c: 0.0 for c in self.classes}}
             class_counts["totals"]["bg"] = 0.0
             for array_name, sources in self.target_sources.items():
                 class_counts[array_name] = {}
-                bg_count = -1.0
+                bg_count = None
                 for label, source in sources.items():
                     if isinstance(source, Sequence):
-                        class_counts[array_name][label] = 0
-                        # class_counts["totals"][label] += 0
+                        class_counts[array_name][label] = 0.0
                     else:
-                        if bg_count < 0.0:
+                        if bg_count is None:
                             bg_count = np.prod(
-                                list(source.output_size.values()), dtype=float
+                                [
+                                    stop - start
+                                    for start, stop in self.bounding_box.values()
+                                ]
                             )
                         bg_count -= source.class_counts
                         class_counts[array_name][label] = source.class_counts
                         class_counts["totals"][label] += source.class_counts
-                class_counts[array_name]["bg"] = bg_count
-                class_counts["totals"]["bg"] += bg_count
+                if bg_count is None or bg_count < 0:
+                    # TODO: If there are overlapping classes, the background count may be negative. This needs a better solution.
+                    bg_count = 0
+                class_counts[array_name]["bg"] = bg_count  # type: ignore
+                class_counts["totals"]["bg"] += bg_count  # type: ignore
             self._class_counts = class_counts
         return self._class_counts
 
     @property
     def class_weights(self) -> dict[str, float]:
         """
-        Returns the class weights for the dataset based on the number of samples in each class.
+        Returns the class weights for the dataset based on the number of samples in each class. Classes without any samples will have a weight of NaN.
         """
         if not hasattr(self, "_class_weights"):
-            if len(self.classes) > 1:
-                class_count_sum = 0
-                for c in self.classes:
-                    class_count_sum += self.class_counts["totals"][c]
-                class_count_sum += self.class_counts["totals"]["bg"]
+            # TODO: Review this implementation - not weighting compared to background class seems wrong
+            class_count_sum = 0
+            for c in self.classes:
+                class_count_sum += self.class_counts["totals"][c]
+            # class_count_sum += self.class_counts["totals"]["bg"]
 
-                class_weights = {
-                    c: (
-                        # CLASS_WEIGHTS SHOULD BE > 1 FOR FOREGROUND CLASSES - I THINK THIS NEEDS TO BE THE INVERSE, NOT 1 - ...
-                        # BUT THAT WILL BE PRETTY BIG...
-                        1 - (self.class_counts["totals"][c] / class_count_sum)
-                        if self.class_counts["totals"][c] != class_count_sum
-                        else 0.1
-                    )
-                    for c in self.classes
-                }
-            else:
-                class_weights = {self.classes[0]: 0.1}  # less than 1 to avoid overflow
+            class_weights = {
+                c: (
+                    class_count_sum / self.class_counts["totals"][c]
+                    if self.class_counts["totals"][c] != 0
+                    else np.NaN
+                )
+                for c in self.classes
+            }
             self._class_weights = class_weights
         return self._class_weights
 
