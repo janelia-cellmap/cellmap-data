@@ -291,6 +291,13 @@ class CellMapDataset(Dataset):
         return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.target_paths}\n\tClasses: {self.classes})"
 
     @property
+    def center(self):
+        center = {}
+        for c, (start, stop) in self.bounding_box.items():
+            center[c] = start + (stop - start) / 2
+        return center
+
+    @property
     def masked(self):
         """Returns whether the dataset returns training masks, alongside input and target arrays."""
         if not hasattr(self, "_masked"):
@@ -456,6 +463,11 @@ class CellMapDataset(Dataset):
             size = stop - start
             size /= self.largest_voxel_sizes[c]
             box_shape[c] = int(np.floor(size))
+            # if box_shape[c] <= 0:
+            #     logger.warning(
+            #         f"Box shape is < 0 for axis {c} with start {start} and stop {stop}. Setting to 0"
+            #     )
+            #     box_shape[c] = 0
         return box_shape
 
     def _get_box(
@@ -468,6 +480,8 @@ class CellMapDataset(Dataset):
                 return source_box
             for c, (start, stop) in source_box.items():
                 assert stop > start, f"Invalid box: {start} to {stop}"
+                # if c not in current_box:
+                #     current_box[c] = [start, stop]
                 current_box[c][0] = max(current_box[c][0], start)
                 current_box[c][1] = min(current_box[c][1], stop)
         return current_box

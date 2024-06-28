@@ -1,5 +1,5 @@
 import os
-from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 import torch
 from fibsem_tools.io.core import read_xarray
 import xarray
@@ -105,6 +105,13 @@ class CellMapImage:
     def __repr__(self) -> str:
         # TODO: array_path instead of path
         return f"CellMapImage({self.path})"
+
+    @property
+    def center(self):
+        center = {}
+        for c, (start, stop) in self.bounding_box.items():
+            center[c] = start + (stop - start) / 2
+        return center
 
     @property
     def scale_level(self) -> str:

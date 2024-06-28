@@ -9,3 +9,13 @@
 Utility for loading CellMap data for machine learning training, utilizing PyTorch, TensorStore, and PyDantic.
 
 You can select classes to load to construct targets separately from the labels you want to predict. This allows you to train a model to predict a subset of labels, while still using all labels to construct the target from true negatives as well as true positives.
+
+## Installation
+
+```bash
+micromamba create -n cellmap -y -c conda-forge -c pytorch python=3.11
+micromamba activate cellmap
+git clone https://github.com/janelia-cellmap/cellmap.data.git
+cd cellmap-data
+pip install -e .
+```

@@ -30,11 +30,12 @@ dependencies = [
     "torchvision",
     "numpy",
     "matplotlib",
-    "fibsem-tools==6.3.2",
+    "fibsem-tools",
     "cellmap-schemas",
     "tensorstore",
     "xarray-tensorstore",
     "cellpose",
+    "py_distance_transforms",
 ]
 
 # extras

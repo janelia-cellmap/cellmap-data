@@ -305,6 +305,7 @@ class CellMapDataSplit:
         usage: str = "validate",
     ):
         """Sets the input or target arrays for the training or validation datasets."""
+        reset_attrs = []
         for dataset in self.datasets[usage]:
             if type == "inputs":
                 dataset.input_arrays = arrays
@@ -314,11 +315,13 @@ class CellMapDataSplit:
                 raise ValueError("Type must be 'inputs' or 'target'.")
         if usage == "train":
             self.train_datasets = self.datasets["train"]
-            del self._train_datasets_combined
+            reset_attrs.append("_train_datasets_combined")
         elif usage == "validate":
             self.validation_datasets = self.datasets["validate"]
-            del self._validation_blocks
-            del self._validation_datasets_combined
+            reset_attrs.extend(["_validation_datasets_combined", "_validation_blocks"])
+        for attr in reset_attrs:
+            if hasattr(self, attr):
+                delattr(self, attr)
         # del self._class_counts
 
 
