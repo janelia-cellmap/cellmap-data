@@ -69,11 +69,7 @@ class CellMapMultiDataset(ConcatDataset):
             # class_count_sum += self.class_counts["bg"]["total"]
 
             class_weights = {
-                c: (
-                    class_count_sum / class_counts[c]
-                    if class_counts[c] != 0
-                    else np.NaN
-                )
+                c: (class_count_sum / class_counts[c] if class_counts[c] != 0 else 1)
                 for c in self.classes
             }
             self._class_weights = class_weights
@@ -159,10 +155,13 @@ class CellMapMultiDataset(ConcatDataset):
                 generator=rng,
             )
         else:
-            dataset_weights = [self.dataset_weights[ds] for ds in self.datasets]
+            dataset_weights = torch.tensor(
+                [self.dataset_weights[ds] for ds in self.datasets]
+            )
+            dataset_weights[dataset_weights < 0] = 0
 
             datasets_sampled = torch.multinomial(
-                torch.tensor(dataset_weights), num_samples, replacement=True
+                dataset_weights, num_samples, replacement=True
             )
             indices = []
             index_offset = 0

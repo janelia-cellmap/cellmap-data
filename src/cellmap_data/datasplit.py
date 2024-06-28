@@ -298,6 +298,27 @@ class CellMapDataSplit:
                 spatial_transforms
             )
 
+    def set_arrays(
+        self,
+        arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
+        type: str = "target",
+        usage: str = "validate",
+    ):
+        """Sets the input or target arrays for the training or validation datasets."""
+        if usage == "train":
+            datasets = self.train_datasets
+        elif usage == "validate":
+            datasets = self.validation_datasets
+        else:
+            raise ValueError("Usage must be 'train' or 'validate'.")
+        for dataset in datasets:
+            if type == "inputs":
+                dataset.input_arrays = arrays
+            elif type == "target":
+                dataset.target_arrays = arrays
+            else:
+                raise ValueError("Type must be 'inputs' or 'target'.")
+
 
 # Example input arrays:
 # {'0_input': {'shape': (90, 90, 90), 'scale': (32, 32, 32)},

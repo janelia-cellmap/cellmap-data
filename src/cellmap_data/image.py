@@ -1,5 +1,5 @@
 import os
-from typing import Any, Callable, Iterable, Optional, Sequence
+from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
 import torch
 from fibsem_tools.io.core import read_xarray
 import xarray
@@ -12,9 +12,9 @@ import zarr
 
 class CellMapImage:
     path: str
-    scale: dict[str, float]
-    output_shape: dict[str, int]
-    output_size: dict[str, float]
+    scale: Mapping[str, float]
+    output_shape: Mapping[str, int]
+    output_size: Mapping[str, float]
     label_class: str
     axes: str | Sequence[str]
     post_image_transforms: Sequence[str] = ["transpose"]
@@ -71,7 +71,7 @@ class CellMapImage:
         # self.ys = self.array.coords["y"]
         # self.zs = self.array.coords["z"]
 
-    def __getitem__(self, center: dict[str, float]) -> torch.Tensor:
+    def __getitem__(self, center: Mapping[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
         # Find vectors of coordinates in world space to pull data from
         coords = {}
@@ -135,7 +135,7 @@ class CellMapImage:
         return self._array  # type: ignore
 
     @property
-    def translation(self) -> dict[str, float]:
+    def translation(self) -> Mapping[str, float]:
         """Returns the translation of the image."""
         if not hasattr(self, "_translation"):
             # Get the translation of the image
@@ -145,7 +145,7 @@ class CellMapImage:
         return self._translation
 
     @property
-    def original_scale(self) -> dict[str, Any]:
+    def original_scale(self) -> Mapping[str, Any]:
         """Returns the original scale of the image."""
         if not hasattr(self, "_original_scale"):
             # Get the original scale of the image from poorly formatted metadata
@@ -162,7 +162,7 @@ class CellMapImage:
         return self._original_scale
 
     @property
-    def bounding_box(self) -> dict[str, list[float]]:
+    def bounding_box(self) -> Mapping[str, list[float]]:
         """Returns the bounding box of the dataset in world units."""
         if not hasattr(self, "_bounding_box"):
             self._bounding_box = {
@@ -172,7 +172,7 @@ class CellMapImage:
         return self._bounding_box
 
     @property
-    def sampling_box(self) -> dict[str, list[float]]:
+    def sampling_box(self) -> Mapping[str, list[float]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units."""
         if not hasattr(self, "_sampling_box"):
             self._sampling_box = {}
@@ -219,7 +219,7 @@ class CellMapImage:
         """Sets what device returned image data will be loaded onto."""
         self.device = device
 
-    def find_level(self, target_scale: dict[str, float]) -> str:
+    def find_level(self, target_scale: Mapping[str, float]) -> str:
         """Finds the multiscale level that is closest to the target scale."""
         # Get the order of axes in the image
         axes = []
@@ -243,12 +243,12 @@ class CellMapImage:
             last_path = level["path"]
         return last_path  # type: ignore
 
-    def set_spatial_transforms(self, transforms: dict[str, Any] | None):
+    def set_spatial_transforms(self, transforms: Mapping[str, Any] | None):
         """Sets spatial transformations for the image data."""
         self._current_spatial_transforms = transforms
 
     def apply_spatial_transforms(
-        self, coords: dict[str, Sequence[float]]
+        self, coords: Mapping[str, Sequence[float]]
     ) -> torch.Tensor:
         """Applies spatial transformations to the given coordinates."""
         # TODO: Implement non-90 degree rotations
@@ -280,7 +280,7 @@ class CellMapImage:
 
         return torch.tensor(data)
 
-    def return_data(self, coords: dict[str, Sequence[float]]):
+    def return_data(self, coords: Mapping[str, Sequence[float]]):
         # Pull data from the image based on the given coordinates. This interpolates the data to the nearest pixel automatically.
         data = self.array.sel(
             **coords,  # type: ignore
@@ -294,9 +294,9 @@ class EmptyImage:
     label_class: str
     axes: str
     store: torch.Tensor
-    output_shape: dict[str, int]
-    output_size: dict[str, float]
-    scale: dict[str, float]
+    output_shape: Mapping[str, int]
+    output_size: Mapping[str, float]
+    scale: Mapping[str, float]
 
     def __init__(
         self,
@@ -337,7 +337,7 @@ class EmptyImage:
                 * self.empty_value
             )
 
-    def __getitem__(self, center: dict[str, float]) -> torch.Tensor:
+    def __getitem__(self, center: Mapping[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
         return self.store
 
@@ -365,5 +365,5 @@ class EmptyImage:
         """Moves the image data to the given device."""
         self.store = self.store.to(device)
 
-    def set_spatial_transforms(self, transforms: dict[str, Any] | None):
+    def set_spatial_transforms(self, transforms: Mapping[str, Any] | None):
         pass
