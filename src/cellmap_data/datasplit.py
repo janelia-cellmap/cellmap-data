@@ -305,19 +305,21 @@ class CellMapDataSplit:
         usage: str = "validate",
     ):
         """Sets the input or target arrays for the training or validation datasets."""
-        if usage == "train":
-            datasets = self.train_datasets
-        elif usage == "validate":
-            datasets = self.validation_datasets
-        else:
-            raise ValueError("Usage must be 'train' or 'validate'.")
-        for dataset in datasets:
+        for dataset in self.datasets[usage]:
             if type == "inputs":
                 dataset.input_arrays = arrays
             elif type == "target":
                 dataset.target_arrays = arrays
             else:
                 raise ValueError("Type must be 'inputs' or 'target'.")
+        if usage == "train":
+            self.train_datasets = self.datasets["train"]
+            del self._train_datasets_combined
+        elif usage == "validate":
+            self.validation_datasets = self.datasets["validate"]
+            del self._validation_blocks
+            del self._validation_datasets_combined
+        # del self._class_counts
 
 
 # Example input arrays:
