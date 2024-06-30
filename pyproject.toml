@@ -53,6 +53,7 @@ dev = [
     "pytest",
     "rich",
     "ruff",
+    "snakeviz",
 ]
 all = [
     "cellmap.data[dev,test]",

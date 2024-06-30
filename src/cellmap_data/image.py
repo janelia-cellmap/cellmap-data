@@ -9,6 +9,8 @@ import numpy as np
 from cellmap_schemas.annotation import AnnotationGroup
 import zarr
 
+from scipy.spatial.transform import Rotation as rot
+
 
 class CellMapImage:
     path: str
@@ -250,6 +252,60 @@ class CellMapImage:
             last_path = level["path"]
         return last_path  # type: ignore
 
+    def rotate_coords(
+        self, coords: Mapping[str, Sequence[float]], angles: Mapping[str, float]
+    ) -> Mapping[str, Sequence[float]]:
+        """Rotates the given coordinates by the given angles."""
+        coords_vector, singular_axes = self._coord_dict_to_vector(coords)
+        center = np.mean(coords_vector, axis=0)
+
+        rotation_vector = [angles[c] for c in self.axes]
+        # rotator = rot.from_rotvec(rotation_vector, degrees=True)
+
+        # convert to lower case for extrinsic rotations
+        if isinstance(self.axes, str):
+            seq = self.axes.lower()
+        else:
+            seq = "".join([c.lower() for c in self.axes])
+        rotator = rot.from_euler(seq=seq, angles=rotation_vector, degrees=True)
+
+        # rotator = rot.from_davenport(
+        #     axes=[[center[0], 0, 0], [0, center[1], 0], [0, 0, center[2]]],
+        #     order="extrinsic",
+        #     angles=rotation_vector,
+        #     degrees=True,
+        # )
+        rotated_coords = rotator.apply(coords_vector - center) + center
+        # rotated_coords = rotator.apply(coords_vector)
+        return self._coord_vector_to_dict(rotated_coords, singular_axes)
+
+    def _coord_dict_to_vector(
+        self, coords: Mapping[str, Sequence[float]]
+    ) -> tuple[np.ndarray, Mapping[str, float]]:
+        """Converts a dictionary of coordinates to a vector, for use with rotate_coords."""
+        num = max([len(coord) for coord in coords.values()])
+        coord_vector = np.zeros((num, len(self.axes)))
+        singular_axes = {}
+        for i, c in enumerate(self.axes):
+            if len(coords[c]) == 1:
+                coord_vector[:, i] = coords[c][0]
+                singular_axes[c] = coords[c][0]
+            else:
+                coord_vector[:, i] = np.array(coords[c])
+        return coord_vector, singular_axes
+
+    def _coord_vector_to_dict(
+        self, coords: np.ndarray, singular_axes: Mapping[str, float]
+    ) -> Mapping[str, Sequence[float]]:
+        """Converts a vector of coordinates to a dictionary, for use with rotate_coords."""
+        coord_dict = {}
+        for i, c in enumerate(self.axes):
+            if c in singular_axes:
+                coord_dict[c] = [singular_axes[c]]
+            else:
+                coord_dict[c] = coords[:, i]
+        return coord_dict
+
     def set_spatial_transforms(self, transforms: Mapping[str, Any] | None):
         """Sets spatial transformations for the image data."""
         self._current_spatial_transforms = transforms
@@ -267,6 +323,8 @@ class CellMapImage:
                     if transform == "mirror":
                         for axis in params:
                             coords[axis] = coords[axis][::-1]
+                    if transform == "rotate":
+                        coords = self.rotate_coords(coords, params)
                     else:
                         raise ValueError(f"Unknown spatial transform: {transform}")
         self._last_coords = coords
