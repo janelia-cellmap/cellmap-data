@@ -256,54 +256,74 @@ class CellMapImage:
         self, coords: Mapping[str, Sequence[float]], angles: Mapping[str, float]
     ) -> Mapping[str, Sequence[float]]:
         """Rotates the given coordinates by the given angles."""
-        coords_vector, singular_axes = self._coord_dict_to_vector(coords)
-        center = np.mean(coords_vector, axis=0)
+        # Check to see if a rotation is necessary
+        if not any([a != 0 for a in angles.values()]):
+            return coords
+
+        # Convert the coordinates dictionary to a vector
+        coords_vector, axes_lengths = self._coord_dict_to_vector(coords)
+
+        # Check if any angles would rotate in a singular axis
+        singular_axes = set([c for c, l in axes_lengths.items() if l == 1])
+        for c, a in angles.items():
+            if a != 0:
+                # A rotation around one axis rotates the orthogonal axes
+                invalid_axes = (set(angles.keys()) - set([c])).intersection(
+                    singular_axes
+                )
+                assert (
+                    invalid_axes == set()
+                ), f"Cannot rotate around axis {c} by {a} degrees, as it would rotate around a singular axes: {invalid_axes}."
+
+        # Recenter the coordinates around the origin
+        center = np.array([np.mean(coords[c], axis=0) for c in self.axes])
+        coords_vector -= center
 
         rotation_vector = [angles[c] for c in self.axes]
-        # rotator = rot.from_rotvec(rotation_vector, degrees=True)
+        rotator = rot.from_rotvec(rotation_vector, degrees=True)
 
-        # convert to lower case for extrinsic rotations
-        if isinstance(self.axes, str):
-            seq = self.axes.lower()
-        else:
-            seq = "".join([c.lower() for c in self.axes])
-        rotator = rot.from_euler(seq=seq, angles=rotation_vector, degrees=True)
+        # # convert to lower case for extrinsic rotations
+        # if isinstance(self.axes, str):
+        #     seq = self.axes.lower()
+        # else:
+        #     seq = "".join([c.lower() for c in self.axes])
+        # rotator = rot.from_euler(seq=seq, angles=rotation_vector, degrees=True)
 
         # rotator = rot.from_davenport(
-        #     axes=[[center[0], 0, 0], [0, center[1], 0], [0, 0, center[2]]],
+        #     axes=[[1, 0, 0], [0, 1, 0], [0, 0, 1]],
         #     order="extrinsic",
         #     angles=rotation_vector,
         #     degrees=True,
         # )
-        rotated_coords = rotator.apply(coords_vector - center) + center
-        # rotated_coords = rotator.apply(coords_vector)
-        return self._coord_vector_to_dict(rotated_coords, singular_axes)
+
+        # Apply the rotation
+        rotated_coords = rotator.apply(coords_vector)
+
+        # Recenter the coordinates around the original center
+        rotated_coords += center
+        return self._coord_vector_to_dict(rotated_coords, axes_lengths)
 
     def _coord_dict_to_vector(
         self, coords: Mapping[str, Sequence[float]]
-    ) -> tuple[np.ndarray, Mapping[str, float]]:
+    ) -> tuple[np.ndarray, Mapping[str, int]]:
         """Converts a dictionary of coordinates to a vector, for use with rotate_coords."""
-        num = max([len(coord) for coord in coords.values()])
-        coord_vector = np.zeros((num, len(self.axes)))
-        singular_axes = {}
-        for i, c in enumerate(self.axes):
-            if len(coords[c]) == 1:
-                coord_vector[:, i] = coords[c][0]
-                singular_axes[c] = coords[c][0]
-            else:
-                coord_vector[:, i] = np.array(coords[c])
-        return coord_vector, singular_axes
+        coord_vector = np.stack(
+            np.meshgrid(*[coords[c] for c in self.axes]), axis=-1
+        ).reshape(-1, len(self.axes))
+        axes_lengths = {c: len(coords[c]) for c in self.axes}
+        return coord_vector, axes_lengths
 
     def _coord_vector_to_dict(
-        self, coords: np.ndarray, singular_axes: Mapping[str, float]
+        self, coords: np.ndarray, axes_lengths: Mapping[str, int]
     ) -> Mapping[str, Sequence[float]]:
         """Converts a vector of coordinates to a dictionary, for use with rotate_coords."""
         coord_dict = {}
-        for i, c in enumerate(self.axes):
-            if c in singular_axes:
-                coord_dict[c] = [singular_axes[c]]
-            else:
-                coord_dict[c] = coords[:, i]
+        remaining_coords = coords
+        for c in self.axes[::-1]:
+            # Need to split to chunks of the length of the axis
+            remaining_coords = np.split(remaining_coords, [axes_lengths[c]])[0]
+            coord_dict[c] = remaining_coords[:, -1]
+
         return coord_dict
 
     def set_spatial_transforms(self, transforms: Mapping[str, Any] | None):
