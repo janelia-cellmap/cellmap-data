@@ -282,20 +282,6 @@ class CellMapImage:
         rotation_vector = [angles[c] for c in self.axes]
         rotator = rot.from_rotvec(rotation_vector, degrees=True)
 
-        # # convert to lower case for extrinsic rotations
-        # if isinstance(self.axes, str):
-        #     seq = self.axes.lower()
-        # else:
-        #     seq = "".join([c.lower() for c in self.axes])
-        # rotator = rot.from_euler(seq=seq, angles=rotation_vector, degrees=True)
-
-        # rotator = rot.from_davenport(
-        #     axes=[[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-        #     order="extrinsic",
-        #     angles=rotation_vector,
-        #     degrees=True,
-        # )
-
         # Apply the rotation
         rotated_coords = rotator.apply(coords_vector)
 
@@ -304,27 +290,29 @@ class CellMapImage:
         return self._coord_vector_to_dict(rotated_coords, axes_lengths)
 
     def _coord_dict_to_vector(
-        self, coords: Mapping[str, Sequence[float]]
+        self, coords_dict: Mapping[str, Sequence[float]]
     ) -> tuple[np.ndarray, Mapping[str, int]]:
         """Converts a dictionary of coordinates to a vector, for use with rotate_coords."""
         coord_vector = np.stack(
-            np.meshgrid(*[coords[c] for c in self.axes]), axis=-1
+            np.meshgrid(*[coords_dict[c] for c in self.axes]), axis=-1
         ).reshape(-1, len(self.axes))
-        axes_lengths = {c: len(coords[c]) for c in self.axes}
+        axes_lengths = {c: len(coords_dict[c]) for c in self.axes}
         return coord_vector, axes_lengths
 
     def _coord_vector_to_dict(
-        self, coords: np.ndarray, axes_lengths: Mapping[str, int]
+        self, coords_vector: np.ndarray, axes_lengths: Mapping[str, int]
     ) -> Mapping[str, Sequence[float]]:
         """Converts a vector of coordinates to a dictionary, for use with rotate_coords."""
-        coord_dict = {}
-        remaining_coords = coords
-        for c in self.axes[::-1]:
+        coords_dict = {}
+        step_size = 1
+        for i, c in enumerate(self.axes[::-1]):
             # Need to split to chunks of the length of the axis
-            remaining_coords = np.split(remaining_coords, [axes_lengths[c]])[0]
-            coord_dict[c] = remaining_coords[:, -1]
+            coords_dict[c] = coords_vector[::step_size, len(self.axes) - 1 - i][
+                : axes_lengths[c]
+            ]
+            step_size *= axes_lengths[c]
 
-        return coord_dict
+        return coords_dict
 
     def set_spatial_transforms(self, transforms: Mapping[str, Any] | None):
         """Sets spatial transformations for the image data."""
