@@ -6,7 +6,7 @@
 [![CI](https://github.com/janelia-cellmap/cellmap.data/actions/workflows/ci.yml/badge.svg)](https://github.com/janelia-cellmap/cellmap.data/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/janelia-cellmap/cellmap.data/branch/main/graph/badge.svg)](https://codecov.io/gh/janelia-cellmap/cellmap.data)
 
-Utility for loading CellMap data for machine learning training, utilizing PyTorch, TensorStore, and PyDantic.
+Utility for loading CellMap data for machine learning training, utilizing PyTorch, Xarray, TensorStore, and PyDantic.
 
 You can select classes to load to construct targets separately from the labels you want to predict. This allows you to train a model to predict a subset of labels, while still using all labels to construct the target from true negatives as well as true positives.
 
