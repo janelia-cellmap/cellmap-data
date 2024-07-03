@@ -35,6 +35,7 @@ class CellMapDataSplit:
         target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
         classes: Sequence[str],
         empty_value: int | float | str = 0,
+        pad: bool = False,
         datasets: Optional[Mapping[str, Sequence[CellMapDataset]]] = None,
         dataset_dict: Optional[Mapping[str, Sequence[Mapping[str, str]]]] = None,
         csv_path: Optional[str] = None,
@@ -96,6 +97,7 @@ class CellMapDataSplit:
         self.target_arrays = target_arrays
         self.classes = classes
         self.empty_value = empty_value
+        self.pad = pad
         self.force_has_data = force_has_data
         if datasets is not None:
             self.datasets = datasets
@@ -210,6 +212,7 @@ class CellMapDataSplit:
                         force_has_data=self.force_has_data,
                         empty_value=self.empty_value,
                         class_relation_dict=self.class_relation_dict,
+                        pad=self.pad,
                     )
                 )
             except ValueError as e:
@@ -236,6 +239,7 @@ class CellMapDataSplit:
                             force_has_data=self.force_has_data,
                             empty_value=self.empty_value,
                             class_relation_dict=self.class_relation_dict,
+                            pad=self.pad,
                         )
                     )
                 except ValueError as e:
@@ -313,6 +317,7 @@ class CellMapDataSplit:
                 dataset.target_arrays = arrays
             else:
                 raise ValueError("Type must be 'inputs' or 'target'.")
+            dataset.reset_arrays()
         if usage == "train":
             self.train_datasets = self.datasets["train"]
             reset_attrs.append("_train_datasets_combined")

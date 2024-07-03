@@ -29,6 +29,8 @@ class CellMapImage:
         target_class: str,
         target_scale: Sequence[float],
         target_voxel_shape: Sequence[int],
+        pad: bool = False,
+        pad_value: float | int = np.nan,
         axis_order: str | Sequence[str] = "zyx",
         value_transform: Optional[Callable] = None,
         # TODO: Add global grid enforcement to ensure that all images are on the same grid
@@ -57,7 +59,8 @@ class CellMapImage:
             target_voxel_shape = [1] * (
                 len(axis_order) - len(target_voxel_shape)
             ) + list(target_voxel_shape)
-
+        self.pad = pad
+        self.pad_value = pad_value
         self.scale = {c: s for c, s in zip(axis_order, target_scale)}
         self.output_shape = {c: t for c, t in zip(axis_order, target_voxel_shape)}
         self.output_size = {
@@ -69,9 +72,6 @@ class CellMapImage:
         self._current_spatial_transforms = None
         self._last_coords = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        # self.xs = self.array.coords["x"]
-        # self.ys = self.array.coords["y"]
-        # self.zs = self.array.coords["z"]
 
     def __getitem__(self, center: Mapping[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
@@ -183,7 +183,7 @@ class CellMapImage:
     @property
     def sampling_box(self) -> Mapping[str, list[float]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units."""
-        if not hasattr(self, "_sampling_box"):
+        if not hasattr(self, "_sampling_box") or self._sampling_box is None:
             self._sampling_box = {}
             output_padding = {c: np.ceil(s / 2) for c, s in self.output_size.items()}
             for c, (start, stop) in self.bounding_box.items():
@@ -191,9 +191,19 @@ class CellMapImage:
                     start + output_padding[c],
                     stop - output_padding[c],
                 ]
-                assert (
-                    self._sampling_box[c][0] < self._sampling_box[c][1]
-                ), f"Sampling box for axis {c} is invalid: {self._sampling_box[c]} for image {self.path}. Image is not large enough to sample from as requested."
+                try:
+                    assert (
+                        self._sampling_box[c][0] < self._sampling_box[c][1]
+                    ), f"Sampling box for axis {c} is invalid: {self._sampling_box[c]} for image {self.path}. Image is not large enough to sample from as requested."
+                except AssertionError as e:
+                    if self.pad:
+                        self._sampling_box[c] = [
+                            self.center[c] - (self.scale[c] / 2),
+                            self.center[c] + (self.scale[c] / 2),
+                        ]
+                    else:
+                        self._sampling_box = None
+                        raise e
         return self._sampling_box
 
     @property
@@ -222,6 +232,7 @@ class CellMapImage:
             except Exception as e:
                 print(e)
                 self._class_counts = 0
+                self._bg_count = 0
         return self._class_counts
 
     def to(self, device: str) -> None:
@@ -306,11 +317,20 @@ class CellMapImage:
         coords_dict = {}
         step_size = 1
         for i, c in enumerate(self.axes[::-1]):
-            # Need to split to chunks of the length of the axis
+            # The below does not seem to work because the splitting up of the array as a meshgrid is not consistent after rotation
+            # I think this one may be the closest to working...
             coords_dict[c] = coords_vector[::step_size, len(self.axes) - 1 - i][
                 : axes_lengths[c]
             ]
             step_size *= axes_lengths[c]
+
+            # The below will not necessarily work as it can return more than the axis length
+            # coords_dict[c] = np.unique(coords_vector[:, len(self.axes) - 1 - i])
+
+            # # The below will not work because the result will not be sorted
+            # coords_dict[c] = np.histogram(
+            #     coords_vector[:, len(self.axes) - 1 - i], bins=axes_lengths[c]
+            # )[1][:-1]
 
         return coords_dict
 
@@ -355,11 +375,21 @@ class CellMapImage:
 
     def return_data(self, coords: Mapping[str, Sequence[float]]):
         # Pull data from the image based on the given coordinates. This interpolates the data to the nearest pixel automatically.
-        data = self.array.sel(
-            **coords,  # type: ignore
-            method="nearest",
-        )
-        # assert not data.isnull().any(), f"Data is null for image {self.path}"
+        if self.pad:
+            tolerance = np.ones(coords[self.axes[0]].shape) * np.max(
+                list(self.scale.values())
+            )
+            data = self.array.reindex(
+                **coords,
+                method="nearest",
+                tolerance=tolerance,
+                fill_value=self.pad_value,
+            )
+        else:
+            data = self.array.sel(
+                **coords,  # type: ignore
+                method="nearest",
+            )
         return data
 
 

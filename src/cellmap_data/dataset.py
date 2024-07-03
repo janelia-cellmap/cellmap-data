@@ -69,6 +69,7 @@ class CellMapDataset(Dataset):
         rng: Optional[torch.Generator] = None,
         force_has_data: bool = False,
         empty_value: float | int | str = 0,
+        pad: bool = False,
     ):
         """Initializes the CellMapDataset class.
 
@@ -119,6 +120,7 @@ class CellMapDataset(Dataset):
         self._rng = rng
         self.force_has_data = force_has_data
         self.empty_value = empty_value
+        self.pad = pad
         self._current_center = None
         self._current_spatial_transforms = None
         self.input_sources = {}
@@ -130,6 +132,8 @@ class CellMapDataset(Dataset):
                 array_info["shape"],  # type: ignore
                 value_transform=self.raw_value_transforms,
                 context=self.context,
+                pad=self.pad,
+                pad_value=0,  # inputs to the network should be padded with 0
             )
         self.target_sources = {}
         self.has_data = False
@@ -138,6 +142,9 @@ class CellMapDataset(Dataset):
 
     def get_empty_store(self, array_info):
         if self.empty_value == "mask":
+            DeprecationWarning(
+                "Using 'mask' is deprecated and not recommended due to increased memory overhead. It will be removed in a future release. We recommend using np.nan instead."
+            )
             empty_store = torch.ones(array_info["shape"]) * -100  # type: ignore
         else:
             assert isinstance(
@@ -186,6 +193,8 @@ class CellMapDataset(Dataset):
                 array_info["shape"],  # type: ignore
                 value_transform=value_transform,
                 context=self.context,
+                pad=self.pad,
+                pad_value=self.empty_value,
             )
             if not self.has_data:
                 self.has_data = array.class_counts != 0
@@ -402,6 +411,7 @@ class CellMapDataset(Dataset):
         if not hasattr(self, "_class_counts"):
             class_counts = {"totals": {c: 0.0 for c in self.classes}}
             class_counts["totals"]["bg"] = 0.0
+            # TODO: should get bg count from each label to properly weight
             for array_name, sources in self.target_sources.items():
                 class_counts[array_name] = {}
                 bg_count = None
@@ -594,6 +604,33 @@ class CellMapDataset(Dataset):
             for source in sources.values():
                 if isinstance(source, CellMapImage):
                     source.value_transform = transforms
+
+    def set_arrays(
+        self,
+        arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
+        type: str = "target",
+    ):
+        """Sets the arrays for the dataset."""
+        if type.lower() == "input":
+            self.input_sources = {}
+            for array_name, array_info in self.input_arrays.items():
+                self.input_sources[array_name] = CellMapImage(
+                    self.raw_path,
+                    "raw",
+                    array_info["scale"],
+                    array_info["shape"],  # type: ignore
+                    value_transform=self.raw_value_transforms,
+                    context=self.context,
+                    pad=self.pad,
+                    pad_value=0,  # inputs to the network should be padded with 0
+                )
+        elif type.lower() == "target":
+            self.target_sources = {}
+            self.has_data = False
+            for array_name, array_info in self.target_arrays.items():
+                self.target_sources[array_name] = self.get_target_array(array_info)
+        else:
+            raise ValueError(f"Unknown dataset array type: {type}")
 
 
 # Example input arrays:
