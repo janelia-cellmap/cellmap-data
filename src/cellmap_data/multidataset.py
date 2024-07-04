@@ -37,19 +37,18 @@ class CellMapMultiDataset(ConcatDataset):
         return out_string
 
     @property
-    def class_counts(self) -> dict[str, dict[str, float]]:
+    def class_counts(self) -> dict[str, float]:
         """
         Returns the number of samples in each class for each dataset in the multi-dataset, as well as the total number of samples in each class.
         """
         if not hasattr(self, "_class_counts"):
-            class_counts = {}
-            for c in list(self.classes) + ["bg"]:
-                class_counts[c] = {}
-                total = 0.0
-                for ds in self.datasets:
-                    total += ds.class_counts["totals"][c]
-                    class_counts[c][ds] = ds.class_counts["totals"][c]
-                class_counts[c]["total"] = total
+            class_counts = {c: 0.0 for c in self.classes}
+            class_counts.update({c + "_bg": 0.0 for c in self.classes})
+            for ds in self.datasets:
+                for c in self.classes:
+                    if c in ds.class_counts:
+                        class_counts[c] += ds.class_counts["totals"][c]
+                        class_counts[c + "_bg"] += ds.class_counts["totals"][c + "_bg"]
             self._class_counts = class_counts
         return self._class_counts
 
@@ -60,16 +59,12 @@ class CellMapMultiDataset(ConcatDataset):
         """
         # TODO: review this implementation
         if not hasattr(self, "_class_weights"):
-            # TODO: Review this implementation - not weighting compared to background class seems wrong
-            class_counts = {}
-            class_count_sum = 0
-            for c in self.classes:
-                class_counts[c] = self.class_counts[c]["total"]
-                class_count_sum += class_counts[c]
-            # class_count_sum += self.class_counts["bg"]["total"]
-
             class_weights = {
-                c: (class_count_sum / class_counts[c] if class_counts[c] != 0 else 1)
+                c: (
+                    self.class_counts[c + "_bg"] / self.class_counts[c]
+                    if self.class_counts[c] != 0
+                    else 1
+                )
                 for c in self.classes
             }
             self._class_weights = class_weights

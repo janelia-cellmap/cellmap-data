@@ -198,8 +198,8 @@ class CellMapImage:
                 except AssertionError as e:
                     if self.pad:
                         self._sampling_box[c] = [
-                            self.center[c] - (self.scale[c] / 2),
-                            self.center[c] + (self.scale[c] / 2),
+                            self.center[c] - self.scale[c],
+                            self.center[c] + self.scale[c],
                         ]
                     else:
                         self._sampling_box = None
@@ -267,6 +267,10 @@ class CellMapImage:
         self, coords: Mapping[str, Sequence[float]], angles: Mapping[str, float]
     ) -> Mapping[str, Sequence[float]]:
         """Rotates the given coordinates by the given angles."""
+        # TODO
+        UserWarning(
+            "Rotations are not yet implemented. Do not trust results will be correct."
+        )
         # Check to see if a rotation is necessary
         if not any([a != 0 for a in angles.values()]):
             return coords
@@ -376,13 +380,14 @@ class CellMapImage:
     def return_data(self, coords: Mapping[str, Sequence[float]]):
         # Pull data from the image based on the given coordinates. This interpolates the data to the nearest pixel automatically.
         if self.pad:
-            tolerance = np.ones(coords[self.axes[0]].shape) * np.max(
-                list(self.scale.values())
-            )
+            if not hasattr(self, "_tolerance"):
+                self._tolerance = np.ones(coords[self.axes[0]].shape) * np.max(
+                    list(self.scale.values())
+                )
             data = self.array.reindex(
                 **coords,
                 method="nearest",
-                tolerance=tolerance,
+                tolerance=self._tolerance,
                 fill_value=self.pad_value,
             )
         else:

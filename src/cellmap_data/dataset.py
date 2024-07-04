@@ -280,6 +280,7 @@ class CellMapDataset(Dataset):
                 class_arrays[label] = array
 
             if self.masked:
+                # TODO: This is deprecated and not recommended due to increased memory overhead
                 for label in self.classes:
                     # TODO: Find a better way to do this
                     # TODO: This will break with inferred arrays
@@ -392,6 +393,13 @@ class CellMapDataset(Dataset):
         """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size."""
         if not hasattr(self, "_sampling_box_shape"):
             self._sampling_box_shape = self._get_box_shape(self.sampling_box)
+            if self.pad:
+                for c, size in self._sampling_box_shape.items():
+                    if size <= 0:
+                        logger.warning(
+                            f"Sampling box shape is <= 0 for axis {c} with size {size}. Setting to 1"
+                        )
+                        self._sampling_box_shape[c] = 1
         return self._sampling_box_shape
 
     @property
@@ -410,25 +418,18 @@ class CellMapDataset(Dataset):
         """
         if not hasattr(self, "_class_counts"):
             class_counts = {"totals": {c: 0.0 for c in self.classes}}
-            class_counts["totals"]["bg"] = 0.0
-            # TODO: should get bg count from each label to properly weight
+            class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
             for array_name, sources in self.target_sources.items():
                 class_counts[array_name] = {}
-                bg_count = None
                 for label, source in sources.items():
                     if not isinstance(source, CellMapImage):
                         class_counts[array_name][label] = 0.0
+                        class_counts[array_name][label + "_bg"] = 0.0
                     else:
-                        if bg_count is None:
-                            bg_count = self.size
-                        bg_count -= source.class_counts
                         class_counts[array_name][label] = source.class_counts
+                        class_counts[array_name][label + "_bg"] = source.bg_count
                         class_counts["totals"][label] += source.class_counts
-                if bg_count is None or bg_count < 0:
-                    # TODO: If there are overlapping classes, the background count may be negative. This needs a better solution.
-                    bg_count = 0
-                class_counts[array_name]["bg"] = bg_count  # type: ignore
-                class_counts["totals"]["bg"] += bg_count  # type: ignore
+                        class_counts["totals"][label + "_bg"] += source.bg_count
             self._class_counts = class_counts
         return self._class_counts
 
@@ -438,15 +439,10 @@ class CellMapDataset(Dataset):
         Returns the class weights for the dataset based on the number of samples in each class. Classes without any samples will have a weight of NaN.
         """
         if not hasattr(self, "_class_weights"):
-            # TODO: Review this implementation - not weighting compared to background class seems wrong
-            class_count_sum = 0
-            for c in self.classes:
-                class_count_sum += self.class_counts["totals"][c]
-            # class_count_sum += self.class_counts["totals"]["bg"]
-
             class_weights = {
                 c: (
-                    class_count_sum / self.class_counts["totals"][c]
+                    self.class_counts["totals"][c + "_bg"]
+                    / self.class_counts["totals"][c]
                     if self.class_counts["totals"][c] != 0
                     else 1
                 )
