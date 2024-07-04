@@ -317,7 +317,8 @@ class CellMapDataSplit:
                 dataset.target_arrays = arrays
             else:
                 raise ValueError("Type must be 'inputs' or 'target'.")
-            dataset.reset_arrays()
+            dataset.set_arrays(arrays, type)
+
         if usage == "train":
             self.train_datasets = self.datasets["train"]
             reset_attrs.append("_train_datasets_combined")
