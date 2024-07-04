@@ -355,7 +355,7 @@ class CellMapImage:
                     if transform == "mirror":
                         for axis in params:
                             coords[axis] = coords[axis][::-1]
-                    if transform == "rotate":
+                    elif transform == "rotate":
                         coords = self.rotate_coords(coords, params)
                     else:
                         raise ValueError(f"Unknown spatial transform: {transform}")
