@@ -35,7 +35,7 @@ class CellMapDataSplit:
         target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
         classes: Sequence[str],
         empty_value: int | float | str = 0,
-        pad: bool = False,
+        pad: bool | str = False,
         datasets: Optional[Mapping[str, Sequence[CellMapDataset]]] = None,
         dataset_dict: Optional[Mapping[str, Sequence[Mapping[str, str]]]] = None,
         csv_path: Optional[str] = None,
@@ -98,6 +98,12 @@ class CellMapDataSplit:
         self.classes = classes
         self.empty_value = empty_value
         self.pad = pad
+        if isinstance(pad, str):
+            self.pad_training = pad.lower() == "train"
+            self.pad_validation = pad.lower() == "validate"
+        else:
+            self.pad_training = pad
+            self.pad_validation = pad
         self.force_has_data = force_has_data
         if datasets is not None:
             self.datasets = datasets
@@ -212,7 +218,7 @@ class CellMapDataSplit:
                         force_has_data=self.force_has_data,
                         empty_value=self.empty_value,
                         class_relation_dict=self.class_relation_dict,
-                        pad=self.pad,
+                        pad=self.pad_training,
                     )
                 )
             except ValueError as e:
@@ -239,7 +245,7 @@ class CellMapDataSplit:
                             force_has_data=self.force_has_data,
                             empty_value=self.empty_value,
                             class_relation_dict=self.class_relation_dict,
-                            pad=self.pad,
+                            pad=self.pad_validation,
                         )
                     )
                 except ValueError as e:
