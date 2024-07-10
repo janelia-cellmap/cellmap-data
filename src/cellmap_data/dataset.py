@@ -134,6 +134,7 @@ class CellMapDataset(Dataset):
                 context=self.context,
                 pad=self.pad,
                 pad_value=0,  # inputs to the network should be padded with 0
+                interpolation="linear",
             )
         self.target_sources = {}
         self.has_data = False
@@ -195,6 +196,7 @@ class CellMapDataset(Dataset):
                 context=self.context,
                 pad=self.pad,
                 pad_value=self.empty_value,
+                interpolation="nearest",
             )
             if not self.has_data:
                 self.has_data = array.class_counts != 0

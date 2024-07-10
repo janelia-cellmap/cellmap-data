@@ -31,6 +31,7 @@ class CellMapImage:
         target_voxel_shape: Sequence[int],
         pad: bool = False,
         pad_value: float | int = np.nan,
+        interpolation: str = "nearest",
         axis_order: str | Sequence[str] = "zyx",
         value_transform: Optional[Callable] = None,
         # TODO: Add global grid enforcement to ensure that all images are on the same grid
@@ -61,6 +62,7 @@ class CellMapImage:
             ) + list(target_voxel_shape)
         self.pad = pad
         self.pad_value = pad_value
+        self.interpolation = interpolation
         self.scale = {c: s for c, s in zip(axis_order, target_scale)}
         self.output_shape = {c: t for c, t in zip(axis_order, target_voxel_shape)}
         self.output_size = {
@@ -275,7 +277,7 @@ class CellMapImage:
 
     def rotate_coords(
         self, coords: Mapping[str, Sequence[float]], angles: Mapping[str, float]
-    ) -> Mapping[str, tuple[Sequence[str], np.ndarray]]:
+    ) -> Mapping[str, tuple[Sequence[str], np.ndarray]] | Mapping[str, Sequence[float]]:
         """Rotates the given coordinates by the given angles."""
         # Check to see if a rotation is necessary
         if not any([a != 0 for a in angles.values()]):
@@ -392,7 +394,7 @@ class CellMapImage:
                 )
             data = self.array.interp(
                 coords=coords,
-                method="nearest",  # TODO: This should depend on whether the image is a segmentation or not
+                method=self.interpolation,  # type: ignore
             )
         elif self.pad:
             if not hasattr(self, "_tolerance"):
