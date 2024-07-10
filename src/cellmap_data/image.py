@@ -302,7 +302,7 @@ class CellMapImage:
         center = coords_vector.mean(axis=0)
         coords_vector -= center
 
-        rotation_vector = [angles[c] for c in self.axes]
+        rotation_vector = [angles[c] if c in angles else 0 for c in self.axes]
         rotator = rot.from_rotvec(rotation_vector, degrees=True)
 
         # Apply the rotation
@@ -355,9 +355,6 @@ class CellMapImage:
                 coords = self.rotate_coords(
                     coords, self._current_spatial_transforms["rotate"]
                 )
-                raise NotImplementedError(
-                    "How to return data properly, given rotated data is not yet implemented."
-                )
             if "deform" in self._current_spatial_transforms:
                 raise NotImplementedError("Deformations are not yet implemented.")
         self._last_coords = coords
@@ -388,10 +385,10 @@ class CellMapImage:
         # Pull data from the image based on the given coordinates. This interpolates the data to the nearest pixel automatically.
         if not isinstance(coords[list(coords.keys())[0]][0], float | int):
             # TODO: Need to make this work with self.pad = True
-            if self.pad:
-                raise NotImplementedError(
-                    "Interpolation with padding is not yet implemented."
-                )
+            # if self.pad:
+            #     raise NotImplementedError(
+            #         "Interpolation with padding is not yet implemented."
+            #     )
             data = self.array.interp(
                 coords=coords,
                 method=self.interpolation,  # type: ignore
