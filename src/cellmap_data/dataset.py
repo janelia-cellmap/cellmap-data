@@ -586,6 +586,18 @@ class CellMapDataset(Dataset):
                 axes.update(shuffled_axes)
                 # output: {"transpose": {"x": 2, "y": 1, "z": 0}}
                 spatial_transforms[transform] = axes
+            elif transform == "rotate":
+                # input: "rotate": {"axes": {"x": [-180,180], "y": [-180,180], "z":[-180,180]}}
+                # output: {"rotate": {"x": 45, "y": 90, "z": 0}}
+                spatial_transforms[transform] = {}
+                for axis, limits in params["axes"].items():
+                    spatial_transforms[transform][axis] = torch.rand(
+                        1, generator=self._rng
+                    ).item()
+                    spatial_transforms[transform][axis] = (
+                        spatial_transforms[transform][axis] * (limits[1] - limits[0])
+                        + limits[0]
+                    )
             else:
                 raise ValueError(f"Unknown spatial transform: {transform}")
         self._current_spatial_transforms = spatial_transforms
