@@ -277,10 +277,6 @@ class CellMapImage:
         self, coords: Mapping[str, Sequence[float]], angles: Mapping[str, float]
     ) -> Mapping[str, tuple[Sequence[str], np.ndarray]]:
         """Rotates the given coordinates by the given angles."""
-        # TODO
-        UserWarning(
-            "Rotations are not yet implemented. Do not trust results will be correct."
-        )
         # Check to see if a rotation is necessary
         if not any([a != 0 for a in angles.values()]):
             return coords
@@ -380,9 +376,25 @@ class CellMapImage:
 
         return torch.tensor(data)
 
-    def return_data(self, coords: Mapping[str, Sequence[float]]):
+    def return_data(
+        self,
+        coords: (
+            Mapping[str, Sequence[float]]
+            | Mapping[str, tuple[Sequence[str], np.ndarray]]
+        ),
+    ):
         # Pull data from the image based on the given coordinates. This interpolates the data to the nearest pixel automatically.
-        if self.pad:
+        if not isinstance(coords[list(coords.keys())[0]][0], float | int):
+            # TODO: Need to make this work with self.pad = True
+            if self.pad:
+                raise NotImplementedError(
+                    "Interpolation with padding is not yet implemented."
+                )
+            data = self.array.interp(
+                coords=coords,
+                method="nearest",  # TODO: This should depend on whether the image is a segmentation or not
+            )
+        elif self.pad:
             if not hasattr(self, "_tolerance"):
                 self._tolerance = np.ones(coords[self.axes[0]].shape) * np.max(
                     list(self.scale.values())
