@@ -286,18 +286,6 @@ class CellMapImage:
         # Convert the coordinates dictionary to a vector
         coords_vector, axes_lengths = self._coord_dict_to_vector(coords)
 
-        # Check if any angles would rotate in a singular axis
-        singular_axes = set([c for c, l in axes_lengths.items() if l == 1])
-        for c, a in angles.items():
-            if a != 0:
-                # A rotation around one axis rotates the orthogonal axes
-                invalid_axes = (set(angles.keys()) - set([c])).intersection(
-                    singular_axes
-                )
-                assert (
-                    invalid_axes == set()
-                ), f"Cannot rotate around axis {c} by {a} degrees, as it would rotate around a singular axes: {invalid_axes}."
-
         # Recenter the coordinates around the origin
         center = coords_vector.mean(axis=0)
         coords_vector -= center
