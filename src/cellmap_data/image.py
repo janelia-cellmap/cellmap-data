@@ -265,7 +265,7 @@ class CellMapImage:
 
     def rotate_coords(
         self, coords: Mapping[str, Sequence[float]], angles: Mapping[str, float]
-    ) -> Mapping[str, Sequence[float]]:
+    ) -> Mapping[str, tuple[Sequence[str], np.ndarray]]:
         """Rotates the given coordinates by the given angles."""
         # TODO
         UserWarning(
@@ -291,7 +291,7 @@ class CellMapImage:
                 ), f"Cannot rotate around axis {c} by {a} degrees, as it would rotate around a singular axes: {invalid_axes}."
 
         # Recenter the coordinates around the origin
-        center = np.array([np.mean(coords[c], axis=0) for c in self.axes])
+        center = coords_vector.mean(axis=0)
         coords_vector -= center
 
         rotation_vector = [angles[c] for c in self.axes]
@@ -302,7 +302,7 @@ class CellMapImage:
 
         # Recenter the coordinates around the original center
         rotated_coords += center
-        return self._coord_vector_to_dict(rotated_coords, axes_lengths)
+        return self._coord_vector_to_grid_dict(rotated_coords, axes_lengths)
 
     def _coord_dict_to_vector(
         self, coords_dict: Mapping[str, Sequence[float]]
@@ -314,27 +314,16 @@ class CellMapImage:
         axes_lengths = {c: len(coords_dict[c]) for c in self.axes}
         return coord_vector, axes_lengths
 
-    def _coord_vector_to_dict(
+    def _coord_vector_to_grid_dict(
         self, coords_vector: np.ndarray, axes_lengths: Mapping[str, int]
-    ) -> Mapping[str, Sequence[float]]:
-        """Converts a vector of coordinates to a dictionary, for use with rotate_coords."""
-        coords_dict = {}
-        step_size = 1
-        for i, c in enumerate(self.axes[::-1]):
-            # The below does not seem to work because the splitting up of the array as a meshgrid is not consistent after rotation
-            # I think this one may be the closest to working...
-            coords_dict[c] = coords_vector[::step_size, len(self.axes) - 1 - i][
-                : axes_lengths[c]
-            ]
-            step_size *= axes_lengths[c]
-
-            # The below will not necessarily work as it can return more than the axis length
-            # coords_dict[c] = np.unique(coords_vector[:, len(self.axes) - 1 - i])
-
-            # # The below will not work because the result will not be sorted
-            # coords_dict[c] = np.histogram(
-            #     coords_vector[:, len(self.axes) - 1 - i], bins=axes_lengths[c]
-            # )[1][:-1]
+    ) -> Mapping[str, tuple[Sequence[str], np.ndarray]]:
+        """Converts a vector of coordinates to a grid type dictionary."""
+        shape = [axes_lengths[c] for c in self.axes]
+        axes = [c for c in self.axes]
+        coords_dict = {
+            c: (axes, coords_vector[:, self.axes.index(c)].reshape(shape))
+            for c in self.axes
+        }
 
         return coords_dict
 
@@ -342,23 +331,27 @@ class CellMapImage:
         """Sets spatial transformations for the image data."""
         self._current_spatial_transforms = transforms
 
-    def apply_spatial_transforms(
-        self, coords: Mapping[str, Sequence[float]]
-    ) -> torch.Tensor:
+    def apply_spatial_transforms(self, coords) -> torch.Tensor:
         """Applies spatial transformations to the given coordinates."""
-        # TODO: Implement non-90 degree rotations
-
         # Apply spatial transformations to the coordinates
+        # Because some spatial transformations require the image array, we need to apply them after pulling the data. This is done by separating the transforms into two groups
         if self._current_spatial_transforms is not None:
-            for transform, params in self._current_spatial_transforms.items():
-                if transform not in self.post_image_transforms:
-                    if transform == "mirror":
-                        for axis in params:
-                            coords[axis] = coords[axis][::-1]
-                    elif transform == "rotate":
-                        coords = self.rotate_coords(coords, params)
-                    else:
-                        raise ValueError(f"Unknown spatial transform: {transform}")
+            # Because of the implementation details, we explicitly apply transforms in a specific order
+            if "mirror" in self._current_spatial_transforms:
+                for axis in self._current_spatial_transforms["mirror"]:
+                    # Assumes the coords are the default xarray format
+                    coords[axis] = coords[axis][::-1]
+            if "rotate" in self._current_spatial_transforms:
+                # Assumes the coords are the default xarray format, and that the rotation is in degrees
+                # Converts the coordinates to a vector, rotates them, then converts them to a grid dictionary
+                coords = self.rotate_coords(
+                    coords, self._current_spatial_transforms["rotate"]
+                )
+                raise NotImplementedError(
+                    "How to return data properly, given rotated data is not yet implemented."
+                )
+            if "deform" in self._current_spatial_transforms:
+                raise NotImplementedError("Deformations are not yet implemented.")
         self._last_coords = coords
 
         # Pull data from the image

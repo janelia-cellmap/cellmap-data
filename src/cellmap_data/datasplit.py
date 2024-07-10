@@ -323,7 +323,7 @@ class CellMapDataSplit:
                 dataset.target_arrays = arrays
             else:
                 raise ValueError("Type must be 'inputs' or 'target'.")
-            dataset.set_arrays(arrays, type)
+            dataset.reset_arrays(type)
 
         if usage == "train":
             self.train_datasets = self.datasets["train"]

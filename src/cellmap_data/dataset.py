@@ -240,6 +240,8 @@ class CellMapDataset(Dataset):
         self._current_idx = idx
         self._current_center = center
         spatial_transforms = self.generate_spatial_transforms()
+        # TODO: Need to establish deformation field at dataset level, then propagate...
+        # should probably do as many coordinate transformations as possible at the dataset level (duplicate reference frame images shoulde have the same coordinate transformations)
         outputs = {}
         for array_name in self.input_arrays.keys():
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
@@ -601,11 +603,7 @@ class CellMapDataset(Dataset):
                 if isinstance(source, CellMapImage):
                     source.value_transform = transforms
 
-    def set_arrays(
-        self,
-        arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
-        type: str = "target",
-    ):
+    def reset_arrays(self, type: str = "target"):
         """Sets the arrays for the dataset."""
         if type.lower() == "input":
             self.input_sources = {}
