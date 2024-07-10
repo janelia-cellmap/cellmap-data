@@ -220,11 +220,15 @@ class CellMapImage:
         if not hasattr(self, "_class_counts"):
             # Get from cellmap-schemas metadata, then normalize by resolution
             try:
-                group = zarr.open(self.path, mode="r")
-                annotation_group = AnnotationGroup.from_zarr(group)  # type: ignore
-                bg_count = annotation_group.members[
-                    self.scale_level
-                ].attrs.cellmap.annotation.complement_counts["absent"]
+                annotation_attrs = AnnotationGroup.from_zarr(
+                    zarr.open(self.path, mode="r")
+                ).members[self.scale_level]
+                if hasattr(annotation_attrs, "attributes"):
+                    annotation_attrs = annotation_attrs.attributes.cellmap.annotation
+                else:
+                    annotation_attrs = annotation_attrs.attrs.cellmap.annotation
+
+                bg_count = annotation_attrs.complement_counts["absent"]
                 self._class_counts = (np.prod(self.array.shape) - bg_count) * np.prod(
                     list(self.scale.values())
                 )
