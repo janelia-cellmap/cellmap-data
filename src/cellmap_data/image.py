@@ -6,7 +6,7 @@ import xarray
 import tensorstore
 import xarray_tensorstore as xt
 import numpy as np
-from cellmap_schemas.annotation import AnnotationGroup
+from cellmap_schemas.annotation import AnnotationArray
 import zarr
 
 from scipy.spatial.transform import Rotation as rot
@@ -129,9 +129,14 @@ class CellMapImage:
         return self._group  # type: ignore
 
     @property
+    def array_path(self) -> str:
+        if not hasattr(self, "_array_path"):
+            self._array_path = os.path.join(self.path, self.scale_level)
+        return self._array_path
+
+    @property
     def array(self) -> xarray.DataArray:
         if not hasattr(self, "_array"):
-            self.array_path = os.path.join(self.path, self.scale_level)
             # Construct an xarray with Tensorstore backend
             ds = read_xarray(self.array_path)
             spec = xt._zarr_spec_from_path(self.array_path)
@@ -220,20 +225,25 @@ class CellMapImage:
         if not hasattr(self, "_class_counts"):
             # Get from cellmap-schemas metadata, then normalize by resolution
             try:
-                group = zarr.open(self.path, mode="r")
-                annotation_group = AnnotationGroup.from_zarr(group)  # type: ignore
-                bg_count = annotation_group.members[
-                    self.scale_level
-                ].attrs.cellmap.annotation.complement_counts["absent"]
+                annotation_attrs = AnnotationArray.from_zarr(
+                    zarr.open(self.array_path, mode="r")  # type: ignore
+                )
+                if hasattr(annotation_attrs, "attributes"):
+                    annotation_attrs = annotation_attrs.attributes.cellmap.annotation
+                else:
+                    # For backwards compatibility
+                    annotation_attrs = annotation_attrs.attrs.cellmap.annotation  # type: ignore
+
+                bg_count = annotation_attrs.complement_counts["absent"]  # type: ignore
                 self._class_counts = (np.prod(self.array.shape) - bg_count) * np.prod(
                     list(self.scale.values())
                 )
                 self._bg_count = bg_count * np.prod(list(self.scale.values()))
             except Exception as e:
                 print(e)
-                self._class_counts = 0
-                self._bg_count = 0
-        return self._class_counts
+                self._class_counts = 0.0
+                self._bg_count = 0.0
+        return self._class_counts  # type: ignore
 
     def to(self, device: str) -> None:
         """Sets what device returned image data will be loaded onto."""
