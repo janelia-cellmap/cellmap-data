@@ -34,7 +34,7 @@ class CellMapDataSplit:
         input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
         target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
         classes: Sequence[str],
-        empty_value: int | float | str = 0,
+        empty_value: int | float | str = torch.nan,
         pad: bool | str = False,
         datasets: Optional[Mapping[str, Sequence[CellMapDataset]]] = None,
         dataset_dict: Optional[Mapping[str, Sequence[Mapping[str, str]]]] = None,

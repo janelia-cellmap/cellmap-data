@@ -150,10 +150,11 @@ class CellMapMultiDataset(ConcatDataset):
                 generator=rng,
             )
         else:
+            # TODO: Add cacpacity for curriculum learning
             dataset_weights = torch.tensor(
                 [self.dataset_weights[ds] for ds in self.datasets]
             )
-            dataset_weights[dataset_weights < 0] = 0
+            dataset_weights[dataset_weights < 0.1] = 0.1
 
             datasets_sampled = torch.multinomial(
                 dataset_weights, num_samples, replacement=True

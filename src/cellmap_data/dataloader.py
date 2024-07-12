@@ -4,7 +4,7 @@ from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .subdataset import CellMapSubset
 
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 
 
 class CellMapDataLoader:
@@ -17,7 +17,7 @@ class CellMapDataLoader:
     batch_size: int
     num_workers: int
     weighted_sampler: bool
-    sampler: Sampler | None
+    sampler: Sampler | Callable | None
     is_train: bool
     rng: Optional[torch.Generator] = None
 
@@ -28,7 +28,7 @@ class CellMapDataLoader:
         batch_size: int = 1,
         num_workers: int = 0,
         weighted_sampler: bool = False,
-        sampler: Sampler | None = None,
+        sampler: Sampler | Callable | None = None,
         is_train: bool = True,
         rng: Optional[torch.Generator] = None,
         **kwargs,
@@ -48,6 +48,7 @@ class CellMapDataLoader:
             self.sampler = self.dataset.get_weighted_sampler(self.batch_size, self.rng)
         if torch.cuda.is_available():
             self.dataset.to("cuda")
+        self.default_kwargs = kwargs.copy()
         kwargs.update(
             {
                 "dataset": self.dataset,
@@ -65,6 +66,25 @@ class CellMapDataLoader:
             kwargs["shuffle"] = False
         # TODO: Try persistent workers
         self.loader = DataLoader(**kwargs)
+
+    def refresh(self):
+        if isinstance(self.sampler, Callable):
+            kwargs = self.default_kwargs.copy()
+            kwargs.update(
+                {
+                    "dataset": self.dataset,
+                    "batch_size": self.batch_size,
+                    "num_workers": self.num_workers,
+                    "collate_fn": self.collate_fn,
+                }
+            )
+            self.sampler = self.sampler()
+            kwargs["sampler"] = self.sampler
+            if self.is_train:
+                kwargs["shuffle"] = True
+            else:
+                kwargs["shuffle"] = False
+            self.loader = DataLoader(**kwargs)
 
     def collate_fn(self, batch):
         outputs = {}

@@ -55,7 +55,14 @@ def get_image_grid(
 
 
 def get_image_dict(
-    input_data, target_data, outputs, classes, batch_size=None, fig_size=3, clim=None
+    input_data,
+    target_data,
+    outputs,
+    classes,
+    batch_size=None,
+    fig_size=3,
+    clim=None,
+    colorbar=True,
 ):
     if batch_size is None:
         batch_size = input_data.shape[0]
@@ -79,6 +86,14 @@ def get_image_dict(
             ax[b, 3].imshow(output, clim=clim)
             ax[b, 3].axis("off")
             ax[b, 3].set_title(f"Pred. {label}")
+            if colorbar and clim is None:
+                if batch_size == 1:
+                    orientation = "horizontal"
+                    location = "bottom"
+                else:
+                    orientation = "vertical"
+                    location = "right"
+                ax[b, 3].colorbar(orientation=orientation, location=location)
             input_img = input_data[b][0].squeeze().cpu().detach().numpy()
             if len(input_img.shape) == 3:
                 input_mid = input_img.shape[0] // 2

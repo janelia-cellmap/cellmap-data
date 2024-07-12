@@ -139,8 +139,12 @@ class CellMapImage:
     @property
     def array(self) -> xarray.DataArray:
         if not hasattr(self, "_array"):
-            # Construct an xarray with Tensorstore backend
             ds = read_xarray(self.array_path)
+
+            if ".zarr" not in self.array_path and ".n5" not in self.array_path:
+                return ds  # type: ignore
+
+            # Construct an xarray with Tensorstore backend
             spec = xt._zarr_spec_from_path(self.array_path)
             array_future = tensorstore.open(  # type: ignore
                 spec, read=True, write=False, context=self.context
@@ -227,6 +231,7 @@ class CellMapImage:
         if not hasattr(self, "_class_counts"):
             # Get from cellmap-schemas metadata, then normalize by resolution
             try:
+                # TODO: Make work with HDF5 files
                 annotation_attrs = AnnotationArray.from_zarr(
                     zarr.open(self.array_path, mode="r")  # type: ignore
                 )
@@ -243,8 +248,8 @@ class CellMapImage:
                 self._bg_count = bg_count * np.prod(list(self.scale.values()))
             except Exception as e:
                 print(e)
-                self._class_counts = 0.0
-                self._bg_count = 0.0
+                self._class_counts = 0.1
+                self._bg_count = 0.1
         return self._class_counts  # type: ignore
 
     def to(self, device: str) -> None:
