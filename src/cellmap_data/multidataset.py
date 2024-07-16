@@ -123,7 +123,7 @@ class CellMapMultiDataset(ConcatDataset):
             self._validation_indices = indices
         return self._validation_indices
 
-    def to(self, device: str):
+    def to(self, device: str | torch.device):
         for dataset in self.datasets:
             dataset.to(device)
         return self
