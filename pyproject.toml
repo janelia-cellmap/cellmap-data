@@ -56,7 +56,7 @@ dev = [
     "snakeviz",
 ]
 all = [
-    "cellmap.data[dev,test]",
+    "cellmap-data[dev,test]",
 ]
 
 [project.urls]

@@ -7,7 +7,7 @@
       "full_name": "Jeff Rhoades",
       "email": "rhoadesj@hhmi.org",
       "github_username": "rhoadesScholar",
-      "project_name": "cellmap.data",
+      "project_name": "cellmap-data",
       "project_slug": "cellmap_data",
       "project_short_description": "Utility for loading CellMap data for machine learning training, utilizing PyTorch, TensorStore, and PyDantic.",
       "pypi_username": "rhoadesScholar",

@@ -2,7 +2,14 @@ import matplotlib.pyplot as plt
 
 
 def get_image_grid(
-    input_data, target_data, outputs, classes, batch_size=None, fig_size=3, clim=None
+    input_data,
+    target_data,
+    outputs,
+    classes,
+    batch_size=None,
+    fig_size=3,
+    clim=None,
+    cmap=None,
 ):
     if batch_size is None:
         batch_size = input_data.shape[0]
@@ -20,10 +27,10 @@ def get_image_grid(
                 output_mid = output.shape[0] // 2
                 output = output[output_mid]
                 target = target[output_mid]
-            ax[b, c * 2 + 2].imshow(target, clim=clim)
+            ax[b, c * 2 + 2].imshow(target, clim=clim, cmap=cmap)
             ax[b, c * 2 + 2].axis("off")
             ax[b, c * 2 + 2].set_title(f"GT {label}")
-            ax[b, c * 2 + 3].imshow(output, clim=clim)
+            ax[b, c * 2 + 3].imshow(output, clim=clim, cmap=cmap)
             ax[b, c * 2 + 3].axis("off")
             ax[b, c * 2 + 3].set_title(f"Pred. {label}")
         input_img = input_data[b][0].squeeze().cpu().detach().numpy()

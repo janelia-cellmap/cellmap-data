@@ -1,4 +1,4 @@
-* cellmap.data version:
+* cellmap-data version:
 * Python version:
 * Operating System:
 
