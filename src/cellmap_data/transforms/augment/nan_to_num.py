@@ -7,5 +7,5 @@ class NaNtoNum(T.Transform):
         super().__init__()
         self.params = params
 
-    def _transform(self, x: Any) -> Any:
+    def _transform(self, x: Any, params: Dict[str, Any]) -> Any:
         return x.nan_to_num(**self.params)

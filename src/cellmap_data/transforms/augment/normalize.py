@@ -7,7 +7,9 @@ class Normalize(T.Transform):
         super().__init__()
 
     def _transform(self, x: Any, params: Dict[str, Any]) -> Any:
-        if x.max() - x.min() == 0:
+        min_val = x.nan_to_num().min()
+        diff = x.nan_to_num().max() - min_val
+        if diff == 0:
             return x
         else:
-            return (x - x.min()) / (x.max() - x.min())
+            return (x - min_val) / diff
