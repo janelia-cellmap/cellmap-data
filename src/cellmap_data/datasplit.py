@@ -125,7 +125,7 @@ class CellMapDataSplit:
         self.context = context
         if self.dataset_dict is not None:
             self.construct(self.dataset_dict)
-        self.verify_datasets()
+        # self.verify_datasets()
         assert len(self.train_datasets) > 0, "No valid training datasets found."
 
     def __repr__(self):

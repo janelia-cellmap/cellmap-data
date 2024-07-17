@@ -33,7 +33,7 @@ dependencies = [
     "fibsem-tools>=7",
     "cellmap-schemas",
     "tensorstore",
-    "xarray-tensorstore",
+    "xarray-tensorstore @ git+https://github.com/google/xarray-tensorstore.git",
     "cellpose",
     "py_distance_transforms",
 ]

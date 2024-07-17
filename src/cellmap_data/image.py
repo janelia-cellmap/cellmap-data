@@ -377,11 +377,6 @@ class CellMapImage:
     ):
         # Pull data from the image based on the given coordinates. This interpolates the data to the nearest pixel automatically.
         if not isinstance(coords[list(coords.keys())[0]][0], float | int):
-            # TODO: Need to make this work with self.pad = True
-            # if self.pad:
-            #     raise NotImplementedError(
-            #         "Interpolation with padding is not yet implemented."
-            #     )
             data = self.array.interp(
                 coords=coords,
                 method=self.interpolation,  # type: ignore
