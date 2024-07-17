@@ -1,12 +1,15 @@
 import os
 from typing import Any, Callable, Mapping, Optional, Sequence
 import torch
-from fibsem_tools.io.core import read_xarray
+
+# from fibsem_tools.io.core import read_xarray
+from pydantic_ome_ngff.v04.multiscale import Group
+from xarray_ome_ngff.v04.multiscale import normalize_transforms, coords_from_transforms
+
 import xarray
 import tensorstore
 import xarray_tensorstore as xt
 import numpy as np
-from cellmap_schemas.annotation import AnnotationArray
 import zarr
 
 from scipy.spatial.transform import Rotation as rot
@@ -125,9 +128,9 @@ class CellMapImage:
         return self._scale_level
 
     @property
-    def group(self) -> xarray.DataArray:
+    def group(self) -> zarr.Group:
         if not hasattr(self, "_group"):
-            self._group = read_xarray(self.path)
+            self._group = zarr.open_group(self.path)
         return self._group  # type: ignore
 
     @property
@@ -139,7 +142,18 @@ class CellMapImage:
     @property
     def array(self) -> xarray.DataArray:
         if not hasattr(self, "_array"):
-            ds = read_xarray(self.array_path)
+            # ds = read_xarray(self.array_path)
+            model = Group.from_zarr(self.group)
+            multi = list(model.attributes.multiscales)[0]
+            multi_tx = multi.coordinateTransformations
+            dset = [ds for ds in multi.datasets if ds.path == self.scale_level][0]
+            tx_fused = normalize_transforms(multi_tx, dset.coordinateTransformations)
+            coords = coords_from_transforms(
+                axes=multi.axes,
+                transforms=tx_fused,
+                shape=self.group[self.scale_level].shape,
+            )
+            ds = xarray.DataArray(self.group[self.scale_level], coords=coords)
 
             if ".zarr" not in self.array_path and ".n5" not in self.array_path:
                 return ds  # type: ignore
@@ -163,23 +177,6 @@ class CellMapImage:
                 c: self.array.coords[c].values.min() for c in self.axes
             }
         return self._translation
-
-    @property
-    def original_scale(self) -> Mapping[str, Any]:
-        """Returns the original scale of the image."""
-        if not hasattr(self, "_original_scale"):
-            # Get the original scale of the image from poorly formatted metadata
-            for level_data in self.group.attrs["multiscales"][0]["datasets"]:
-                if level_data["path"] == self.scale_level:
-                    level_data = level_data["coordinateTransformations"]
-                    for transform in level_data:
-                        if transform["type"] == "scale":
-                            self._original_scale = {
-                                c: transform["scale"][i]
-                                for i, c in enumerate(self.axes)
-                            }
-                    break
-        return self._original_scale
 
     @property
     def bounding_box(self) -> Mapping[str, list[float]]:
@@ -232,19 +229,12 @@ class CellMapImage:
             # Get from cellmap-schemas metadata, then normalize by resolution
             try:
                 # TODO: Make work with HDF5 files
-                annotation_attrs = AnnotationArray.from_zarr(
-                    zarr.open(self.array_path, mode="r")  # type: ignore
-                )
-                if hasattr(annotation_attrs, "attributes"):
-                    annotation_attrs = annotation_attrs.attributes.cellmap.annotation
-                else:
-                    # For backwards compatibility
-                    annotation_attrs = annotation_attrs.attrs.cellmap.annotation  # type: ignore
-
-                bg_count = annotation_attrs.complement_counts["absent"]  # type: ignore
-                self._class_counts = (np.prod(self.array.shape) - bg_count) * np.prod(
-                    list(self.scale.values())
-                )
+                bg_count = self.group[self.scale_level].attrs["cellmap"]["annotation"][
+                    "complement_counts"
+                ]["absent"]
+                self._class_counts = (
+                    np.prod(self.group[self.scale_level].shape) - bg_count  # type: ignore
+                ) * np.prod(list(self.scale.values()))
                 self._bg_count = bg_count * np.prod(list(self.scale.values()))
             except Exception as e:
                 print(e)
