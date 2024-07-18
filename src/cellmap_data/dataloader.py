@@ -52,7 +52,6 @@ class CellMapDataLoader:
         kwargs.update(
             {
                 "dataset": self.dataset,
-                "dataset": self.dataset,
                 "batch_size": self.batch_size,
                 "num_workers": self.num_workers,
                 "collate_fn": self.collate_fn,
@@ -79,13 +78,10 @@ class CellMapDataLoader:
                     "batch_size": self.batch_size,
                     "num_workers": self.num_workers,
                     "collate_fn": self.collate_fn,
+                    "shuffle": False,
                 }
             )
             kwargs["sampler"] = self.sampler()
-            if self.is_train:
-                kwargs["shuffle"] = True
-            else:
-                kwargs["shuffle"] = False
             self.loader = DataLoader(**kwargs)
 
     def collate_fn(self, batch):
