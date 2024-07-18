@@ -114,11 +114,52 @@ class CellMapImage:
         return f"CellMapImage({self.path})"
 
     @property
+    def shape(self) -> Mapping[str, int]:
+        """Returns the shape of the image."""
+        if not hasattr(self, "_shape"):
+            self._shape = {
+                c: self.group[self.scale_level].shape[i]
+                for i, c in enumerate(self.axes)
+            }
+        return self._shape
+
+    @property
     def center(self):
         center = {}
         for c, (start, stop) in self.bounding_box.items():
             center[c] = start + (stop - start) / 2
         return center
+
+    @property
+    def multiscale_attrs(self):
+        if not hasattr(self, "_multiscale_attrs"):
+            model = Group.from_zarr(self.group)
+            self._multiscale_attrs = list(model.attributes.multiscales)[0]
+        return self._multiscale_attrs
+
+    @property
+    def coordinateTransformations(self):
+        if not hasattr(self, "_coordinateTransformations"):
+            # multi_tx = multi.coordinateTransformations
+            dset = [
+                ds
+                for ds in self._multiscale_attrs.datasets
+                if ds.path == self.scale_level
+            ][0]
+            # tx_fused = normalize_transforms(multi_tx, dset.coordinateTransformations)
+            self._coordinateTransformations = dset.coordinateTransformations
+        return self._coordinateTransformations
+
+    @property
+    def full_coords(self):
+        if not hasattr(self, "_full_coords"):
+            self._full_coords = coords_from_transforms(
+                axes=self.multiscale_attrs.axes,
+                transforms=self.coordinateTransformations,
+                # transforms=tx_fused,
+                shape=self.group[self.scale_level].shape,
+            )
+        return self._full_coords
 
     @property
     def scale_level(self) -> str:
@@ -141,51 +182,33 @@ class CellMapImage:
 
     @property
     def array(self) -> xarray.DataArray:
+        # TODO: Would it be faster to do Try/Except instead of hasattr?
         if not hasattr(self, "_array"):
-            # ds = read_xarray(self.array_path)
-            model = Group.from_zarr(self.group)
-            multi = list(model.attributes.multiscales)[0]
-            multi_tx = multi.coordinateTransformations
-            dset = [ds for ds in multi.datasets if ds.path == self.scale_level][0]
-            tx_fused = normalize_transforms(multi_tx, dset.coordinateTransformations)
-            coords = coords_from_transforms(
-                axes=multi.axes,
-                transforms=tx_fused,
-                shape=self.group[self.scale_level].shape,
-            )
-            ds = xarray.DataArray(self.group[self.scale_level], coords=coords)
-
-            if ".zarr" not in self.array_path and ".n5" not in self.array_path:
-                return ds  # type: ignore
-
             # Construct an xarray with Tensorstore backend
             spec = xt._zarr_spec_from_path(self.array_path)
             array_future = tensorstore.open(  # type: ignore
                 spec, read=True, write=False, context=self.context
             )
             array = array_future.result()
-            new_data = xt._TensorStoreAdapter(array)
-            self._array = ds.copy(data=new_data)  # type: ignore
-        return self._array  # type: ignore
+            data = xt._TensorStoreAdapter(array)
+            self._array = xarray.DataArray(data=data, coords=self.full_coords)
+        return self._array
 
     @property
     def translation(self) -> Mapping[str, float]:
         """Returns the translation of the image."""
         if not hasattr(self, "_translation"):
             # Get the translation of the image
-            self._translation = {
-                c: self.array.coords[c].values.min() for c in self.axes
-            }
+            self._translation = {c: self.bounding_box[c][0] for c in self.axes}
         return self._translation
 
     @property
     def bounding_box(self) -> Mapping[str, list[float]]:
         """Returns the bounding box of the dataset in world units."""
         if not hasattr(self, "_bounding_box"):
-            self._bounding_box = {
-                c: [self.translation[c], self.array.coords[c].values.max()]
-                for c in self.axes
-            }
+            self._bounding_box = {}
+            for coord in self.full_coords:
+                self._bounding_box[coord.dims[0]] = [coord.data.min(), coord.data.max()]
         return self._bounding_box
 
     @property

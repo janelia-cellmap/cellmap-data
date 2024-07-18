@@ -1,5 +1,5 @@
 import torch
-from cellmap_train.utils import torch_max_value
+from cellmap_data.utils import torch_max_value
 
 
 class RandomContrast(torch.nn.Module):

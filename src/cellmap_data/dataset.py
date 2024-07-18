@@ -354,7 +354,7 @@ class CellMapDataset(Dataset):
                 self.target_sources.values()
             ):
                 if isinstance(source, dict):
-                    for label, source in source.items():
+                    for source in source.values():
                         if not hasattr(source, "bounding_box"):
                             continue
                         bounding_box = self._get_box(source.bounding_box, bounding_box)
@@ -381,7 +381,7 @@ class CellMapDataset(Dataset):
                 self.target_sources.values()
             ):
                 if isinstance(source, dict):
-                    for label, source in source.items():
+                    for source in source.values():
                         if not hasattr(source, "sampling_box"):
                             continue
                         sampling_box = self._get_box(source.sampling_box, sampling_box)
@@ -465,6 +465,18 @@ class CellMapDataset(Dataset):
             self._validation_indices = self.get_indices(chunk_size)
         return self._validation_indices
 
+    @property
+    def device(self):
+        """Returns the device for the dataset."""
+        if not hasattr(self, "_device"):
+            if torch.cuda.is_available():
+                self._device = torch.device("cuda")
+            elif torch.backends.mps.is_available():
+                self._device = torch.device("mps")
+            else:
+                self._device = torch.device("cpu")
+        return self._device
+
     def _get_box_shape(
         self, source_box: Mapping[str, list[float]]
     ) -> Mapping[str, int]:
@@ -520,18 +532,6 @@ class CellMapDataset(Dataset):
             index = np.ravel_multi_index(index, list(self.sampling_box_shape.values()))
             indices.append(index)
         return indices
-
-    @property
-    def device(self):
-        """Returns the device for the dataset."""
-        if not hasattr(self, "_device"):
-            if torch.cuda.is_available():
-                self._device = torch.device("cuda")
-            elif torch.backends.mps.is_available():
-                self._device = torch.device("mps")
-            else:
-                self._device = torch.device("cpu")
-        return self._device
 
     def to(self, device):
         """Sets the device for the dataset."""

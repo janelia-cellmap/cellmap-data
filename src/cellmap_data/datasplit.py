@@ -7,6 +7,10 @@ from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .subdataset import CellMapSubset
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class CellMapDataSplit:
     """
@@ -93,6 +97,7 @@ class CellMapDataSplit:
             force_has_data (bool, optional): Whether to force the dataset to have data. Defaults to False.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
         """
+        logger.info("Initializing CellMapDataSplit...")
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
         self.classes = classes
@@ -125,8 +130,9 @@ class CellMapDataSplit:
         self.context = context
         if self.dataset_dict is not None:
             self.construct(self.dataset_dict)
-        # self.verify_datasets()
+        self.verify_datasets()
         assert len(self.train_datasets) > 0, "No valid training datasets found."
+        logger.info("CellMapDataSplit initialized.")
 
     def __repr__(self):
         return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.train_raw_value_transforms}\n\tGT value transforms: {self.target_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
