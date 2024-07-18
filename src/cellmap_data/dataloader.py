@@ -59,7 +59,10 @@ class CellMapDataLoader:
             }
         )
         if self.sampler is not None:
-            kwargs["sampler"] = self.sampler
+            if isinstance(self.sampler, Callable):
+                kwargs["sampler"] = self.sampler()
+            else:
+                kwargs["sampler"] = self.sampler
         elif self.is_train:
             kwargs["shuffle"] = True
         else:
@@ -78,8 +81,7 @@ class CellMapDataLoader:
                     "collate_fn": self.collate_fn,
                 }
             )
-            self.sampler = self.sampler()
-            kwargs["sampler"] = self.sampler
+            kwargs["sampler"] = self.sampler()
             if self.is_train:
                 kwargs["shuffle"] = True
             else:
