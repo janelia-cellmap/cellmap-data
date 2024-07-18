@@ -72,6 +72,9 @@ repository = "https://github.com/rhoadesScholar/cellmap-data"
 # [project.entry-points."spam.magical"]
 # tomatoes = "spam:main_tomatoes"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 # https://hatch.pypa.io/latest/config/metadata/
 [tool.hatch.version]
 source = "vcs"
