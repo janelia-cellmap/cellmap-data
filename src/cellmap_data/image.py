@@ -2,9 +2,8 @@ import os
 from typing import Any, Callable, Mapping, Optional, Sequence
 import torch
 
-# from fibsem_tools.io.core import read_xarray
-from pydantic_ome_ngff.v04.multiscale import Group
-from xarray_ome_ngff.v04.multiscale import normalize_transforms, coords_from_transforms
+from xarray_ome_ngff.v04.multiscale import coords_from_transforms
+from pydantic_ome_ngff.v04.multiscale import GroupAttrs
 
 import xarray
 import tensorstore
@@ -133,8 +132,9 @@ class CellMapImage:
     @property
     def multiscale_attrs(self):
         if not hasattr(self, "_multiscale_attrs"):
-            model = Group.from_zarr(self.group)
-            self._multiscale_attrs = list(model.attributes.multiscales)[0]
+            self._multiscale_attrs = GroupAttrs(
+                multiscales=self.group.attrs["multiscales"]
+            ).multiscales[0]
         return self._multiscale_attrs
 
     @property
@@ -143,7 +143,7 @@ class CellMapImage:
             # multi_tx = multi.coordinateTransformations
             dset = [
                 ds
-                for ds in self._multiscale_attrs.datasets
+                for ds in self.multiscale_attrs.datasets
                 if ds.path == self.scale_level
             ][0]
             # tx_fused = normalize_transforms(multi_tx, dset.coordinateTransformations)
