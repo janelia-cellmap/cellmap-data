@@ -90,7 +90,7 @@ def get_image_dict(
             ax[b, 2].imshow(target, clim=clim)
             ax[b, 2].axis("off")
             ax[b, 2].set_title(f"GT {label}")
-            ax[b, 3].imshow(output, clim=clim)
+            im = ax[b, 3].imshow(output, clim=clim)
             ax[b, 3].axis("off")
             ax[b, 3].set_title(f"Pred. {label}")
             if colorbar and clim is None:
@@ -100,7 +100,7 @@ def get_image_dict(
                 else:
                     orientation = "vertical"
                     location = "right"
-                ax[b, 3].colorbar(orientation=orientation, location=location)
+                fig.colorbar(im, orientation=orientation, location=location)
             input_img = input_data[b][0].squeeze().cpu().detach().numpy()
             if len(input_img.shape) == 3:
                 input_mid = input_img.shape[0] // 2
