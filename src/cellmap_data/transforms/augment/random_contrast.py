@@ -3,12 +3,28 @@ from cellmap_data.utils import torch_max_value
 
 
 class RandomContrast(torch.nn.Module):
-    # Randomly adjust the contrast of the input
+    """
+    Randomly change the contrast of the input.
+
+    Attributes:
+        contrast_range (tuple): Contrast range.
+
+    Methods:
+        forward: Forward pass.
+    """
+
     def __init__(self, contrast_range=(0.5, 1.5)):
-        super(RandomContrast, self).__init__()
+        """
+        Initialize the random contrast.
+
+        Args:
+            contrast_range (tuple, optional): Contrast range. Defaults to (0.5, 1.5).
+        """
+        super().__init__()
         self.contrast_range = contrast_range
 
     def forward(self, x: torch.Tensor):
+        """Forward pass."""
         ratio = float(
             torch.rand(1) * (self.contrast_range[1] - self.contrast_range[0])
             + self.contrast_range[0]
