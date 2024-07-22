@@ -7,12 +7,28 @@ logger = logging.getLogger(__name__)
 
 
 class RandomGamma(torch.nn.Module):
-    # Randomly adjust the gamma of the input
+    """
+    Apply a random gamma augmentation to the input.
+
+    Attributes:
+        gamma_range (tuple): Gamma range.
+
+    Methods:
+        forward: Forward pass.
+    """
+
     def __init__(self, gamma_range=(0.5, 1.5)):
-        super(RandomGamma, self).__init__()
+        """
+        Initialize the random gamma augmentation.
+
+        Args:
+            gamma_range (tuple, optional): Gamma range. Defaults to (0.5, 1.5).
+        """
+        super().__init__()
         self.gamma_range = gamma_range
 
     def forward(self, x: torch.Tensor):
+        """Forward pass."""
         gamma = torch.as_tensor(
             float(
                 torch.rand(1) * (self.gamma_range[1] - self.gamma_range[0])
