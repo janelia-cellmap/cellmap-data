@@ -68,7 +68,7 @@ class CellMapImage:
         axis_order: str | Sequence[str] = "zyx",
         value_transform: Optional[Callable] = None,
         context: Optional[tensorstore.Context] = None,  # type: ignore
-    ):
+    ) -> None:
         """Initializes a CellMapImage object.
 
         Args:
@@ -153,15 +153,17 @@ class CellMapImage:
         return self._shape
 
     @property
-    def center(self):
+    def center(self) -> Mapping[str, float]:
         """Returns the center of the image in world units."""
-        center = {}
-        for c, (start, stop) in self.bounding_box.items():
-            center[c] = start + (stop - start) / 2
-        return center
+        if not hasattr(self, "_center"):
+            center = {}
+            for c, (start, stop) in self.bounding_box.items():
+                center[c] = start + (stop - start) / 2
+            self._center = center
+        return self._center
 
     @property
-    def multiscale_attrs(self):
+    def multiscale_attrs(self) -> GroupAttrs:
         """Returns the multiscale metadata of the image."""
         if not hasattr(self, "_multiscale_attrs"):
             self._multiscale_attrs = GroupAttrs(
@@ -170,7 +172,7 @@ class CellMapImage:
         return self._multiscale_attrs
 
     @property
-    def coordinateTransformations(self):
+    def coordinateTransformations(self) -> list[Mapping[str, Any]]:
         """Returns the coordinate transformations of the image, based on the multiscale metadata."""
         if not hasattr(self, "_coordinateTransformations"):
             # multi_tx = multi.coordinateTransformations
@@ -184,7 +186,7 @@ class CellMapImage:
         return self._coordinateTransformations
 
     @property
-    def full_coords(self):
+    def full_coords(self) -> Mapping[str, xarray.DataArray]:
         """Returns the full coordinates of the image's axes in world units."""
         if not hasattr(self, "_full_coords"):
             self._full_coords = coords_from_transforms(
@@ -378,7 +380,7 @@ class CellMapImage:
 
         return coords_dict
 
-    def set_spatial_transforms(self, transforms: Mapping[str, Any] | None):
+    def set_spatial_transforms(self, transforms: Mapping[str, Any] | None) -> None:
         """Sets spatial transformations for the image data, for setting global transforms at the 'dataset' level."""
         self._current_spatial_transforms = transforms
 
@@ -424,7 +426,7 @@ class CellMapImage:
             Mapping[str, Sequence[float]]
             | Mapping[str, tuple[Sequence[str], np.ndarray]]
         ),
-    ):
+    ) -> xarray.DataArray:
         """Pulls data from the image based on the given coordinates, applying interpolation if necessary, and returns the data as an xarray DataArray."""
         if not isinstance(coords[list(coords.keys())[0]][0], float | int):
             data = self.array.interp(
@@ -550,6 +552,6 @@ class EmptyImage:
         """Moves the image data to the given device."""
         self.store = self.store.to(device)
 
-    def set_spatial_transforms(self, transforms: Mapping[str, Any] | None):
+    def set_spatial_transforms(self, transforms: Mapping[str, Any] | None) -> None:
         """Imitates the method in CellMapImage, but does nothing for an EmptyImage object."""
         pass

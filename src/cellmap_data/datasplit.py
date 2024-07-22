@@ -73,7 +73,7 @@ class CellMapDataSplit:
                     ...
                 }
             classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays.
-            empty_value (int | float | str, optional): The value to use for empty data. Defaults to 0. If "mask" is specified, the datasets will produce training masks alongside the input and target arrays.
+            empty_value (int | float | str, optional): The value to use for empty data. Defaults to 0.
             datasets (Optional[Dict[str, CellMapDataset]], optional): A dictionary containing the dataset objects. The dictionary should have the following structure:
                 {
                     "train": Iterable[CellMapDataset],

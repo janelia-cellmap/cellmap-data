@@ -14,6 +14,7 @@ class CellposeFlow:
     """
 
     def __init__(self, ndim: int, device: str | None = None):
+        UserWarning("This is still in development and may not work as expected")
         self.ndim = ndim
         if device is None:
             if torch.cuda.is_available():

@@ -27,28 +27,42 @@ def split_target_path(path: str) -> tuple[str, list[str]]:
 
 # %%
 class CellMapDataset(Dataset):
-    """This subclasses PyTorch Dataset to load CellMap data for training. It maintains the same API as the Dataset class. Importantly, it maintains information about and handles for the sources for raw and groundtruth data. This information includes the path to the data, the classes for segmentation, and the arrays to input to the network and use as targets for the network. The dataset constructs the sources for the raw and groundtruth data, and retrieves the data from the sources. The dataset also provides methods to get the number of pixels for each class in the ground truth data, normalized by the resolution. Additionally, random crops of the data can be generated for training, because the CellMapDataset maintains information about the extents of its source arrays. This object additionally combines images for different classes into a single output array, which is useful for training segmentation networks."""
+    """This subclasses PyTorch Dataset to load CellMap data for training. It maintains the same API as the Dataset class. Importantly, it maintains information about and handles for the sources for raw and groundtruth data. This information includes the path to the data, the classes for segmentation, and the arrays to input to the network and use as targets for the network predictions. The dataset constructs the sources for the raw and groundtruth data, and retrieves the data from the sources. The dataset also provides methods to get the number of pixels for each class in the ground truth data, normalized by the resolution. Additionally, random crops of the data can be generated for training, because the CellMapDataset maintains information about the extents of its source arrays. This object additionally combines images for different classes into a single output array, which is useful for training segmentation networks.
 
-    raw_path: str
-    target_path: str
-    classes: Sequence[str]
-    input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]]
-    target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]]
-    input_sources: Mapping[str, CellMapImage]
-    target_sources: Mapping[
-        str, Mapping[str, CellMapImage | EmptyImage | Sequence[str]]
-    ]
-    spatial_transforms: Optional[Mapping[str, any]]  # type: ignore
-    raw_value_transforms: Optional[Callable]
-    target_value_transforms: Optional[
-        Callable | Sequence[Callable] | Mapping[str, Callable]
-    ]
-    class_relation_dict: Optional[Mapping[str, Sequence[str]]]
-    empty_value: float | int | str
-    has_data: bool
-    is_train: bool
-    axis_order: str
-    context: Optional[tensorstore.Context]  # type: ignore
+    Attributes:
+
+        raw_path (str): The path to the raw image data.
+        target_path (str): The path to the ground truth data.
+        classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with the set 'empty_value' and, optionally, zeros for true-negaties inferred from mutually exclusive classes indicated by the 'class_relation_dict'.
+        input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure:
+            {
+                "array_name": {
+                    "shape": tuple[int],
+                    "scale": Sequence[float],
+                },
+                ...
+            }
+        where 'array_name' is the name of the array, 'shape' is the shape of the array in voxels, and 'scale' is the scale of the array in world units.
+        target_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as 'input_arrays'.
+        spatial_transforms (Optional[Sequence[Mapping[str, any]]], optional): A sequence of dictionaries containing the spatial transformations to apply to the data. The dictionary should have the following structure:
+            {transform_name: {transform_args}}
+            Defaults to None.
+        raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
+        target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order. If the function is a dictionary, the keys should correspond to the classes in the 'classes' list. The function should return a tensor of the same shape as the input tensor. Note that target transforms are applied to the ground truth data and should generally not be used with use of true-negative data inferred using the 'class_relations_dict' (see below).
+        class_relation_dict (Optional[Mapping[str, Sequence[str]]], optional): A dictionary of classes that are mutually exclusive. If a class is not present in the ground truth data, it will be inferred from the other classes in the dictionary. Defaults to None.
+        is_train (bool, optional): Whether the dataset is for training, and thus should generate random spatial transforms, based on 'spatial_transforms'. Defaults to False.
+        axis_order (str, optional): The order of the axes in the dataset. Defaults to "zyx".
+        context (Optional[tensorstore.Context], optional): The TensorStore context for the image data. Defaults to None.
+        rng (Optional[torch.Generator], optional): A random number generator. Defaults to None.
+        force_has_data (bool, optional): Whether to force the dataset to report that it has data, regardless of existence of ground truth data. Useful for unsupervised training. Defaults to False.
+        empty_value (float | int, optional): The value to fill in for empty data. Defaults to torch.nan.
+        pad (bool, optional): Whether to pad the image data to match requested arrays. Defaults to False.
+
+    Methods:
+
+        get_empty_store: Returns an empty store for the dataset.
+        ...
+    """
 
     def __init__(
         self,
@@ -68,9 +82,9 @@ class CellMapDataset(Dataset):
         context: Optional[tensorstore.Context] = None,  # type: ignore
         rng: Optional[torch.Generator] = None,
         force_has_data: bool = False,
-        empty_value: float | int | str = 0,
+        empty_value: float | int = torch.nan,
         pad: bool = False,
-    ):
+    ) -> None:
         """Initializes the CellMapDataset class.
 
         Args:
@@ -80,7 +94,7 @@ class CellMapDataset(Dataset):
             input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure:
                 {
                     "array_name": {
-                        "shape": typle[int],
+                        "shape": tuple[int],
                         "scale": Sequence[float],
                     },
                     ...
@@ -88,7 +102,7 @@ class CellMapDataset(Dataset):
             target_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the following structure:
                 {
                     "array_name": {
-                        "shape": typle[int],
+                        "shape": tuple[int],
                         "scale": Sequence[float],
                     },
                     ...
@@ -97,12 +111,13 @@ class CellMapDataset(Dataset):
                 {transform_name: {transform_args}}
                 Defaults to None.
             raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
-            target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
+            target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order. If the function is a dictionary, the keys should correspond to the classes in the 'classes' list. The function should return a tensor of the same shape as the input tensor. Note that target transforms are applied to the ground truth data and should generally not be used with use of true-negative data inferred using the 'class_relations_dict'.
             is_train (bool, optional): Whether the dataset is for training. Defaults to False.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
             rng (Optional[torch.Generator], optional): A random number generator. Defaults to None.
             force_has_data (bool, optional): Whether to force the dataset to report that it has data. Defaults to False.
-            empty_value (float | int | str, optional): The value to fill in for empty data. If set to "mask" will also produce training masks for empty data (data in target arrays will be 0). Defaults to 0.
+            empty_value (float | int, optional): The value to fill in for empty data. Defaults to torch.nan.
+            pad (bool, optional): Whether to pad the image data to match requested arrays. Defaults to False.
         """
         self.raw_path = raw_path
         self.target_paths = target_path
@@ -141,20 +156,18 @@ class CellMapDataset(Dataset):
         for array_name, array_info in self.target_arrays.items():
             self.target_sources[array_name] = self.get_target_array(array_info)
 
-    def get_empty_store(self, array_info):
-        if self.empty_value == "mask":
-            DeprecationWarning(
-                "Using 'mask' is deprecated and not recommended due to increased memory overhead. It will be removed in a future release. We recommend using np.nan instead."
-            )
-            empty_store = torch.ones(array_info["shape"]) * -100  # type: ignore
-        else:
-            assert isinstance(
-                self.empty_value, (float, int)
-            ), "Empty value must be `mask` or a number."
-            empty_store = torch.ones(array_info["shape"]) * self.empty_value  # type: ignore
+    def get_empty_store(
+        self, array_info: Mapping[str, Sequence[int | float]]
+    ) -> torch.Tensor:
+        """Returns an empty store, based on the requested array."""
+        assert isinstance(
+            self.empty_value, (float, int)
+        ), "Empty value must be a number or NaN."
+        empty_store = torch.ones(array_info["shape"]) * self.empty_value
         return empty_store.squeeze()
 
-    def get_target_array(self, array_info):
+    def get_target_array(self, array_info: Mapping[str, Sequence[int | float]]) -> dict:
+        """Returns a target array for the dataset. Creates a dictionary of target arrays for each class in the dataset. For classes that are not present in the ground truth data, the target array can be inferred from the other classes in the dataset. This is useful for training segmentation networks with mutually exclusive classes."""
         empty_store = self.get_empty_store(array_info)
         target_array = {}
         for i, label in enumerate(self.classes):  # type: ignore
@@ -179,7 +192,14 @@ class CellMapDataset(Dataset):
 
         return target_array
 
-    def get_label_array(self, label, i, array_info, empty_store):
+    def get_label_array(
+        self,
+        label: str,
+        i: int,
+        array_info: Mapping[str, Sequence[int | float]],
+        empty_store: torch.Tensor,
+    ) -> CellMapImage | EmptyImage | Sequence[str]:
+        """Returns a target array for a specific class in the dataset."""
         if label in self.classes_with_path:
             if isinstance(self.target_value_transforms, dict):
                 value_transform: Callable = self.target_value_transforms[label]
@@ -213,8 +233,8 @@ class CellMapDataset(Dataset):
                 )
         return array
 
-    def __len__(self):
-        """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for a cube."""
+    def __len__(self) -> int:
+        """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for an array request."""
         if not self.has_data and not self.force_has_data:
             return 0
         if not hasattr(self, "_len"):
@@ -222,7 +242,7 @@ class CellMapDataset(Dataset):
             self._len = int(size)
         return self._len
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
         try:
             center = np.unravel_index(
@@ -242,8 +262,7 @@ class CellMapDataset(Dataset):
         self._current_idx = idx
         self._current_center = center
         spatial_transforms = self.generate_spatial_transforms()
-        # TODO: Need to establish deformation field at dataset level, then propagate...
-        # should probably do as many coordinate transformations as possible at the dataset level (duplicate reference frame images should have the same coordinate transformations) --> do this per array
+        # TODO: Should do as many coordinate transformations as possible at the dataset level (duplicate reference frame images should have the same coordinate transformations) --> do this per array, perhaps with CellMapArray object
         outputs = {}
         for array_name in self.input_arrays.keys():
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
@@ -253,10 +272,9 @@ class CellMapDataset(Dataset):
                 outputs[array_name] = array[None, ...]
             else:
                 outputs[array_name] = array
-        # TODO: Allow for distribution of array gathering to multiple threads
+        # TODO: Allow for distribution of array gathering to multiple threads, perhaps with CellMapArray object
         for array_name in self.target_arrays.keys():
             class_arrays = {}
-            mask_arrays = {}
             inferred_arrays = []
             for label in self.classes:
                 if isinstance(
@@ -283,44 +301,25 @@ class CellMapDataset(Dataset):
                         array[mask] = 0
                 class_arrays[label] = array
 
-            if self.masked:
-                # TODO: This is deprecated and not recommended due to increased memory overhead
-                for label in self.classes:
-                    # TODO: Find a better way to do this
-                    # TODO: This will break with inferred arrays
-                    mask = (
-                        class_arrays[label] == -100
-                    )  # Get all places where the array is empty
-                    mask = mask.cpu()  # Convert to CPU to avoid memory issues
-                    class_arrays[label][mask] = 0  # Set all empty places to 0
-                    mask_arrays[label] = (
-                        mask == 0
-                    )  # Take the inverse of the empty places mask to use for masking the loss
-                outputs[array_name + "_mask"] = torch.stack(list(mask_arrays.values()))
             outputs[array_name] = torch.stack(list(class_arrays.values()))
         return outputs
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Returns a string representation of the dataset."""
         return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.target_paths}\n\tClasses: {self.classes})"
 
     @property
-    def center(self):
-        center = {}
-        for c, (start, stop) in self.bounding_box.items():
-            center[c] = start + (stop - start) / 2
-        return center
-
-    @property
-    def masked(self):
-        """Returns whether the dataset returns training masks, alongside input and target arrays."""
-        if not hasattr(self, "_masked"):
-            self._masked = self.empty_value == "mask"
-            if self._masked:
-                DeprecationWarning(
-                    "The `masked` attribute is deprecated, and not recommended due to increased memory overhead."
-                )
-        return self._masked
+    def center(self) -> Mapping[str, float] | None:
+        """Returns the center of the dataset in world units."""
+        if not hasattr(self, "_center"):
+            if self.bounding_box is None:
+                self._center = None
+            else:
+                center = {}
+                for c, (start, stop) in self.bounding_box.items():
+                    center[c] = start + (stop - start) / 2
+                self._center = center
+        return self._center
 
     @property
     def largest_voxel_sizes(self) -> Mapping[str, float]:
@@ -357,17 +356,21 @@ class CellMapDataset(Dataset):
                     for source in source.values():
                         if not hasattr(source, "bounding_box"):
                             continue
-                        bounding_box = self._get_box(source.bounding_box, bounding_box)
+                        bounding_box = self._get_box_intersection(
+                            source.bounding_box, bounding_box
+                        )
                 else:
                     if not hasattr(source, "bounding_box"):
                         continue
-                    bounding_box = self._get_box(source.bounding_box, bounding_box)
+                    bounding_box = self._get_box_intersection(
+                        source.bounding_box, bounding_box
+                    )
             self._bounding_box = bounding_box
         return self._bounding_box
 
     @property
     def bounding_box_shape(self) -> Mapping[str, int]:
-        """Returns the shape of the bounding box of the dataset in voxels of the largest voxel size."""
+        """Returns the shape of the bounding box of the dataset in voxels of the largest voxel size requested."""
         if not hasattr(self, "_bounding_box_shape"):
             self._bounding_box_shape = self._get_box_shape(self.bounding_box)
         return self._bounding_box_shape
@@ -384,17 +387,21 @@ class CellMapDataset(Dataset):
                     for source in source.values():
                         if not hasattr(source, "sampling_box"):
                             continue
-                        sampling_box = self._get_box(source.sampling_box, sampling_box)
+                        sampling_box = self._get_box_intersection(
+                            source.sampling_box, sampling_box
+                        )
                 else:
                     if not hasattr(source, "sampling_box"):
                         continue
-                    sampling_box = self._get_box(source.sampling_box, sampling_box)
+                    sampling_box = self._get_box_intersection(
+                        source.sampling_box, sampling_box
+                    )
             self._sampling_box = sampling_box
         return self._sampling_box
 
     @property
     def sampling_box_shape(self) -> Mapping[str, int]:
-        """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size."""
+        """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size requested."""
         if not hasattr(self, "_sampling_box_shape"):
             self._sampling_box_shape = self._get_box_shape(self.sampling_box)
             if self.pad:
@@ -407,8 +414,8 @@ class CellMapDataset(Dataset):
         return self._sampling_box_shape
 
     @property
-    def size(self):
-        """Returns the size of the dataset."""
+    def size(self) -> int:
+        """Returns the size of the dataset in voxels of the largest voxel size requested."""
         if not hasattr(self, "_size"):
             self._size = np.prod(
                 [stop - start for start, stop in self.bounding_box.values()]
@@ -417,9 +424,7 @@ class CellMapDataset(Dataset):
 
     @property
     def class_counts(self) -> Mapping[str, Mapping[str, float]]:
-        """
-        Returns the number of pixels for each class in the ground truth data, normalized by the resolution.
-        """
+        """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
         if not hasattr(self, "_class_counts"):
             class_counts = {"totals": {c: 0.0 for c in self.classes}}
             class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
@@ -439,9 +444,7 @@ class CellMapDataset(Dataset):
 
     @property
     def class_weights(self) -> Mapping[str, float]:
-        """
-        Returns the class weights for the dataset based on the number of samples in each class. Classes without any samples will have a weight of NaN.
-        """
+        """Returns the class weights for the dataset based on the number of samples in each class. Classes without any samples will have a weight of NaN."""
         if not hasattr(self, "_class_weights"):
             class_weights = {
                 c: (
@@ -457,7 +460,7 @@ class CellMapDataset(Dataset):
 
     @property
     def validation_indices(self) -> Sequence[int]:
-        """Returns the indices of the dataset that will tile the dataset for validation."""
+        """Returns the indices of the dataset that will produce non-overlapping tiles for use in validation, based on the largest requested voxel size."""
         if not hasattr(self, "_validation_indices"):
             chunk_size = {}
             for c, size in self.bounding_box_shape.items():
@@ -466,7 +469,7 @@ class CellMapDataset(Dataset):
         return self._validation_indices
 
     @property
-    def device(self):
+    def device(self) -> torch.device:
         """Returns the device for the dataset."""
         if not hasattr(self, "_device"):
             if torch.cuda.is_available():
@@ -475,40 +478,36 @@ class CellMapDataset(Dataset):
                 self._device = torch.device("mps")
             else:
                 self._device = torch.device("cpu")
+            self.to(self._device)
         return self._device
 
     def _get_box_shape(
         self, source_box: Mapping[str, list[float]]
     ) -> Mapping[str, int]:
+        """Returns the shape of the box in voxels of the largest voxel size requested."""
         box_shape = {}
         for c, (start, stop) in source_box.items():
             size = stop - start
             size /= self.largest_voxel_sizes[c]
             box_shape[c] = int(np.floor(size))
-            # if box_shape[c] <= 0:
-            #     logger.warning(
-            #         f"Box shape is < 0 for axis {c} with start {start} and stop {stop}. Setting to 0"
-            #     )
-            #     box_shape[c] = 0
         return box_shape
 
-    def _get_box(
+    def _get_box_intersection(
         self,
         source_box: Mapping[str, list[float]] | None,
         current_box: Mapping[str, list[float]] | None,
     ) -> Mapping[str, list[float]] | None:
+        """Returns the intersection of the source and current boxes."""
         if source_box is not None:
             if current_box is None:
                 return source_box
             for c, (start, stop) in source_box.items():
                 assert stop > start, f"Invalid box: {start} to {stop}"
-                # if c not in current_box:
-                #     current_box[c] = [start, stop]
                 current_box[c][0] = max(current_box[c][0], start)
                 current_box[c][1] = min(current_box[c][1], stop)
         return current_box
 
-    def verify(self):
+    def verify(self) -> bool:
         """Verifies that the dataset is valid to draw samples from."""
         # TODO: make more robust
         try:
@@ -518,8 +517,8 @@ class CellMapDataset(Dataset):
             return False
 
     def get_indices(self, chunk_size: Mapping[str, int]) -> Sequence[int]:
-        # TODO: ADD TEST
         """Returns the indices of the dataset that will tile the dataset according to the chunk_size."""
+        # TODO: ADD TEST
         # Get padding per axis
         indices_dict = {}
         for c, size in chunk_size.items():
@@ -533,10 +532,9 @@ class CellMapDataset(Dataset):
             indices.append(index)
         return indices
 
-    def to(self, device):
+    def to(self, device) -> "CellMapDataset":
         """Sets the device for the dataset."""
-        if not hasattr(self, "_device"):
-            self._device = device
+        self._device = device
         for source in list(self.input_sources.values()) + list(
             self.target_sources.values()
         ):
@@ -552,7 +550,13 @@ class CellMapDataset(Dataset):
         return self
 
     def generate_spatial_transforms(self) -> Optional[Mapping[str, Any]]:
-        """Generates spatial transforms for the dataset."""
+        """When 'self.is_train' is True, generates random spatial transforms for the dataset, based on the user specified transforms.
+
+        Available spatial transforms:
+            - "mirror": Mirrors the data along the specified axes. Parameters are the probabilities of mirroring along each axis, formatted as a dictionary of axis: probability pairs. Example: {"mirror": {"axes": {"x": 0.5, "y": 0.5, "z":0.1}}} will mirror the data along the x and y axes with a 50% probability, and along the z axis with a 10% probability.
+            - "transpose": Transposes the data along the specified axes. Parameters are the axes to transpose, formatted as a list. Example: {"transpose": {"axes": ["x", "z"]}} will randomly transpose the data along the x and z axes.
+            - "rotate": Rotates the data around the specified axes within the specified angle ranges. Parameters are the axes to rotate and the angle ranges, formatted as a dictionary of axis: [min_angle, max_angle] pairs. Example: {"rotate": {"axes": {"x": [-180,180], "y": [-180,180], "z":[-180,180]}} will rotate the data around the x, y, and z axes from 180 to -180 degrees.
+        """
 
         if not self.is_train or self.spatial_transforms is None:
             return None
@@ -603,13 +607,13 @@ class CellMapDataset(Dataset):
         self._current_spatial_transforms = spatial_transforms
         return spatial_transforms
 
-    def set_raw_value_transforms(self, transforms: Callable):
+    def set_raw_value_transforms(self, transforms: Callable) -> None:
         """Sets the raw value transforms for the dataset."""
         self.raw_value_transforms = transforms
         for source in self.input_sources.values():
             source.value_transform = transforms
 
-    def set_target_value_transforms(self, transforms: Callable):
+    def set_target_value_transforms(self, transforms: Callable) -> None:
         """Sets the ground truth value transforms for the dataset."""
         self.target_value_transforms = transforms
         for sources in self.target_sources.values():
@@ -617,8 +621,8 @@ class CellMapDataset(Dataset):
                 if isinstance(source, CellMapImage):
                     source.value_transform = transforms
 
-    def reset_arrays(self, type: str = "target"):
-        """Sets the arrays for the dataset."""
+    def reset_arrays(self, type: str = "target") -> None:
+        """Sets the arrays for the dataset to return."""
         if type.lower() == "input":
             self.input_sources = {}
             for array_name, array_info in self.input_arrays.items():
@@ -639,12 +643,3 @@ class CellMapDataset(Dataset):
                 self.target_sources[array_name] = self.get_target_array(array_info)
         else:
             raise ValueError(f"Unknown dataset array type: {type}")
-
-
-# Example input arrays:
-# {'0_input': {'shape': (90, 90, 90), 'scale': (32, 32, 32)},
-#  '1_input': {'shape': (114, 114, 114), 'scale': (8, 8, 8)}}
-
-# Example output arrays:
-# {'0_output': {'shape': (28, 28, 28), 'scale': (32, 32, 32)},
-#  '1_output': {'shape': (32, 32, 32), 'scale': (8, 8, 8)}}
