@@ -4,6 +4,15 @@ import torch
 
 
 class CellposeFlow:
+    """
+    Cellpose flow transform.
+
+    Args:
+        ndim (int): Number of dimensions.
+        device (str | None, optional): Device to use. Defaults to None
+            (use GPU if available, else CPU).
+    """
+
     def __init__(self, ndim: int, device: str | None = None):
         self.ndim = ndim
         if device is None:
