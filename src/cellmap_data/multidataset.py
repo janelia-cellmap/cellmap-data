@@ -8,7 +8,7 @@ from .dataset import CellMapDataset
 
 class CellMapMultiDataset(ConcatDataset):
     """
-    This class is used to combine multiple datasets into a single dataset. It is a subclass of PyTorch's ConcatDataset. It maintains the same API as the ConcatDataset class. It retrieves raw and groundtruth data from multiple CellMapDataset objects.
+    This class is used to combine multiple datasets into a single dataset. It is a subclass of PyTorch's ConcatDataset. It maintains the same API as the ConcatDataset class. It retrieves raw and groundtruth data from multiple CellMapDataset objects. See the CellMapDataset class for more information on the dataset object.
 
     Attributes:
         classes: Sequence[str]
@@ -21,7 +21,33 @@ class CellMapMultiDataset(ConcatDataset):
             The datasets to be combined into the multi-dataset.
 
     Methods:
-        ...
+        to(device: str | torch.device) -> "CellMapMultiDataset":
+            Moves the multi-dataset to the specified device.
+        get_weighted_sampler(batch_size: int = 1, rng: Optional[torch.Generator] = None) -> WeightedRandomSampler:
+            Returns a weighted random sampler for the multi-dataset.
+        get_subset_random_sampler(num_samples: int, weighted: bool = True, rng: Optional[torch.Generator] = None) -> torch.utils.data.SubsetRandomSampler:
+            Returns a random sampler that samples num_samples from the multi-dataset.
+        get_indices(chunk_size: dict[str, int]) -> Sequence[int]:
+            Returns the indices of the multi-dataset that will tile all of the datasets according to the requested chunk_size.
+        set_raw_value_transforms(transforms: Callable) -> None:
+            Sets the raw value transforms for each dataset in the multi-dataset.
+        set_target_value_transforms(transforms: Callable) -> None:
+            Sets the target value transforms for each dataset in the multi-dataset.
+        set_spatial_transforms(spatial_transforms: dict[str, Any] | None) -> None:
+            Sets the spatial transforms for each dataset in the multi-dataset.
+
+    Properties:
+        class_counts: dict[str, float]
+            Returns the number of samples in each class for each dataset in the multi-dataset, as well as the total number of samples in each class.
+        class_weights: dict[str, float]
+            Returns the class weights for the multi-dataset based on the number of samples in each class.
+        dataset_weights: dict[CellMapDataset, float]
+            Returns the weights for each dataset in the multi-dataset based on the number of samples of each class in each dataset.
+        sample_weights: Sequence[float]
+            Returns the weights for each sample in the multi-dataset based on the number of samples in each dataset.
+        validation_indices: Sequence[int]
+            Returns the indices of the validation set for each dataset in the multi-dataset.
+
     """
 
     def __init__(
