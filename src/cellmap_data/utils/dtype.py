@@ -2,6 +2,15 @@ import torch
 
 
 def torch_max_value(dtype: torch.dtype) -> int:
+    """
+    Get the maximum value for a given torch dtype.
+
+    Args:
+        dtype (torch.dtype): Data type.
+
+    Returns:
+        int: Maximum value.
+    """
     if dtype == torch.uint8:
         return 255
     elif dtype == torch.int8:
