@@ -15,15 +15,46 @@ from scipy.spatial.transform import Rotation as rot
 
 
 class CellMapImage:
-    path: str
-    scale: Mapping[str, float]
-    output_shape: Mapping[str, int]
-    output_size: Mapping[str, float]
-    label_class: str
-    axes: str | Sequence[str]
-    post_image_transforms: Sequence[str] = ["transpose"]
-    value_transform: Optional[Callable]
-    context: Optional[tensorstore.Context] = None  # type: ignore
+    """
+    A class for handling image data from a CellMap dataset.
+
+    This class is used to load image data from a CellMap dataset, and can apply spatial transformations to the data. It also handles the loading of the image data from the dataset, and can apply value transformations to the data. The image data is returned as a PyTorch tensor formatted for use in training, and can be loaded onto a specified device.
+
+    Attributes:
+        path (str): The path to the multiscale image file.
+        label_class (str): The label class of the image.
+        scale (Mapping[str, float]): The scale of the image in physical space.
+        output_shape (Mapping[str, int]): The shape of data returned from image queries in voxels.
+        axes (str): The order of the axes in the image.
+        value_transform (Optional[Callable]): A function to transform the image data, such as adding gaussian noise.
+        context (Optional[tensorstore.Context]): The context for the TensorStore.
+
+    Methods:
+        __getitem__(center: Mapping[str, float]) -> torch.Tensor: Returns image data centered around the given point.
+        __repr__() -> str: Returns a string representation of the CellMapImage object.
+        apply_spatial_transforms(coords: Mapping[str, Sequence[float]]) -> torch.Tensor: Applies spatial transformations to the given coordinates and returns the tensor of the resulting data.
+        return_data(coords: Mapping[str, Sequence[float]]) -> xarray.DataArray: Pulls data from the image based on the given coordinates and returns the data as an xarray DataArray.
+        set_spatial_transforms(transforms: Mapping[str, Any] | None): Sets spatial transformations for the image data, used for setting uniform transformations to all images within a dataset.
+        to(device: str): Sets what device returned image data will be loaded onto.
+
+    Properties:
+
+        shape (Mapping[str, int]): Returns the shape of the image in voxels.
+        center (Mapping[str, float]): Returns the center of the image in world units.
+        multiscale_attrs: Returns CellMap specified multiscale metadata of the image.
+        coordinateTransformations: Returns the coordinate transformations of the image specified in its metadata (e.g. scale and translation).
+        full_coords: Returns the full coordinates of the image in world units.
+        scale_level (str): Returns the path extension for the multiscale level of the image (e.g. 's0').
+        group (zarr.Group): Returns the multiscale zarr group object for the image.
+        array_path (str): Returns the path to the single-scale image array.
+        array (xarray.DataArray): Returns the image data as an xarray DataArray.
+        translation (Mapping[str, float]): Returns the translation of the image in world units.
+        bounding_box (Mapping[str, list[float]]): Returns the bounding box of the dataset in world units.
+        sampling_box (Mapping[str, list[float]]): Returns the sampling box of the dataset in world units.
+        bg_count (float): Returns the number of background pixels in the ground truth data, normalized by the resolution.
+        class_counts (float): Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution.
+        device (str): Returns the device that the image data will be loaded onto.
+    """
 
     def __init__(
         self,
@@ -36,7 +67,6 @@ class CellMapImage:
         interpolation: str = "nearest",
         axis_order: str | Sequence[str] = "zyx",
         value_transform: Optional[Callable] = None,
-        # TODO: Add global grid enforcement to ensure that all images are on the same grid
         context: Optional[tensorstore.Context] = None,  # type: ignore
     ):
         """Initializes a CellMapImage object.
@@ -44,10 +74,10 @@ class CellMapImage:
         Args:
             path (str): The path to the image file.
             target_class (str): The label class of the image.
-            target_scale (Sequence[float]): The scale of the image in physical space.
-            target_voxel_shape (Sequence[int]): The shape of the image in voxels.
+            target_scale (Sequence[float]): The scale of the image data to return in physical space.
+            target_voxel_shape (Sequence[int]): The shape of the image data to return in voxels.
             axis_order (str, optional): The order of the axes in the image. Defaults to "zyx".
-            value_transform (Optional[callable], optional): A function to transform the image data. Defaults to None.
+            value_transform (Optional[callable], optional): A function to transform the image pixel data. Defaults to None.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
         """
 
@@ -109,8 +139,8 @@ class CellMapImage:
         return data.to(self.device)
 
     def __repr__(self) -> str:
-        # TODO: array_path instead of path
-        return f"CellMapImage({self.path})"
+        """Returns a string representation of the CellMapImage object."""
+        return f"CellMapImage({self.array_path})"
 
     @property
     def shape(self) -> Mapping[str, int]:
@@ -124,6 +154,7 @@ class CellMapImage:
 
     @property
     def center(self):
+        """Returns the center of the image in world units."""
         center = {}
         for c, (start, stop) in self.bounding_box.items():
             center[c] = start + (stop - start) / 2
@@ -131,6 +162,7 @@ class CellMapImage:
 
     @property
     def multiscale_attrs(self):
+        """Returns the multiscale metadata of the image."""
         if not hasattr(self, "_multiscale_attrs"):
             self._multiscale_attrs = GroupAttrs(
                 multiscales=self.group.attrs["multiscales"]
@@ -139,6 +171,7 @@ class CellMapImage:
 
     @property
     def coordinateTransformations(self):
+        """Returns the coordinate transformations of the image, based on the multiscale metadata."""
         if not hasattr(self, "_coordinateTransformations"):
             # multi_tx = multi.coordinateTransformations
             dset = [
@@ -152,6 +185,7 @@ class CellMapImage:
 
     @property
     def full_coords(self):
+        """Returns the full coordinates of the image's axes in world units."""
         if not hasattr(self, "_full_coords"):
             self._full_coords = coords_from_transforms(
                 axes=self.multiscale_attrs.axes,
@@ -170,18 +204,21 @@ class CellMapImage:
 
     @property
     def group(self) -> zarr.Group:
+        """Returns the zarr group object for the multiscale image."""
         if not hasattr(self, "_group"):
             self._group = zarr.open_group(self.path)
         return self._group  # type: ignore
 
     @property
     def array_path(self) -> str:
+        """Returns the path to the single-scale image array."""
         if not hasattr(self, "_array_path"):
             self._array_path = os.path.join(self.path, self.scale_level)
         return self._array_path
 
     @property
     def array(self) -> xarray.DataArray:
+        """Returns the image data as an xarray DataArray."""
         # TODO: Would it be faster to do Try/Except instead of hasattr?
         if not hasattr(self, "_array"):
             # Construct an xarray with Tensorstore backend
@@ -342,7 +379,7 @@ class CellMapImage:
         return coords_dict
 
     def set_spatial_transforms(self, transforms: Mapping[str, Any] | None):
-        """Sets spatial transformations for the image data."""
+        """Sets spatial transformations for the image data, for setting global transforms at the 'dataset' level."""
         self._current_spatial_transforms = transforms
 
     def apply_spatial_transforms(self, coords) -> torch.Tensor:
@@ -388,7 +425,7 @@ class CellMapImage:
             | Mapping[str, tuple[Sequence[str], np.ndarray]]
         ),
     ):
-        # Pull data from the image based on the given coordinates. This interpolates the data to the nearest pixel automatically.
+        """Pulls data from the image based on the given coordinates, applying interpolation if necessary, and returns the data as an xarray DataArray."""
         if not isinstance(coords[list(coords.keys())[0]][0], float | int):
             data = self.array.interp(
                 coords=coords,
@@ -414,12 +451,34 @@ class CellMapImage:
 
 
 class EmptyImage:
-    label_class: str
-    axes: str
-    store: torch.Tensor
-    output_shape: Mapping[str, int]
-    output_size: Mapping[str, float]
-    scale: Mapping[str, float]
+    """
+    A class for handling empty image data.
+
+    This class is used to create an empty image object, which can be used as a placeholder for images that do not exist in the dataset. It can be used to maintain a consistent API for image objects even when no data is present.
+
+    Attributes:
+
+        label_class (str): The intended label class of the image.
+        target_scale (Sequence[float]): The intended scale of the image in physical space.
+        target_voxel_shape (Sequence[int]): The intended shape of the image in voxels.
+        store (Optional[torch.Tensor]): The tensor to return.
+        axis_order (str): The intended order of the axes in the image.
+        empty_value (float | int): The value to fill the image with.
+
+    Methods:
+
+        __getitem__(center: Mapping[str, float]) -> torch.Tensor: Returns the empty image data.
+        to(device: str): Moves the image data to the given device.
+        set_spatial_transforms(transforms: Mapping[str, Any] | None):
+        Imitates the method in CellMapImage, but does nothing for an EmptyImage object.
+
+    Properties:
+
+            bounding_box (None): Returns None.
+            sampling_box (None): Returns None.
+            bg_count (float): Returns zero.
+            class_counts (float): Returns zero.
+    """
 
     def __init__(
         self,
@@ -433,10 +492,13 @@ class EmptyImage:
         """Initializes an empty image object.
 
         Args:
-            target_class (str): The label class of the image.
-            target_voxel_shape (Sequence[int]): The shape of the image in voxels.
+
+            target_class (str): The intended label class of the image.
+            target_scale (Sequence[float]): The intended scale of the image in physical space.
+            target_voxel_shape (Sequence[int]): The intended shape of the image in voxels.
             store (Optional[torch.Tensor], optional): The tensor to return. Defaults to None.
-            axis_order (str, optional): The order of the axes in the image. Defaults to "zyx".
+            axis_order (str, optional): The intended order of the axes in the image. Defaults to "zyx".
+            empty_value (float | int, optional): The value to fill the image with. Defaults to -100.
         """
         self.label_class = target_class
         self.target_scale = target_scale
@@ -461,27 +523,27 @@ class EmptyImage:
             )
 
     def __getitem__(self, center: Mapping[str, float]) -> torch.Tensor:
-        """Returns image data centered around the given point, based on the scale and shape of the target output image."""
+        """Returns the empty image data."""
         return self.store
 
     @property
     def bounding_box(self) -> None:
-        """Returns the bounding box of the dataset."""
+        """Returns the bounding box of the dataset. Returns None for an EmptyImage object."""
         return self._bounding_box
 
     @property
     def sampling_box(self) -> None:
-        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
+        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box). Returns None for an EmptyImage object."""
         return self._bounding_box
 
     @property
     def bg_count(self) -> float:
-        """Returns the number of background pixels in the ground truth data, normalized by the resolution."""
+        """Returns the number of background pixels in the ground truth data, normalized by the resolution. Returns zero for an EmptyImage object."""
         return self._bg_count
 
     @property
     def class_counts(self) -> float:
-        """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
+        """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution. Returns zero for an EmptyImage object."""
         return self._class_counts
 
     def to(self, device: str) -> None:
@@ -489,4 +551,5 @@ class EmptyImage:
         self.store = self.store.to(device)
 
     def set_spatial_transforms(self, transforms: Mapping[str, Any] | None):
+        """Imitates the method in CellMapImage, but does nothing for an EmptyImage object."""
         pass
