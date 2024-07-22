@@ -1,6 +1,6 @@
 # %%
 import os
-from typing import Any, Callable, Dict, Mapping, Sequence, Optional
+from typing import Any, Callable, Mapping, Sequence, Optional
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -27,7 +27,8 @@ def split_target_path(path: str) -> tuple[str, list[str]]:
 
 # %%
 class CellMapDataset(Dataset):
-    """This subclasses PyTorch Dataset to load CellMap data for training. It maintains the same API as the Dataset class. Importantly, it maintains information about and handles for the sources for raw and groundtruth data. This information includes the path to the data, the classes for segmentation, and the arrays to input to the network and use as targets for the network predictions. The dataset constructs the sources for the raw and groundtruth data, and retrieves the data from the sources. The dataset also provides methods to get the number of pixels for each class in the ground truth data, normalized by the resolution. Additionally, random crops of the data can be generated for training, because the CellMapDataset maintains information about the extents of its source arrays. This object additionally combines images for different classes into a single output array, which is useful for training segmentation networks.
+    """
+    This subclasses PyTorch Dataset to load CellMap data for training. It maintains the same API as the Dataset class. Importantly, it maintains information about and handles for the sources for raw and groundtruth data. This information includes the path to the data, the classes for segmentation, and the arrays to input to the network and use as targets for the network predictions. The dataset constructs the sources for the raw and groundtruth data, and retrieves the data from the sources. The dataset also provides methods to get the number of pixels for each class in the ground truth data, normalized by the resolution. Additionally, random crops of the data can be generated for training, because the CellMapDataset maintains information about the extents of its source arrays. This object additionally combines images for different classes into a single output array, which is useful for training segmentation networks.
 
     Attributes:
 
@@ -60,8 +61,34 @@ class CellMapDataset(Dataset):
 
     Methods:
 
-        get_empty_store: Returns an empty store for the dataset.
-        ...
+        get_empty_store: Returns an empty store for the dataset based on the requested array.
+        get_target_array: Returns a target array source for the dataset, including the ability to infer true negatives from mutually exclusive classes.
+        get_label_array: Returns a target array source for a specific class in the dataset.
+        __len__: Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for an array request.
+        __getitem__: Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index.
+        __repr__: Returns a string representation of the dataset.
+        verify: Verifies that the dataset has data.
+        get_indices: Returns the indices of the dataset that will produce non-overlapping tiles based on the requested chunk size.
+        to: Moves the dataset to the specified device.
+        generate_spatial_transforms: Generates random spatial transforms for the dataset when training and sets the current spatial transforms for all members of the dataset accordingly.
+        set_raw_value_transforms: Sets the function for transforming raw data values in the dataset. For example, this can be used to normalize the raw data.
+        set_target_value_transforms: Sets the function for transforming target data values in the dataset. For example, this can be used to convert ground truth data to a signed distance transform.
+        reset_arrays: Sets the array specifications for the dataset to return on requests.
+
+    Properties:
+
+        center: Returns the center of the dataset in world units.
+        largest_voxel_sizes: Returns the largest voxel size requested of the dataset.
+        bounding_box: Returns the bounding box of the dataset.
+        bounding_box_shape: Returns the shape of the bounding box of the dataset in voxels of the largest voxel size requested.
+        sampling_box: Returns the sampling box of the dataset.
+        sampling_box_shape: Returns the shape of the sampling box of the dataset in voxels of the largest voxel size requested.
+        size: Returns the size of the dataset in voxels of the largest voxel size requested.
+        class_counts: Returns the number of pixels for each class in the ground truth data, normalized by the resolution.
+        class_weights: Returns the class weights for the dataset based on the number of samples in each class.
+        validation_indices: Returns the indices of the dataset that will produce non-overlapping tiles for use in validation, based on the largest requested image view.
+        device: Returns the device for the dataset.
+
     """
 
     def __init__(
@@ -167,7 +194,7 @@ class CellMapDataset(Dataset):
         return empty_store.squeeze()
 
     def get_target_array(self, array_info: Mapping[str, Sequence[int | float]]) -> dict:
-        """Returns a target array for the dataset. Creates a dictionary of target arrays for each class in the dataset. For classes that are not present in the ground truth data, the target array can be inferred from the other classes in the dataset. This is useful for training segmentation networks with mutually exclusive classes."""
+        """Returns a target array source for the dataset. Creates a dictionary of image sources for each class in the dataset. For classes that are not present in the ground truth data, the data can be inferred from the other classes in the dataset. This is useful for training segmentation networks with mutually exclusive classes."""
         empty_store = self.get_empty_store(array_info)
         target_array = {}
         for i, label in enumerate(self.classes):  # type: ignore
@@ -199,7 +226,7 @@ class CellMapDataset(Dataset):
         array_info: Mapping[str, Sequence[int | float]],
         empty_store: torch.Tensor,
     ) -> CellMapImage | EmptyImage | Sequence[str]:
-        """Returns a target array for a specific class in the dataset."""
+        """Returns a target array source for a specific class in the dataset."""
         if label in self.classes_with_path:
             if isinstance(self.target_value_transforms, dict):
                 value_transform: Callable = self.target_value_transforms[label]

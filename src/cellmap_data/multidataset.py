@@ -8,13 +8,21 @@ from .dataset import CellMapDataset
 
 class CellMapMultiDataset(ConcatDataset):
     """
-    This subclasses PyTorch Dataset to wrap multiple CellMapDataset objects under a common API, which can be used for dataloading. It maintains the same API as the Dataset class. It retrieves raw and groundtruth data from CellMapDataset objects.
-    """
+    This class is used to combine multiple datasets into a single dataset. It is a subclass of PyTorch's ConcatDataset. It maintains the same API as the ConcatDataset class. It retrieves raw and groundtruth data from multiple CellMapDataset objects.
 
-    classes: Sequence[str]
-    input_arrays: dict[str, dict[str, Sequence[int | float]]]
-    target_arrays: dict[str, dict[str, Sequence[int | float]]]
-    datasets: Iterable[CellMapDataset]
+    Attributes:
+        classes: Sequence[str]
+            The classes in the dataset.
+        input_arrays: dict[str, dict[str, Sequence[int | float]]]
+            The input arrays for each dataset in the multi-dataset.
+        target_arrays: dict[str, dict[str, Sequence[int | float]]]
+            The target arrays for each dataset in the multi-dataset.
+        datasets: Sequence[CellMapDataset]
+            The datasets to be combined into the multi-dataset.
+
+    Methods:
+        ...
+    """
 
     def __init__(
         self,
@@ -22,7 +30,7 @@ class CellMapMultiDataset(ConcatDataset):
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
         target_arrays: dict[str, dict[str, Sequence[int | float]]],
         datasets: Sequence[CellMapDataset],
-    ):
+    ) -> None:
         super().__init__(datasets)
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
@@ -53,7 +61,7 @@ class CellMapMultiDataset(ConcatDataset):
         return self._class_counts
 
     @property
-    def class_weights(self):
+    def class_weights(self) -> dict[str, float]:
         """
         Returns the class weights for the multi-dataset based on the number of samples in each class.
         """
@@ -71,7 +79,7 @@ class CellMapMultiDataset(ConcatDataset):
         return self._class_weights
 
     @property
-    def dataset_weights(self):
+    def dataset_weights(self) -> dict[CellMapDataset, float]:
         """
         Returns the weights for each dataset in the multi-dataset based on the number of samples in each dataset.
         """
@@ -89,7 +97,7 @@ class CellMapMultiDataset(ConcatDataset):
         return self._dataset_weights
 
     @property
-    def sample_weights(self):
+    def sample_weights(self) -> Sequence[float]:
         """
         Returns the weights for each sample in the multi-dataset based on the number of samples in each dataset.
         """
@@ -123,14 +131,14 @@ class CellMapMultiDataset(ConcatDataset):
             self._validation_indices = indices
         return self._validation_indices
 
-    def to(self, device: str | torch.device):
+    def to(self, device: str | torch.device) -> "CellMapMultiDataset":
         for dataset in self.datasets:
             dataset.to(device)
         return self
 
     def get_weighted_sampler(
         self, batch_size: int = 1, rng: Optional[torch.Generator] = None
-    ):
+    ) -> WeightedRandomSampler:
         return WeightedRandomSampler(
             self.sample_weights, batch_size, replacement=False, generator=rng
         )
@@ -140,7 +148,7 @@ class CellMapMultiDataset(ConcatDataset):
         num_samples: int,
         weighted: bool = True,
         rng: Optional[torch.Generator] = None,
-    ):
+    ) -> torch.utils.data.SubsetRandomSampler:
         """
         Returns a random sampler that samples num_samples from the dataset.
         """
@@ -189,20 +197,17 @@ class CellMapMultiDataset(ConcatDataset):
             indices.extend(list(sample_indices))
         return indices
 
-    def set_raw_value_transforms(self, transforms: Callable):
+    def set_raw_value_transforms(self, transforms: Callable) -> None:
         """Sets the raw value transforms for each dataset in the multi-dataset."""
         for dataset in self.datasets:
             dataset.set_raw_value_transforms(transforms)
 
-    def set_target_value_transforms(self, transforms: Callable):
+    def set_target_value_transforms(self, transforms: Callable) -> None:
         """Sets the target value transforms for each dataset in the multi-dataset."""
         for dataset in self.datasets:
             dataset.set_target_value_transforms(transforms)
 
-    def set_spatial_transforms(self, spatial_transforms: dict[str, Any] | None):
+    def set_spatial_transforms(self, spatial_transforms: dict[str, Any] | None) -> None:
         """Sets the raw value transforms for each dataset in the training multi-dataset."""
         for dataset in self.datasets:
             dataset.spatial_transforms = spatial_transforms
-
-
-# TODO: make "last" and "current" variable names consistent

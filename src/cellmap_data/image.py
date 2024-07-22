@@ -104,7 +104,7 @@ class CellMapImage:
         self.value_transform = value_transform
         self.context = context
         self._current_spatial_transforms = None
-        self._last_coords = None
+        self._current_coords = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     def __getitem__(self, center: Mapping[str, float]) -> torch.Tensor:
@@ -402,7 +402,7 @@ class CellMapImage:
                 )
             if "deform" in self._current_spatial_transforms:
                 raise NotImplementedError("Deformations are not yet implemented.")
-        self._last_coords = coords
+        self._current_coords = coords
 
         # Pull data from the image
         data = self.return_data(coords)
