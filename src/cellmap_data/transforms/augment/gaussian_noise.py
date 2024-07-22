@@ -3,7 +3,7 @@ import torch
 
 class GaussianNoise(torch.nn.Module):
     """
-    Add Gaussian noise to the input.
+    Add Gaussian noise to the input. Subclasses torch.nn.Module.
 
     Attributes:
         mean (float): Mean of the noise.
