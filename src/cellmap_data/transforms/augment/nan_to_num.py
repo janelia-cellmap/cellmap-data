@@ -13,8 +13,14 @@ class NaNtoNum(T.Transform):
     """
 
     def __init__(self, params: Dict[str, Any]):
+        """Initialize the NaN to number transformation.
+
+        Args:
+            params (Dict[str, Any]): Parameters for the transformation. Defaults to {}, see https://pytorch.org/docs/stable/generated/torch.nan_to_num.html for details.
+        """
         super().__init__()
         self.params = params
 
     def _transform(self, x: Any, params: Dict[str, Any]) -> Any:
+        """Transform the input."""
         return x.nan_to_num(**self.params)
