@@ -14,31 +14,75 @@ logger = logging.getLogger(__name__)
 
 class CellMapDataSplit:
     """
-    This subclasses PyTorch Dataset to split data into training and validation sets. It maintains the same API as the Dataset class. It retrieves raw and groundtruth data from CellMapDataset objects.
-    """
+    A class to split the data into training and validation datasets.
 
-    input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]]
-    target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]]
-    classes: Sequence[str]
-    to_target: Callable
-    datasets: Mapping[str, Sequence[CellMapDataset]]
-    train_datasets: Sequence[CellMapDataset]
-    validation_datasets: Sequence[CellMapDataset]
-    spatial_transforms: Optional[Mapping[str, Any]] = None
-    train_raw_value_transforms: Optional[Callable] = None
-    target_value_transforms: Optional[
-        Callable | Sequence[Callable] | Mapping[str, Callable]
-    ] = None
-    class_relation_dict: Optional[Mapping[str, Sequence[str]]]
-    force_has_data: bool = False
-    context: Optional[tensorstore.Context] = None  # type: ignore
+    Attributes:
+        input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure:
+            {
+                "array_name": {
+                    "shape": tuple[int],
+                    "scale": Sequence[float],
+                },
+                ...
+            }
+        target_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as input_arrays.
+        classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays.
+        empty_value (int | float): The value to use for empty data. Defaults to torch.nan.
+        pad (bool | str): Whether to pad the data. If a string, it should be either "train" or "validate". Defaults to False.
+        datasets (Optional[Mapping[str, Sequence[CellMapDataset]]]): A dictionary containing the dataset objects. The dictionary should have the following structure:
+            {
+                "train": Iterable[CellMapDataset],
+                "validate": Iterable[CellMapDataset],
+            }. Defaults to None.
+        dataset_dict (Optional[Mapping[str, Sequence[Mapping[str, str]]]): A dictionary containing the dataset data. The dictionary should have the following structure:
+            {
+                "train" | "validate": [{
+                    "raw": str (path to raw data),
+                    "gt": str (path to ground truth data),
+                }],
+                ...
+            }. Defaults to None.
+        csv_path (Optional[str]): A path to a csv file containing the dataset data. Defaults to None. Each row in the csv file should have the following structure:
+            train | validate, raw path, gt path
+        NOTE: The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.
+        spatial_transforms (Optional[Sequence[dict[str, Any]]]): A sequence of dictionaries containing the spatial transformations to apply to the data. The dictionary should have the following structure:
+            {transform_name: {transform_args}}
+            Defaults to None.
+        train_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in training datasets. Defaults to None. Example is to add gaussian noise to the raw data.
+        val_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in validation datasets. Defaults to None. Example is to normalize the raw data.
+        target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]]): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
+        class_relation_dict (Optional[Mapping[str, Sequence[str]]]): A dictionary containing the class relations. The dictionary should have the following structure:
+            {
+                "class_name": [mutually_exclusive_class_name, ...],
+                ...
+            }
+        force_has_data (bool): Whether to force the datasets to have data even if no ground truth data is found. Defaults to False. Useful for training with only raw data.
+        context (Optional[tensorstore.Context]): The TensorStore context for the image data. Defaults to None.
+
+    Methods:
+        __repr__(): Returns the string representation of the class.
+        from_csv(csv_path: str): Loads the dataset data from a csv file.
+        construct(dataset_dict: Mapping[str, Sequence[Mapping[str, str]]]): Constructs the datasets from the dataset dictionary.
+        verify_datasets(): Verifies that the datasets have data, and removes ones that don't from 'self.train_datasets' and 'self.validation_datasets'.
+        set_raw_value_transforms(train_transforms: Optional[Callable] = None, val_transforms: Optional[Callable] = None): Sets the raw value transforms for each dataset in the training/validation multi-datasets.
+        set_target_value_transforms(transforms: Callable): Sets the target value transforms for each dataset in both training and validation multi-datasets.
+        set_spatial_transforms(spatial_transforms: dict[str, Any] | None): Sets the spatial transforms for each dataset in the training multi-dataset.
+        set_arrays(arrays: Mapping[str, Mapping[str, Sequence[int | float]]], type: str = "target", usage: str = "validate"): Sets the input or target arrays for the training or validation datasets.
+
+    Properties:
+        train_datasets_combined: A multi-dataset from the combination of all training datasets.
+        validation_datasets_combined: A multi-dataset from the combination of all validation datasets.
+        validation_blocks: A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks.
+        class_counts: A dictionary containing the class counts for the training and validation datasets.
+
+    """
 
     def __init__(
         self,
         input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
         target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
         classes: Sequence[str],
-        empty_value: int | float | str = torch.nan,
+        empty_value: int | float = torch.nan,
         pad: bool | str = False,
         datasets: Optional[Mapping[str, Sequence[CellMapDataset]]] = None,
         dataset_dict: Optional[Mapping[str, Sequence[Mapping[str, str]]]] = None,
@@ -52,34 +96,28 @@ class CellMapDataSplit:
         class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
         force_has_data: bool = False,
         context: Optional[tensorstore.Context] = None,  # type: ignore
-    ):
+    ) -> None:
         """Initializes the CellMapDatasets class.
 
         Args:
             input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure:
                 {
                     "array_name": {
-                        "shape": typle[int],
+                        "shape": tuple[int],
                         "scale": Sequence[float],
                     },
                     ...
                 }
-            target_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the following structure:
-                {
-                    "array_name": {
-                        "shape": typle[int],
-                        "scale": Sequence[float],
-                    },
-                    ...
-                }
+            target_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as input_arrays.
             classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays.
-            empty_value (int | float | str, optional): The value to use for empty data. Defaults to 0.
-            datasets (Optional[Dict[str, CellMapDataset]], optional): A dictionary containing the dataset objects. The dictionary should have the following structure:
+            empty_value (int | float): The value to use for empty data. Defaults to torch.nan.
+            pad (bool | str): Whether to pad the data. If a string, it should be either "train" or "validate". Defaults to False.
+            datasets (Optional[Mapping[str, Sequence[CellMapDataset]]]): A dictionary containing the dataset objects. The dictionary should have the following structure:
                 {
                     "train": Iterable[CellMapDataset],
                     "validate": Iterable[CellMapDataset],
                 }. Defaults to None.
-            dataset_dict (Optional[Dict[str, Sequence[Dict[str, str]]]], optional): A dictionary containing the dataset data. The dictionary should have the following structure:
+            dataset_dict (Optional[Mapping[str, Sequence[Mapping[str, str]]]): A dictionary containing the dataset data. The dictionary should have the following structure:
                 {
                     "train" | "validate": [{
                         "raw": str (path to raw data),
@@ -87,16 +125,24 @@ class CellMapDataSplit:
                     }],
                     ...
                 }. Defaults to None.
-            csv_path (Optional[str], optional): A path to a csv file containing the dataset data. Defaults to None. Each row in the csv file should have the following structure:
+            csv_path (Optional[str]): A path to a csv file containing the dataset data. Defaults to None. Each row in the csv file should have the following structure:
                 train | validate, raw path, gt path
-            spatial_transforms (Optional[Sequence[dict[str, Any]]], optional): A sequence of dictionaries containing the spatial transformations to apply to the data. The dictionary should have the following structure:
+            NOTE: The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.
+            spatial_transforms (Optional[Sequence[dict[str, Any]]]): A sequence of dictionaries containing the spatial transformations to apply to the data. The dictionary should have the following structure:
                 {transform_name: {transform_args}}
                 Defaults to None.
-            raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
-            target_value_transforms (Optional[Callable | Sequence[Callable] | dict[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
-            force_has_data (bool, optional): Whether to force the dataset to have data. Defaults to False.
-            context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
+            train_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in training datasets. Defaults to None. Example is to add gaussian noise to the raw data.
+            val_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in validation datasets. Defaults to None. Example is to normalize the raw data.
+            target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]]): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
+            class_relation_dict (Optional[Mapping[str, Sequence[str]]]): A dictionary containing the class relations. The dictionary should have the following structure:
+                {
+                    "class_name": [mutually_exclusive_class_name, ...],
+                    ...
+                }
+            force_has_data (bool): Whether to force the datasets to have data even if no ground truth data is found. Defaults to False. Useful for training with only raw data.
+            context (Optional[tensorstore.Context]): The TensorStore context for the image data. Defaults to None.
         """
+
         logger.info("Initializing CellMapDataSplit...")
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
@@ -134,11 +180,13 @@ class CellMapDataSplit:
         assert len(self.train_datasets) > 0, "No valid training datasets found."
         logger.info("CellMapDataSplit initialized.")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Returns the string representation of the class."""
         return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.train_raw_value_transforms}\n\tGT value transforms: {self.target_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
 
     @property
-    def train_datasets_combined(self):
+    def train_datasets_combined(self) -> CellMapMultiDataset:
+        """A multi-dataset from the combination of all training datasets."""
         if not hasattr(self, "_train_datasets_combined"):
             self._train_datasets_combined = CellMapMultiDataset(
                 self.classes,
@@ -153,7 +201,8 @@ class CellMapDataSplit:
         return self._train_datasets_combined
 
     @property
-    def validation_datasets_combined(self):
+    def validation_datasets_combined(self) -> CellMapMultiDataset:
+        """A multi-dataset from the combination of all validation datasets."""
         assert len(self.validation_datasets) > 0, "Validation datasets not loaded."
         if not hasattr(self, "_validation_datasets_combined"):
             self._validation_datasets_combined = CellMapMultiDataset(
@@ -169,7 +218,8 @@ class CellMapDataSplit:
         return self._validation_datasets_combined
 
     @property
-    def validation_blocks(self):
+    def validation_blocks(self) -> CellMapSubset:
+        """A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks."""
         if not hasattr(self, "_validation_blocks"):
             self._validation_blocks = CellMapSubset(
                 self.validation_datasets_combined,
@@ -178,7 +228,8 @@ class CellMapDataSplit:
         return self._validation_blocks
 
     @property
-    def class_counts(self):
+    def class_counts(self) -> Dict[str, Dict[str, int]]:
+        """A dictionary containing the class counts for the training and validation datasets."""
         if not hasattr(self, "_class_counts"):
             self._class_counts = {
                 "train": self.train_datasets_combined.class_counts,
@@ -186,8 +237,8 @@ class CellMapDataSplit:
             }
         return self._class_counts
 
-    def from_csv(self, csv_path):
-        # Load file data from csv file
+    def from_csv(self, csv_path) -> Dict[str, Sequence[Dict[str, str]]]:
+        """Loads the dataset_dict data from a csv file."""
         dataset_dict = {}
         with open(csv_path, "r") as f:
             reader = csv.reader(f)
@@ -203,7 +254,8 @@ class CellMapDataSplit:
 
         return dataset_dict
 
-    def construct(self, dataset_dict):
+    def construct(self, dataset_dict) -> None:
+        """Constructs the datasets from the dataset dictionary."""
         self.train_datasets = []
         self.validation_datasets = []
         self.datasets = {}
@@ -259,7 +311,8 @@ class CellMapDataSplit:
 
             self.datasets["validate"] = self.validation_datasets
 
-    def verify_datasets(self):
+    def verify_datasets(self) -> None:
+        """Verifies that the datasets have data, and removes ones that don't from 'self.train_datasets' and 'self.validation_datasets'."""
         if self.force_has_data:
             return
         verified_datasets = []
@@ -275,19 +328,25 @@ class CellMapDataSplit:
         self.validation_datasets = verified_datasets
 
     def set_raw_value_transforms(
-        self, train_transforms: Callable, val_transforms: Callable
-    ):
-        """Sets the raw value transforms for each dataset in the training multi-dataset."""
-        for dataset in self.train_datasets:
-            dataset.set_raw_value_transforms(train_transforms)
-        if hasattr(self, "_train_datasets_combined"):
-            self._train_datasets_combined.set_raw_value_transforms(train_transforms)
-        for dataset in self.validation_datasets:
-            dataset.set_raw_value_transforms(val_transforms)
-        if hasattr(self, "_validation_datasets_combined"):
-            self._validation_datasets_combined.set_raw_value_transforms(val_transforms)
+        self,
+        train_transforms: Optional[Callable] = None,
+        val_transforms: Optional[Callable] = None,
+    ) -> None:
+        """Sets the raw value transforms for each dataset in the training/validation multi-datasets."""
+        if train_transforms is not None:
+            for dataset in self.train_datasets:
+                dataset.set_raw_value_transforms(train_transforms)
+            if hasattr(self, "_train_datasets_combined"):
+                self._train_datasets_combined.set_raw_value_transforms(train_transforms)
+        if val_transforms is not None:
+            for dataset in self.validation_datasets:
+                dataset.set_raw_value_transforms(val_transforms)
+            if hasattr(self, "_validation_datasets_combined"):
+                self._validation_datasets_combined.set_raw_value_transforms(
+                    val_transforms
+                )
 
-    def set_target_value_transforms(self, transforms: Callable):
+    def set_target_value_transforms(self, transforms: Callable) -> None:
         """Sets the target value transforms for each dataset in the multi-datasets."""
         for dataset in self.train_datasets:
             dataset.set_target_value_transforms(transforms)
@@ -301,25 +360,31 @@ class CellMapDataSplit:
         if hasattr(self, "_validation_blocks"):
             self._validation_blocks.set_target_value_transforms(transforms)
 
-    def set_spatial_transforms(self, spatial_transforms: dict[str, Any] | None):
-        """Sets the raw value transforms for each dataset in the training multi-dataset."""
-        for dataset in self.train_datasets:
-            dataset.spatial_transforms = spatial_transforms
-        if hasattr(self, "_train_datasets_combined"):
-            self._train_datasets_combined.set_spatial_transforms(spatial_transforms)
-        for dataset in self.validation_datasets:
-            dataset.spatial_transforms = spatial_transforms
-        if hasattr(self, "_validation_datasets_combined"):
-            self._validation_datasets_combined.set_spatial_transforms(
-                spatial_transforms
-            )
+    def set_spatial_transforms(
+        self,
+        train_transforms: Optional[dict[str, Any]] = None,
+        val_transforms: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Sets the raw value transforms for each dataset in the training/validation multi-dataset."""
+        if train_transforms is not None:
+            for dataset in self.train_datasets:
+                dataset.spatial_transforms = train_transforms
+            if hasattr(self, "_train_datasets_combined"):
+                self._train_datasets_combined.set_spatial_transforms(train_transforms)
+        if val_transforms is not None:
+            for dataset in self.validation_datasets:
+                dataset.spatial_transforms = val_transforms
+            if hasattr(self, "_validation_datasets_combined"):
+                self._validation_datasets_combined.set_spatial_transforms(
+                    val_transforms
+                )
 
     def set_arrays(
         self,
         arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
         type: str = "target",
         usage: str = "validate",
-    ):
+    ) -> None:
         """Sets the input or target arrays for the training or validation datasets."""
         reset_attrs = []
         for dataset in self.datasets[usage]:
@@ -340,7 +405,6 @@ class CellMapDataSplit:
         for attr in reset_attrs:
             if hasattr(self, attr):
                 delattr(self, attr)
-        # del self._class_counts
 
 
 # Example input arrays:
