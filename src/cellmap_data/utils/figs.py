@@ -11,6 +11,21 @@ def get_image_grid(
     clim=None,
     cmap=None,
 ):
+    """
+    Create a grid of images for input, target, and output data.
+    Args:
+        input_data (torch.Tensor): Input data.
+        target_data (torch.Tensor): Target data.
+        outputs (torch.Tensor): Model outputs.
+        classes (list): List of class labels.
+        batch_size (int, optional): Number of images to display. Defaults to the length of the first axis of 'input_data'.
+        fig_size (int, optional): Size of the figure. Defaults to 3.
+        clim (tuple, optional): Color limits for the images. Defaults to be scaled by the image's intensity.
+        cmap (str, optional): Colormap for the images. Defaults to None.
+
+    Returns:
+        fig (matplotlib.figure.Figure): Figure object.
+    """
     if batch_size is None:
         batch_size = input_data.shape[0]
     num_images = len(classes) * 2 + 2
@@ -71,6 +86,21 @@ def get_image_dict(
     clim=None,
     colorbar=True,
 ):
+    """
+    Create a dictionary of images for input, target, and output data.
+    Args:
+        input_data (torch.Tensor): Input data.
+        target_data (torch.Tensor): Target data.
+        outputs (torch.Tensor): Model outputs.
+        classes (list): List of class labels.
+        batch_size (int, optional): Number of images to display. Defaults to the length of the first axis of 'input_data'.
+        fig_size (int, optional): Size of the figure. Defaults to 3.
+        clim (tuple, optional): Color limits for the images. Defaults to be scaled by the image's intensity.
+        colorbar (bool, optional): Whether to display a colorbar for the model outputs. Defaults to True.
+
+    Returns:
+        image_dict (dict): Dictionary of figure objects.
+    """
     if batch_size is None:
         batch_size = input_data.shape[0]
     image_dict = {}
