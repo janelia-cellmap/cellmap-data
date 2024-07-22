@@ -8,18 +8,25 @@ from typing import Callable, Iterable, Optional
 
 
 class CellMapDataLoader:
-    # TODO: docstring corrections
-    """This subclasses PyTorch DataLoader to load CellMap data for training. It maintains the same API as the DataLoader class. This includes applying augmentations to the data and returning the data in the correct format for training, such as generating the target arrays (e.g. signed distance transform of labels). It retrieves raw and groundtruth data from a CellMapDataSplit object, which is a subclass of PyTorch Dataset. Training and validation data are split using the CellMapDataSplit object, and separate dataloaders are maintained as `train_loader` and `validate_loader` respectively."""
+    """
+    Utility class to create a DataLoader for a CellMapDataset or CellMapMultiDataset.
 
-    dataset: CellMapMultiDataset | CellMapDataset | CellMapSubset
-    classes: Iterable[str]
-    loader = DataLoader
-    batch_size: int
-    num_workers: int
-    weighted_sampler: bool
-    sampler: Sampler | Callable | None
-    is_train: bool
-    rng: Optional[torch.Generator] = None
+    Attributes:
+        dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): The dataset to load.
+        classes (Iterable[str]): The classes to load.
+        batch_size (int): The batch size.
+        num_workers (int): The number of workers to use.
+        weighted_sampler (bool): Whether to use a weighted sampler.
+        sampler (Sampler | Callable | None): The sampler to use.
+        is_train (bool): Whether the data is for training and thus should be shuffled.
+        rng (Optional[torch.Generator]): The random number generator to use.
+        loader (DataLoader): The PyTorch DataLoader.
+        default_kwargs (dict): The default arguments to pass to the PyTorch DataLoader.
+
+    Methods:
+        refresh: Refresh the DataLoader with the current sampler.
+        collate_fn: The collate function for the DataLoader.
+    """
 
     def __init__(
         self,
@@ -33,6 +40,18 @@ class CellMapDataLoader:
         rng: Optional[torch.Generator] = None,
         **kwargs,
     ):
+        """
+        Args:
+            dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): The dataset to load.
+            classes (Iterable[str]): The classes to load.
+            batch_size (int): The batch size.
+            num_workers (int): The number of workers to use.
+            weighted_sampler (bool): Whether to use a weighted sampler. Defaults to False.
+            sampler (Sampler | Callable | None): The sampler to use.
+            is_train (bool): Whether the data is for training and thus should be shuffled.
+            rng (Optional[torch.Generator]): The random number generator to use.
+            **kwargs: Additional arguments to pass to the DataLoader.
+        """
         self.dataset = dataset
         self.classes = classes
         self.batch_size = batch_size
