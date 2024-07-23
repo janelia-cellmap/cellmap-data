@@ -21,6 +21,5 @@ from .datasplit import CellMapDataSplit
 from .dataset import CellMapDataset
 from .image import CellMapImage
 from .subdataset import CellMapSubset
-from . import samplers
 from . import transforms
 from . import utils

@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/janelia-cellmap/dacapo/main/docs/source/_static/CellMapLogo.png" alt="CellMap logo" width="85%">
 
-# cellmap-data
+# CellMap-Data
 
 <!-- [![License](https://img.shields.io/pypi/l/cellmap-data.svg?color=green)](https://github.com/janelia-cellmap/cellmap-data/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/cellmap-data.svg?color=green)](https://pypi.org/project/cellmap-data)

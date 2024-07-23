@@ -1,9 +1,8 @@
 import torch
-from torch.utils.data import DataLoader, Sampler, Subset
+from torch.utils.data import DataLoader, Sampler
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .subdataset import CellMapSubset
-
 from typing import Callable, Iterable, Optional
 
 
@@ -24,8 +23,9 @@ class CellMapDataLoader:
         default_kwargs (dict): The default arguments to pass to the PyTorch DataLoader.
 
     Methods:
-        refresh: Refresh the DataLoader with the current sampler.
-        collate_fn: The collate function for the DataLoader.
+        refresh: If the sampler is a Callable, refresh the DataLoader with the current sampler.
+        collate_fn: Combine a list of dictionaries from different sources into a single dictionary for output.
+
     """
 
     def __init__(
@@ -41,6 +41,8 @@ class CellMapDataLoader:
         **kwargs,
     ):
         """
+        Initialize the CellMapDataLoader
+
         Args:
             dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): The dataset to load.
             classes (Iterable[str]): The classes to load.
@@ -50,7 +52,8 @@ class CellMapDataLoader:
             sampler (Sampler | Callable | None): The sampler to use.
             is_train (bool): Whether the data is for training and thus should be shuffled.
             rng (Optional[torch.Generator]): The random number generator to use.
-            **kwargs: Additional arguments to pass to the DataLoader.
+            `**kwargs`: Additional arguments to pass to the DataLoader.
+
         """
         self.dataset = dataset
         self.classes = classes
@@ -89,6 +92,7 @@ class CellMapDataLoader:
         self.loader = DataLoader(**kwargs)
 
     def refresh(self):
+        """If the sampler is a Callable, refresh the DataLoader with the current sampler."""
         if isinstance(self.sampler, Callable):
             kwargs = self.default_kwargs.copy()
             kwargs.update(
@@ -103,7 +107,8 @@ class CellMapDataLoader:
             kwargs["sampler"] = self.sampler()
             self.loader = DataLoader(**kwargs)
 
-    def collate_fn(self, batch):
+    def collate_fn(self, batch: list[dict]) -> dict:
+        """Combine a list of dictionaries from different sources into a single dictionary for output."""
         outputs = {}
         for b in batch:
             for key, value in b.items():

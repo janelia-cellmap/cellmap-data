@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterable, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
 import numpy as np
 import torch
 from torch.utils.data import ConcatDataset, WeightedRandomSampler

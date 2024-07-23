@@ -50,10 +50,13 @@ dev = [
     "pdbpp",
     "pre-commit",
     "pytest-cov",
-    "pytest",
+    "pytest>=6.0",
     "rich",
     "ruff",
     "snakeviz",
+    "sphinx",
+    "sphinx-book-theme",
+
 ]
 all = [
     "cellmap-data[dev,test]",
