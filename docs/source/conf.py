@@ -50,6 +50,8 @@ exclude_patterns = []
 html_theme = "sphinx_book_theme"
 html_static_path = ["_static"]
 html_title = "CellMap-Data"
-html_logo = "https://raw.githubusercontent.com/janelia-cellmap/dacapo/main/docs/source/_static/CellMapLogo_crop.png"
-html_favicon = "https://raw.githubusercontent.com/janelia-cellmap/dacapo/main/docs/source/_static/favicon.ico"
-# html_theme_options = {"home_page_in_toc": True}
+html_logo = "https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/CellMapLogo.png"
+html_favicon = "https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/favicon.ico"
+# html_theme_options = {
+#     # "show_navbar_depth": 3,
+# }

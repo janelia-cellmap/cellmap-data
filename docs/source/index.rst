@@ -1,9 +1,9 @@
 .. cellmap-data documentation master file, created by
    sphinx-quickstart on Tue Jul 23 10:14:38 2024.
 
-.. image:: https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/CellMapLogo.png
-   :alt: CellMap logo
-   :width: 85%
+.. .. image:: https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/CellMapLogo.png
+..    :alt: CellMap logo
+..    :width: 85%
 
 CellMap-Data: the Docs
 ==========================
