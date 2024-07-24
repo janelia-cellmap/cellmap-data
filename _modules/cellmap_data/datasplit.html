@@ -1,0 +1,841 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>cellmap_data.datasplit &#8212; CellMap-Data</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=a3416100" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../../_static/documentation_options.js?v=e645c8fa"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/cellmap_data/datasplit';</script>
+    <link rel="icon" href="https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/CellMapLogo.png" class="logo__image only-light" alt="CellMap-Data - Home"/>
+    <script>document.write(`<img src="https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/CellMapLogo.png" class="logo__image only-dark" alt="CellMap-Data - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../cellmap_data.html">cellmap_data</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../cellmap_data.dataloader.html">cellmap_data.dataloader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../cellmap_data.dataset.html">cellmap_data.dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../cellmap_data.datasplit.html">cellmap_data.datasplit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../cellmap_data.image.html">cellmap_data.image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../cellmap_data.multidataset.html">cellmap_data.multidataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../cellmap_data.subdataset.html">cellmap_data.subdataset</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../cellmap_data.transforms.html">cellmap_data.transforms</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../cellmap_data.transforms.augment.html">cellmap_data.transforms.augment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../cellmap_data.transforms.augment.gaussian_noise.html">cellmap_data.transforms.augment.gaussian_noise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../cellmap_data.transforms.augment.nan_to_num.html">cellmap_data.transforms.augment.nan_to_num</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../cellmap_data.transforms.augment.normalize.html">cellmap_data.transforms.augment.normalize</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../cellmap_data.transforms.augment.random_contrast.html">cellmap_data.transforms.augment.random_contrast</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../cellmap_data.transforms.augment.random_gamma.html">cellmap_data.transforms.augment.random_gamma</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../cellmap_data.transforms.targets.html">cellmap_data.transforms.targets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../cellmap_data.transforms.targets.cellpose.html">cellmap_data.transforms.targets.cellpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../cellmap_data.transforms.targets.distance.html">cellmap_data.transforms.targets.distance</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../cellmap_data.utils.html">cellmap_data.utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../cellmap_data.utils.dtype.html">cellmap_data.utils.dtype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cellmap_data.utils.figs.html">cellmap_data.utils.figs</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cellmap_data.CellMapImage.html">cellmap_data.CellMapImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cellmap_data.CellMapDataset.html">cellmap_data.CellMapDataset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cellmap_data.CellMapMultiDataset.html">cellmap_data.CellMapMultiDataset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cellmap_data.CellMapSubset.html">cellmap_data.CellMapSubset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cellmap_data.CellMapDataSplit.html">cellmap_data.CellMapDataSplit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cellmap_data.CellMapDataLoader.html">cellmap_data.CellMapDataLoader</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../cellmap_data.transforms.html">cellmap_data.transforms</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../cellmap_data.transforms.augment.html">cellmap_data.transforms.augment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../cellmap_data.transforms.augment.gaussian_noise.html">cellmap_data.transforms.augment.gaussian_noise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cellmap_data.transforms.augment.nan_to_num.html">cellmap_data.transforms.augment.nan_to_num</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cellmap_data.transforms.augment.normalize.html">cellmap_data.transforms.augment.normalize</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cellmap_data.transforms.augment.random_contrast.html">cellmap_data.transforms.augment.random_contrast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cellmap_data.transforms.augment.random_gamma.html">cellmap_data.transforms.augment.random_gamma</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../cellmap_data.transforms.targets.html">cellmap_data.transforms.targets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../cellmap_data.transforms.targets.cellpose.html">cellmap_data.transforms.targets.cellpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../cellmap_data.transforms.targets.distance.html">cellmap_data.transforms.targets.distance</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../cellmap_data.utils.html">cellmap_data.utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../cellmap_data.utils.dtype.html">cellmap_data.utils.dtype</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../cellmap_data.utils.figs.html">cellmap_data.utils.figs</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for cellmap_data.datasplit</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">import</span> <span class="nn">tensorstore</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">.dataset</span> <span class="kn">import</span> <span class="n">CellMapDataset</span>
+<span class="kn">from</span> <span class="nn">.multidataset</span> <span class="kn">import</span> <span class="n">CellMapMultiDataset</span>
+<span class="kn">from</span> <span class="nn">.subdataset</span> <span class="kn">import</span> <span class="n">CellMapSubset</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="CellMapDataSplit">
+<a class="viewcode-back" href="../../cellmap_data.datasplit.html#cellmap_data.CellMapDataSplit">[docs]</a>
+<span class="k">class</span> <span class="nc">CellMapDataSplit</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A class to split the data into training and validation datasets.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::</span>
+<span class="sd">            {</span>
+<span class="sd">                &quot;array_name&quot;: {</span>
+<span class="sd">                    &quot;shape&quot;: tuple[int],</span>
+<span class="sd">                    &quot;scale&quot;: Sequence[float],</span>
+<span class="sd">                },</span>
+<span class="sd">                ...</span>
+<span class="sd">            }</span>
+
+<span class="sd">        target_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as input_arrays.</span>
+<span class="sd">        classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays.</span>
+<span class="sd">        empty_value (int | float): The value to use for empty data. Defaults to torch.nan.</span>
+<span class="sd">        pad (bool | str): Whether to pad the data. If a string, it should be either &quot;train&quot; or &quot;validate&quot;. Defaults to False.</span>
+<span class="sd">        datasets (Optional[Mapping[str, Sequence[CellMapDataset]]]): A dictionary containing the dataset objects. The dictionary should have the following structure:</span>
+<span class="sd">            {</span>
+<span class="sd">                &quot;train&quot;: Iterable[CellMapDataset],</span>
+<span class="sd">                &quot;validate&quot;: Iterable[CellMapDataset],</span>
+<span class="sd">            }. Defaults to None.</span>
+<span class="sd">        dataset_dict (Optional[Mapping[str, Sequence[Mapping[str, str]]]): A dictionary containing the dataset data. Defaults to None. The dictionary should have the following structure::</span>
+
+<span class="sd">            {</span>
+<span class="sd">                &quot;train&quot; | &quot;validate&quot;: [{</span>
+<span class="sd">                    &quot;raw&quot;: str (path to raw data),</span>
+<span class="sd">                    &quot;gt&quot;: str (path to ground truth data),</span>
+<span class="sd">                }],</span>
+<span class="sd">                ...</span>
+<span class="sd">            }</span>
+
+<span class="sd">        csv_path (Optional[str]): A path to a csv file containing the dataset data. Defaults to None. Each row in the csv file should have the following structure:</span>
+<span class="sd">            train | validate, raw path, gt path</span>
+<span class="sd">        spatial_transforms (Optional[Sequence[dict[str, Any]]]): A sequence of dictionaries containing the spatial transformations to apply to the data. Defaults to None. The dictionary should have the following structure::</span>
+
+<span class="sd">            {transform_name: {transform_args}}</span>
+
+<span class="sd">        train_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in training datasets. Defaults to None. Example is to add gaussian noise to the raw data.</span>
+<span class="sd">        val_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in validation datasets. Defaults to None. Example is to normalize the raw data.</span>
+<span class="sd">        target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]]): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.</span>
+<span class="sd">        class_relation_dict (Optional[Mapping[str, Sequence[str]]]): A dictionary containing the class relations. The dictionary should have the following structure::</span>
+
+<span class="sd">            {</span>
+<span class="sd">                &quot;class_name&quot;: [mutually_exclusive_class_name, ...],</span>
+<span class="sd">                ...</span>
+<span class="sd">            }</span>
+
+<span class="sd">        force_has_data (bool): Whether to force the datasets to have data even if no ground truth data is found. Defaults to False. Useful for training with only raw data.</span>
+<span class="sd">        context (Optional[tensorstore.Context]): The TensorStore context for the image data. Defaults to None.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.</span>
+
+<span class="sd">    Methods:</span>
+<span class="sd">        __repr__(): Returns the string representation of the class.</span>
+<span class="sd">        from_csv(csv_path: str): Loads the dataset data from a csv file.</span>
+<span class="sd">        construct(dataset_dict: Mapping[str, Sequence[Mapping[str, str]]]): Constructs the datasets from the dataset dictionary.</span>
+<span class="sd">        verify_datasets(): Verifies that the datasets have data, and removes ones that don&#39;t from &#39;self.train_datasets&#39; and &#39;self.validation_datasets&#39;.</span>
+<span class="sd">        set_raw_value_transforms(train_transforms: Optional[Callable] = None, val_transforms: Optional[Callable] = None): Sets the raw value transforms for each dataset in the training/validation multi-datasets.</span>
+<span class="sd">        set_target_value_transforms(transforms: Callable): Sets the target value transforms for each dataset in both training and validation multi-datasets.</span>
+<span class="sd">        set_spatial_transforms(spatial_transforms: dict[str, Any] | None): Sets the spatial transforms for each dataset in the training multi-dataset.</span>
+<span class="sd">        set_arrays(arrays: Mapping[str, Mapping[str, Sequence[int | float]]], type: str = &quot;target&quot;, usage: str = &quot;validate&quot;): Sets the input or target arrays for the training or validation datasets.</span>
+
+<span class="sd">    Properties:</span>
+<span class="sd">        train_datasets_combined: A multi-dataset from the combination of all training datasets.</span>
+<span class="sd">        validation_datasets_combined: A multi-dataset from the combination of all validation datasets.</span>
+<span class="sd">        validation_blocks: A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks.</span>
+<span class="sd">        class_counts: A dictionary containing the class counts for the training and validation datasets.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="CellMapDataSplit.__init__">
+<a class="viewcode-back" href="../../cellmap_data.CellMapDataSplit.html#cellmap_data.CellMapDataSplit.__init__">[docs]</a>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_arrays</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">target_arrays</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">classes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">empty_value</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+        <span class="n">pad</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">datasets</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">CellMapDataset</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dataset_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">csv_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">spatial_transforms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">train_raw_value_transforms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">val_raw_value_transforms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">target_value_transforms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+            <span class="n">Callable</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">|</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">class_relation_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">force_has_data</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">tensorstore</span><span class="o">.</span><span class="n">Context</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initializes the CellMapDatasets class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::</span>
+
+<span class="sd">                {</span>
+<span class="sd">                    &quot;array_name&quot;: {</span>
+<span class="sd">                        &quot;shape&quot;: tuple[int],</span>
+<span class="sd">                        &quot;scale&quot;: Sequence[float],</span>
+<span class="sd">                    },</span>
+<span class="sd">                    ...</span>
+<span class="sd">                }</span>
+
+<span class="sd">            target_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as input_arrays.</span>
+<span class="sd">            classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays.</span>
+<span class="sd">            empty_value (int | float): The value to use for empty data. Defaults to torch.nan.</span>
+<span class="sd">            pad (bool | str): Whether to pad the data. If a string, it should be either &quot;train&quot; or &quot;validate&quot;. Defaults to False.</span>
+<span class="sd">            datasets (Optional[Mapping[str, Sequence[CellMapDataset]]]): A dictionary containing the dataset objects. Defaults to None. The dictionary should have the following structure::</span>
+
+<span class="sd">                {</span>
+<span class="sd">                    &quot;train&quot;: Iterable[CellMapDataset],</span>
+<span class="sd">                    &quot;validate&quot;: Iterable[CellMapDataset],</span>
+<span class="sd">                }.</span>
+
+<span class="sd">            dataset_dict (Optional[Mapping[str, Sequence[Mapping[str, str]]]): A dictionary containing the dataset data. Defaults to None. The dictionary should have the following structure::</span>
+
+<span class="sd">                {</span>
+<span class="sd">                    &quot;train&quot; | &quot;validate&quot;: [{</span>
+<span class="sd">                        &quot;raw&quot;: str (path to raw data),</span>
+<span class="sd">                        &quot;gt&quot;: str (path to ground truth data),</span>
+<span class="sd">                    }],</span>
+<span class="sd">                    ...</span>
+<span class="sd">                }</span>
+
+<span class="sd">            csv_path (Optional[str]): A path to a csv file containing the dataset data. Defaults to None. Each row in the csv file should have the following structure:&quot;</span>
+
+<span class="sd">                train | validate, raw path, gt path</span>
+
+<span class="sd">            spatial_transforms (Optional[Sequence[dict[str, Any]]]): A sequence of dictionaries containing the spatial transformations to apply to the data. Defaults to None. The dictionary should have the following structure::</span>
+
+<span class="sd">                {transform_name: {transform_args}}</span>
+
+<span class="sd">            train_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in training datasets. Defaults to None. Example is to add gaussian noise to the raw data.</span>
+<span class="sd">            val_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in validation datasets. Defaults to None. Example is to normalize the raw data.</span>
+<span class="sd">            target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]]): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.</span>
+<span class="sd">            class_relation_dict (Optional[Mapping[str, Sequence[str]]]): A dictionary containing the class relations. The dictionary should have the following structure::</span>
+
+<span class="sd">                {</span>
+<span class="sd">                    &quot;class_name&quot;: [mutually_exclusive_class_name, ...],</span>
+<span class="sd">                    ...</span>
+<span class="sd">                }</span>
+
+<span class="sd">            force_has_data (bool): Whether to force the datasets to have data even if no ground truth data is found. Defaults to False. Useful for training with only raw data.</span>
+<span class="sd">            context (Optional[tensorstore.Context]): The TensorStore context for the image data. Defaults to None.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing CellMapDataSplit...&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span> <span class="o">=</span> <span class="n">input_arrays</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span> <span class="o">=</span> <span class="n">target_arrays</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">classes</span> <span class="o">=</span> <span class="n">classes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">empty_value</span> <span class="o">=</span> <span class="n">empty_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pad</span> <span class="o">=</span> <span class="n">pad</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pad_training</span> <span class="o">=</span> <span class="n">pad</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pad_validation</span> <span class="o">=</span> <span class="n">pad</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;validate&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pad_training</span> <span class="o">=</span> <span class="n">pad</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pad_validation</span> <span class="o">=</span> <span class="n">pad</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">force_has_data</span> <span class="o">=</span> <span class="n">force_has_data</span>
+        <span class="k">if</span> <span class="n">datasets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span> <span class="o">=</span> <span class="n">datasets</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span> <span class="o">=</span> <span class="n">datasets</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="s2">&quot;validate&quot;</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span> <span class="o">=</span> <span class="n">datasets</span><span class="p">[</span><span class="s2">&quot;validate&quot;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dataset_dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">dataset_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dataset_dict</span> <span class="o">=</span> <span class="n">dataset_dict</span>
+        <span class="k">elif</span> <span class="n">csv_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dataset_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">from_csv</span><span class="p">(</span><span class="n">csv_path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spatial_transforms</span> <span class="o">=</span> <span class="n">spatial_transforms</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_raw_value_transforms</span> <span class="o">=</span> <span class="n">train_raw_value_transforms</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_raw_value_transforms</span> <span class="o">=</span> <span class="n">val_raw_value_transforms</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_value_transforms</span> <span class="o">=</span> <span class="n">target_value_transforms</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">class_relation_dict</span> <span class="o">=</span> <span class="n">class_relation_dict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">context</span> <span class="o">=</span> <span class="n">context</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">verify_datasets</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;No valid training datasets found.&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;CellMapDataSplit initialized.&quot;</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the string representation of the class.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;CellMapDataSplit(</span><span class="se">\n\t</span><span class="s2">Input arrays: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span><span class="si">}</span><span class="se">\n\t</span><span class="s2">Target arrays:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span><span class="si">}</span><span class="se">\n\t</span><span class="s2">Classes: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="si">}</span><span class="se">\n\t</span><span class="s2">Dataset dict: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_dict</span><span class="si">}</span><span class="se">\n\t</span><span class="s2">Spatial transforms: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">spatial_transforms</span><span class="si">}</span><span class="se">\n\t</span><span class="s2">Raw value transforms: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">train_raw_value_transforms</span><span class="si">}</span><span class="se">\n\t</span><span class="s2">GT value transforms: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">target_value_transforms</span><span class="si">}</span><span class="se">\n\t</span><span class="s2">Force has data: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">force_has_data</span><span class="si">}</span><span class="se">\n\t</span><span class="s2">Context: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">train_datasets_combined</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CellMapMultiDataset</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A multi-dataset from the combination of all training datasets.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_train_datasets_combined&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_train_datasets_combined</span> <span class="o">=</span> <span class="n">CellMapMultiDataset</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span><span class="p">,</span>
+                <span class="p">[</span>
+                    <span class="n">ds</span>
+                    <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_has_data</span> <span class="ow">or</span> <span class="n">ds</span><span class="o">.</span><span class="n">has_data</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_train_datasets_combined</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">validation_datasets_combined</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CellMapMultiDataset</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A multi-dataset from the combination of all validation datasets.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Validation datasets not loaded.&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_validation_datasets_combined&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validation_datasets_combined</span> <span class="o">=</span> <span class="n">CellMapMultiDataset</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span><span class="p">,</span>
+                <span class="p">[</span>
+                    <span class="n">ds</span>
+                    <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_has_data</span> <span class="ow">or</span> <span class="n">ds</span><span class="o">.</span><span class="n">has_data</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validation_datasets_combined</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">validation_blocks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CellMapSubset</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_validation_blocks&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validation_blocks</span> <span class="o">=</span> <span class="n">CellMapSubset</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets_combined</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets_combined</span><span class="o">.</span><span class="n">validation_indices</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validation_blocks</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">class_counts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A dictionary containing the class counts for the training and validation datasets.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_class_counts&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets_combined</span><span class="o">.</span><span class="n">class_counts</span><span class="p">,</span>
+                <span class="s2">&quot;validate&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets_combined</span><span class="o">.</span><span class="n">class_counts</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span>
+
+<div class="viewcode-block" id="CellMapDataSplit.from_csv">
+<a class="viewcode-back" href="../../cellmap_data.datasplit.html#cellmap_data.CellMapDataSplit.from_csv">[docs]</a>
+    <span class="k">def</span> <span class="nf">from_csv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Loads the dataset_dict data from a csv file.&quot;&quot;&quot;</span>
+        <span class="n">dataset_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">csv_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">reader</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">reader</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dataset_dict</span><span class="p">:</span>
+                    <span class="n">dataset_dict</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">dataset_dict</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;raw&quot;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+                        <span class="s2">&quot;gt&quot;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                    <span class="p">}</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">dataset_dict</span></div>
+
+
+<div class="viewcode-block" id="CellMapDataSplit.construct">
+<a class="viewcode-back" href="../../cellmap_data.datasplit.html#cellmap_data.CellMapDataSplit.construct">[docs]</a>
+    <span class="k">def</span> <span class="nf">construct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset_dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Constructs the datasets from the dataset dictionary.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">data_paths</span> <span class="ow">in</span> <span class="n">dataset_dict</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">CellMapDataset</span><span class="p">(</span>
+                        <span class="n">data_paths</span><span class="p">[</span><span class="s2">&quot;raw&quot;</span><span class="p">],</span>
+                        <span class="n">data_paths</span><span class="p">[</span><span class="s2">&quot;gt&quot;</span><span class="p">],</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">spatial_transforms</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">train_raw_value_transforms</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">target_value_transforms</span><span class="p">,</span>
+                        <span class="n">is_train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">context</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">,</span>
+                        <span class="n">force_has_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">force_has_data</span><span class="p">,</span>
+                        <span class="n">empty_value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">empty_value</span><span class="p">,</span>
+                        <span class="n">class_relation_dict</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">class_relation_dict</span><span class="p">,</span>
+                        <span class="n">pad</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pad_training</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error loading dataset: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span>
+
+        <span class="c1"># TODO: probably want larger arrays for validation</span>
+
+        <span class="k">if</span> <span class="s2">&quot;validate&quot;</span> <span class="ow">in</span> <span class="n">dataset_dict</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">data_paths</span> <span class="ow">in</span> <span class="n">dataset_dict</span><span class="p">[</span><span class="s2">&quot;validate&quot;</span><span class="p">]:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">CellMapDataset</span><span class="p">(</span>
+                            <span class="n">data_paths</span><span class="p">[</span><span class="s2">&quot;raw&quot;</span><span class="p">],</span>
+                            <span class="n">data_paths</span><span class="p">[</span><span class="s2">&quot;gt&quot;</span><span class="p">],</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span><span class="p">,</span>
+                            <span class="n">raw_value_transforms</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">val_raw_value_transforms</span><span class="p">,</span>
+                            <span class="n">target_value_transforms</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">target_value_transforms</span><span class="p">,</span>
+                            <span class="n">is_train</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                            <span class="n">context</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">,</span>
+                            <span class="n">force_has_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">force_has_data</span><span class="p">,</span>
+                            <span class="n">empty_value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">empty_value</span><span class="p">,</span>
+                            <span class="n">class_relation_dict</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">class_relation_dict</span><span class="p">,</span>
+                            <span class="n">pad</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pad_validation</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error loading dataset: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="s2">&quot;validate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span></div>
+
+
+<div class="viewcode-block" id="CellMapDataSplit.verify_datasets">
+<a class="viewcode-back" href="../../cellmap_data.datasplit.html#cellmap_data.CellMapDataSplit.verify_datasets">[docs]</a>
+    <span class="k">def</span> <span class="nf">verify_datasets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verifies that the datasets have data, and removes ones that don&#39;t from ``self.train_datasets`` and ``self.validation_datasets``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_has_data</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">verified_datasets</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">verify</span><span class="p">():</span>
+                <span class="n">verified_datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span> <span class="o">=</span> <span class="n">verified_datasets</span>
+
+        <span class="n">verified_datasets</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">verify</span><span class="p">():</span>
+                <span class="n">verified_datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span> <span class="o">=</span> <span class="n">verified_datasets</span></div>
+
+
+<div class="viewcode-block" id="CellMapDataSplit.set_raw_value_transforms">
+<a class="viewcode-back" href="../../cellmap_data.datasplit.html#cellmap_data.CellMapDataSplit.set_raw_value_transforms">[docs]</a>
+    <span class="k">def</span> <span class="nf">set_raw_value_transforms</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">train_transforms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">val_transforms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the raw value transforms for each dataset in the training/validation multi-datasets.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">train_transforms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span><span class="p">:</span>
+                <span class="n">dataset</span><span class="o">.</span><span class="n">set_raw_value_transforms</span><span class="p">(</span><span class="n">train_transforms</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_train_datasets_combined&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_train_datasets_combined</span><span class="o">.</span><span class="n">set_raw_value_transforms</span><span class="p">(</span><span class="n">train_transforms</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">val_transforms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span><span class="p">:</span>
+                <span class="n">dataset</span><span class="o">.</span><span class="n">set_raw_value_transforms</span><span class="p">(</span><span class="n">val_transforms</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_validation_datasets_combined&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_validation_datasets_combined</span><span class="o">.</span><span class="n">set_raw_value_transforms</span><span class="p">(</span>
+                    <span class="n">val_transforms</span>
+                <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CellMapDataSplit.set_target_value_transforms">
+<a class="viewcode-back" href="../../cellmap_data.datasplit.html#cellmap_data.CellMapDataSplit.set_target_value_transforms">[docs]</a>
+    <span class="k">def</span> <span class="nf">set_target_value_transforms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transforms</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the target value transforms for each dataset in the multi-datasets.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span><span class="p">:</span>
+            <span class="n">dataset</span><span class="o">.</span><span class="n">set_target_value_transforms</span><span class="p">(</span><span class="n">transforms</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_train_datasets_combined&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_train_datasets_combined</span><span class="o">.</span><span class="n">set_target_value_transforms</span><span class="p">(</span><span class="n">transforms</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span><span class="p">:</span>
+            <span class="n">dataset</span><span class="o">.</span><span class="n">set_target_value_transforms</span><span class="p">(</span><span class="n">transforms</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_validation_datasets_combined&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validation_datasets_combined</span><span class="o">.</span><span class="n">set_target_value_transforms</span><span class="p">(</span><span class="n">transforms</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_validation_blocks&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validation_blocks</span><span class="o">.</span><span class="n">set_target_value_transforms</span><span class="p">(</span><span class="n">transforms</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CellMapDataSplit.set_spatial_transforms">
+<a class="viewcode-back" href="../../cellmap_data.datasplit.html#cellmap_data.CellMapDataSplit.set_spatial_transforms">[docs]</a>
+    <span class="k">def</span> <span class="nf">set_spatial_transforms</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">train_transforms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">val_transforms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the raw value transforms for each dataset in the training/validation multi-dataset.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">train_transforms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span><span class="p">:</span>
+                <span class="n">dataset</span><span class="o">.</span><span class="n">spatial_transforms</span> <span class="o">=</span> <span class="n">train_transforms</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_train_datasets_combined&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_train_datasets_combined</span><span class="o">.</span><span class="n">set_spatial_transforms</span><span class="p">(</span><span class="n">train_transforms</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">val_transforms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span><span class="p">:</span>
+                <span class="n">dataset</span><span class="o">.</span><span class="n">spatial_transforms</span> <span class="o">=</span> <span class="n">val_transforms</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_validation_datasets_combined&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_validation_datasets_combined</span><span class="o">.</span><span class="n">set_spatial_transforms</span><span class="p">(</span>
+                    <span class="n">val_transforms</span>
+                <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CellMapDataSplit.set_arrays">
+<a class="viewcode-back" href="../../cellmap_data.datasplit.html#cellmap_data.CellMapDataSplit.set_arrays">[docs]</a>
+    <span class="k">def</span> <span class="nf">set_arrays</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">arrays</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]]],</span>
+        <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;target&quot;</span><span class="p">,</span>
+        <span class="n">usage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;validate&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the input or target arrays for the training or validation datasets.&quot;&quot;&quot;</span>
+        <span class="n">reset_attrs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">usage</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="s2">&quot;inputs&quot;</span><span class="p">:</span>
+                <span class="n">dataset</span><span class="o">.</span><span class="n">input_arrays</span> <span class="o">=</span> <span class="n">arrays</span>
+            <span class="k">elif</span> <span class="nb">type</span> <span class="o">==</span> <span class="s2">&quot;target&quot;</span><span class="p">:</span>
+                <span class="n">dataset</span><span class="o">.</span><span class="n">target_arrays</span> <span class="o">=</span> <span class="n">arrays</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Type must be &#39;inputs&#39; or &#39;target&#39;.&quot;</span><span class="p">)</span>
+            <span class="n">dataset</span><span class="o">.</span><span class="n">reset_arrays</span><span class="p">(</span><span class="nb">type</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">usage</span> <span class="o">==</span> <span class="s2">&quot;train&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]</span>
+            <span class="n">reset_attrs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;_train_datasets_combined&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">usage</span> <span class="o">==</span> <span class="s2">&quot;validate&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="s2">&quot;validate&quot;</span><span class="p">]</span>
+            <span class="n">reset_attrs</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;_validation_datasets_combined&quot;</span><span class="p">,</span> <span class="s2">&quot;_validation_blocks&quot;</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">reset_attrs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">):</span>
+                <span class="nb">delattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Jeff Rhoades
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Jeff Rhoades.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

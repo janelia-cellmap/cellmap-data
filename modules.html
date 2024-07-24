@@ -1,0 +1,603 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>src &#8212; CellMap-Data</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=a3416100" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="_static/documentation_options.js?v=e645c8fa"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules';</script>
+    <link rel="icon" href="https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/CellMapLogo.png" class="logo__image only-light" alt="CellMap-Data - Home"/>
+    <script>document.write(`<img src="https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/CellMapLogo.png" class="logo__image only-dark" alt="CellMap-Data - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="cellmap_data.html">cellmap_data</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.dataloader.html">cellmap_data.dataloader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.dataset.html">cellmap_data.dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.datasplit.html">cellmap_data.datasplit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.image.html">cellmap_data.image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.multidataset.html">cellmap_data.multidataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.subdataset.html">cellmap_data.subdataset</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="cellmap_data.transforms.html">cellmap_data.transforms</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="cellmap_data.transforms.augment.html">cellmap_data.transforms.augment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.gaussian_noise.html">cellmap_data.transforms.augment.gaussian_noise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.nan_to_num.html">cellmap_data.transforms.augment.nan_to_num</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.normalize.html">cellmap_data.transforms.augment.normalize</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.random_contrast.html">cellmap_data.transforms.augment.random_contrast</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.random_gamma.html">cellmap_data.transforms.augment.random_gamma</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="cellmap_data.transforms.targets.html">cellmap_data.transforms.targets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.targets.cellpose.html">cellmap_data.transforms.targets.cellpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.targets.distance.html">cellmap_data.transforms.targets.distance</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="cellmap_data.utils.html">cellmap_data.utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.utils.dtype.html">cellmap_data.utils.dtype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.utils.figs.html">cellmap_data.utils.figs</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapImage.html">cellmap_data.CellMapImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapDataset.html">cellmap_data.CellMapDataset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapMultiDataset.html">cellmap_data.CellMapMultiDataset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapSubset.html">cellmap_data.CellMapSubset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapDataSplit.html">cellmap_data.CellMapDataSplit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapDataLoader.html">cellmap_data.CellMapDataLoader</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="cellmap_data.transforms.html">cellmap_data.transforms</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="cellmap_data.transforms.augment.html">cellmap_data.transforms.augment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.gaussian_noise.html">cellmap_data.transforms.augment.gaussian_noise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.nan_to_num.html">cellmap_data.transforms.augment.nan_to_num</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.normalize.html">cellmap_data.transforms.augment.normalize</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.random_contrast.html">cellmap_data.transforms.augment.random_contrast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.random_gamma.html">cellmap_data.transforms.augment.random_gamma</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="cellmap_data.transforms.targets.html">cellmap_data.transforms.targets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.targets.cellpose.html">cellmap_data.transforms.targets.cellpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.targets.distance.html">cellmap_data.transforms.targets.distance</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="cellmap_data.utils.html">cellmap_data.utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.utils.dtype.html">cellmap_data.utils.dtype</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.utils.figs.html">cellmap_data.utils.figs</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/modules.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>src</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="src">
+<h1>src<a class="headerlink" href="#src" title="Link to this heading">#</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.html">cellmap_data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.dataloader.html">cellmap_data.dataloader</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.dataloader.html#cellmap_data.dataloader.CellMapDataLoader"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataloader.html#cellmap_data.dataloader.CellMapDataLoader.refresh"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader.refresh()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataloader.html#cellmap_data.dataloader.CellMapDataLoader.collate_fn"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader.collate_fn()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.dataset.html">cellmap_data.dataset</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.split_target_path"><code class="docutils literal notranslate"><span class="pre">split_target_path()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset"><code class="docutils literal notranslate"><span class="pre">CellMapDataset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.center"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.center</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.largest_voxel_sizes"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.largest_voxel_sizes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.bounding_box"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.bounding_box</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.bounding_box_shape"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.bounding_box_shape</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.sampling_box"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.sampling_box</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.sampling_box_shape"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.sampling_box_shape</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.size"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.class_counts"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.class_counts</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.class_weights"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.class_weights</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.validation_indices"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.validation_indices</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.device"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.device</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.__len__"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.__len__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.__getitem__"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.__getitem__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.get_empty_store"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.get_empty_store()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.get_target_array"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.get_target_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.get_label_array"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.get_label_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.verify"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.verify()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.get_indices"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.get_indices()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.to"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.to()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.generate_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.generate_spatial_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.set_raw_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.set_raw_value_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.set_target_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.set_target_value_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.reset_arrays"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.reset_arrays()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.datasplit.html">cellmap_data.datasplit</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.train_datasets_combined"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.train_datasets_combined</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.validation_datasets_combined"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.validation_datasets_combined</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.validation_blocks"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.validation_blocks</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.class_counts"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.class_counts</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.from_csv"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.from_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.construct"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.construct()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.verify_datasets"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.verify_datasets()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.set_raw_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.set_raw_value_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.set_target_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.set_target_value_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.set_spatial_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.set_arrays"><code class="docutils literal notranslate"><span class="pre">CellMapDataSplit.set_arrays()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.image.html">cellmap_data.image</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage"><code class="docutils literal notranslate"><span class="pre">CellMapImage</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.__getitem__"><code class="docutils literal notranslate"><span class="pre">CellMapImage.__getitem__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.shape"><code class="docutils literal notranslate"><span class="pre">CellMapImage.shape</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.center"><code class="docutils literal notranslate"><span class="pre">CellMapImage.center</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.multiscale_attrs"><code class="docutils literal notranslate"><span class="pre">CellMapImage.multiscale_attrs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.coordinateTransformations"><code class="docutils literal notranslate"><span class="pre">CellMapImage.coordinateTransformations</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.full_coords"><code class="docutils literal notranslate"><span class="pre">CellMapImage.full_coords</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.scale_level"><code class="docutils literal notranslate"><span class="pre">CellMapImage.scale_level</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.group"><code class="docutils literal notranslate"><span class="pre">CellMapImage.group</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.array_path"><code class="docutils literal notranslate"><span class="pre">CellMapImage.array_path</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.array"><code class="docutils literal notranslate"><span class="pre">CellMapImage.array</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.translation"><code class="docutils literal notranslate"><span class="pre">CellMapImage.translation</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.bounding_box"><code class="docutils literal notranslate"><span class="pre">CellMapImage.bounding_box</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.sampling_box"><code class="docutils literal notranslate"><span class="pre">CellMapImage.sampling_box</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.bg_count"><code class="docutils literal notranslate"><span class="pre">CellMapImage.bg_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.class_counts"><code class="docutils literal notranslate"><span class="pre">CellMapImage.class_counts</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.to"><code class="docutils literal notranslate"><span class="pre">CellMapImage.to()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.find_level"><code class="docutils literal notranslate"><span class="pre">CellMapImage.find_level()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.rotate_coords"><code class="docutils literal notranslate"><span class="pre">CellMapImage.rotate_coords()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapImage.set_spatial_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.apply_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapImage.apply_spatial_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.CellMapImage.return_data"><code class="docutils literal notranslate"><span class="pre">CellMapImage.return_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.EmptyImage"><code class="docutils literal notranslate"><span class="pre">EmptyImage</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.EmptyImage.__getitem__"><code class="docutils literal notranslate"><span class="pre">EmptyImage.__getitem__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.EmptyImage.bounding_box"><code class="docutils literal notranslate"><span class="pre">EmptyImage.bounding_box</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.EmptyImage.sampling_box"><code class="docutils literal notranslate"><span class="pre">EmptyImage.sampling_box</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.EmptyImage.bg_count"><code class="docutils literal notranslate"><span class="pre">EmptyImage.bg_count</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.EmptyImage.class_counts"><code class="docutils literal notranslate"><span class="pre">EmptyImage.class_counts</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.EmptyImage.to"><code class="docutils literal notranslate"><span class="pre">EmptyImage.to()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.image.html#cellmap_data.image.EmptyImage.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">EmptyImage.set_spatial_transforms()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.multidataset.html">cellmap_data.multidataset</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.classes"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.classes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.input_arrays"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.input_arrays</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.target_arrays"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.target_arrays</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.datasets"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.datasets</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#id0"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.datasets</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.class_counts"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.class_counts</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.class_weights"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.class_weights</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.dataset_weights"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.dataset_weights</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.sample_weights"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.sample_weights</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.validation_indices"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.validation_indices</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.to"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.to()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.get_weighted_sampler"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.get_weighted_sampler()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.get_subset_random_sampler"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.get_subset_random_sampler()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.get_indices"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.get_indices()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.set_raw_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.set_raw_value_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.set_target_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.set_target_value_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.set_spatial_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.cumulative_sizes"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.cumulative_sizes</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.subdataset.html">cellmap_data.subdataset</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset"><code class="docutils literal notranslate"><span class="pre">CellMapSubset</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.classes"><code class="docutils literal notranslate"><span class="pre">CellMapSubset.classes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.class_counts"><code class="docutils literal notranslate"><span class="pre">CellMapSubset.class_counts</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.class_weights"><code class="docutils literal notranslate"><span class="pre">CellMapSubset.class_weights</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.validation_indices"><code class="docutils literal notranslate"><span class="pre">CellMapSubset.validation_indices</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.to"><code class="docutils literal notranslate"><span class="pre">CellMapSubset.to()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.set_raw_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapSubset.set_raw_value_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.set_target_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapSubset.set_target_value_transforms()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.dataset"><code class="docutils literal notranslate"><span class="pre">CellMapSubset.dataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.indices"><code class="docutils literal notranslate"><span class="pre">CellMapSubset.indices</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.transforms.html">cellmap_data.transforms</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.html">cellmap_data.transforms.augment</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.gaussian_noise.html">cellmap_data.transforms.augment.gaussian_noise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.nan_to_num.html">cellmap_data.transforms.augment.nan_to_num</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.normalize.html">cellmap_data.transforms.augment.normalize</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.random_contrast.html">cellmap_data.transforms.augment.random_contrast</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.random_gamma.html">cellmap_data.transforms.augment.random_gamma</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.targets.html">cellmap_data.transforms.targets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.targets.cellpose.html">cellmap_data.transforms.targets.cellpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.targets.distance.html">cellmap_data.transforms.targets.distance</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.utils.html">cellmap_data.utils</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.utils.dtype.html">cellmap_data.utils.dtype</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.utils.dtype.html#cellmap_data.utils.dtype.torch_max_value"><code class="docutils literal notranslate"><span class="pre">torch_max_value()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.utils.figs.html">cellmap_data.utils.figs</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.utils.figs.html#cellmap_data.utils.figs.get_image_grid"><code class="docutils literal notranslate"><span class="pre">get_image_grid()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.utils.figs.html#cellmap_data.utils.figs.get_image_dict"><code class="docutils literal notranslate"><span class="pre">get_image_dict()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Jeff Rhoades
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Jeff Rhoades.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

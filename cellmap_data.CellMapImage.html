@@ -1,0 +1,832 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>cellmap_data.CellMapImage &#8212; CellMap-Data</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=a3416100" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="_static/documentation_options.js?v=e645c8fa"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'cellmap_data.CellMapImage';</script>
+    <link rel="icon" href="https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="cellmap_data.CellMapDataset" href="cellmap_data.CellMapDataset.html" />
+    <link rel="prev" title="cellmap_data.utils.figs" href="cellmap_data.utils.figs.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/CellMapLogo.png" class="logo__image only-light" alt="CellMap-Data - Home"/>
+    <script>document.write(`<img src="https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/CellMapLogo.png" class="logo__image only-dark" alt="CellMap-Data - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="cellmap_data.html">cellmap_data</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.dataloader.html">cellmap_data.dataloader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.dataset.html">cellmap_data.dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.datasplit.html">cellmap_data.datasplit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.image.html">cellmap_data.image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.multidataset.html">cellmap_data.multidataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.subdataset.html">cellmap_data.subdataset</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="cellmap_data.transforms.html">cellmap_data.transforms</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="cellmap_data.transforms.augment.html">cellmap_data.transforms.augment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.gaussian_noise.html">cellmap_data.transforms.augment.gaussian_noise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.nan_to_num.html">cellmap_data.transforms.augment.nan_to_num</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.normalize.html">cellmap_data.transforms.augment.normalize</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.random_contrast.html">cellmap_data.transforms.augment.random_contrast</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.augment.random_gamma.html">cellmap_data.transforms.augment.random_gamma</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="cellmap_data.transforms.targets.html">cellmap_data.transforms.targets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.targets.cellpose.html">cellmap_data.transforms.targets.cellpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cellmap_data.transforms.targets.distance.html">cellmap_data.transforms.targets.distance</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="cellmap_data.utils.html">cellmap_data.utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.utils.dtype.html">cellmap_data.utils.dtype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.utils.figs.html">cellmap_data.utils.figs</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">cellmap_data.CellMapImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapDataset.html">cellmap_data.CellMapDataset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapMultiDataset.html">cellmap_data.CellMapMultiDataset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapSubset.html">cellmap_data.CellMapSubset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapDataSplit.html">cellmap_data.CellMapDataSplit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cellmap_data.CellMapDataLoader.html">cellmap_data.CellMapDataLoader</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="cellmap_data.transforms.html">cellmap_data.transforms</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="cellmap_data.transforms.augment.html">cellmap_data.transforms.augment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.gaussian_noise.html">cellmap_data.transforms.augment.gaussian_noise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.nan_to_num.html">cellmap_data.transforms.augment.nan_to_num</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.normalize.html">cellmap_data.transforms.augment.normalize</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.random_contrast.html">cellmap_data.transforms.augment.random_contrast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.augment.random_gamma.html">cellmap_data.transforms.augment.random_gamma</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="cellmap_data.transforms.targets.html">cellmap_data.transforms.targets</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.targets.cellpose.html">cellmap_data.transforms.targets.cellpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cellmap_data.transforms.targets.distance.html">cellmap_data.transforms.targets.distance</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="cellmap_data.utils.html">cellmap_data.utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.utils.dtype.html">cellmap_data.utils.dtype</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cellmap_data.utils.figs.html">cellmap_data.utils.figs</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/cellmap_data.CellMapImage.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>cellmap_data.CellMapImage</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage"><code class="docutils literal notranslate"><span class="pre">CellMapImage</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.__init__"><code class="docutils literal notranslate"><span class="pre">CellMapImage.__init__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.__getitem__"><code class="docutils literal notranslate"><span class="pre">CellMapImage.__getitem__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.shape"><code class="docutils literal notranslate"><span class="pre">CellMapImage.shape</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.center"><code class="docutils literal notranslate"><span class="pre">CellMapImage.center</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.multiscale_attrs"><code class="docutils literal notranslate"><span class="pre">CellMapImage.multiscale_attrs</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.coordinateTransformations"><code class="docutils literal notranslate"><span class="pre">CellMapImage.coordinateTransformations</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.full_coords"><code class="docutils literal notranslate"><span class="pre">CellMapImage.full_coords</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.scale_level"><code class="docutils literal notranslate"><span class="pre">CellMapImage.scale_level</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.group"><code class="docutils literal notranslate"><span class="pre">CellMapImage.group</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.array_path"><code class="docutils literal notranslate"><span class="pre">CellMapImage.array_path</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.array"><code class="docutils literal notranslate"><span class="pre">CellMapImage.array</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.translation"><code class="docutils literal notranslate"><span class="pre">CellMapImage.translation</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.bounding_box"><code class="docutils literal notranslate"><span class="pre">CellMapImage.bounding_box</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.sampling_box"><code class="docutils literal notranslate"><span class="pre">CellMapImage.sampling_box</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.bg_count"><code class="docutils literal notranslate"><span class="pre">CellMapImage.bg_count</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.class_counts"><code class="docutils literal notranslate"><span class="pre">CellMapImage.class_counts</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.to"><code class="docutils literal notranslate"><span class="pre">CellMapImage.to()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.find_level"><code class="docutils literal notranslate"><span class="pre">CellMapImage.find_level()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.rotate_coords"><code class="docutils literal notranslate"><span class="pre">CellMapImage.rotate_coords()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapImage.set_spatial_transforms()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.apply_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapImage.apply_spatial_transforms()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.return_data"><code class="docutils literal notranslate"><span class="pre">CellMapImage.return_data()</span></code></a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="cellmap-data-cellmapimage">
+<h1>cellmap_data.CellMapImage<a class="headerlink" href="#cellmap-data-cellmapimage" title="Link to this heading">#</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cellmap_data.</span></span><span class="sig-name descname"><span class="pre">CellMapImage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_class</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_voxel_shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">nan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interpolation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'nearest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'zyx'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value_transform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Context</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/image.html#CellMapImage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapImage" title="Link to this definition">#</a></dt>
+<dd><p>Initializes a CellMapImage object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<em>str</em>) – The path to the image file.</p></li>
+<li><p><strong>target_class</strong> (<em>str</em>) – The label class of the image.</p></li>
+<li><p><strong>target_scale</strong> (<em>Sequence</em><em>[</em><em>float</em><em>]</em>) – The scale of the image data to return in physical space.</p></li>
+<li><p><strong>target_voxel_shape</strong> (<em>Sequence</em><em>[</em><em>int</em><em>]</em>) – The shape of the image data to return in voxels.</p></li>
+<li><p><strong>axis_order</strong> (<em>str</em><em>, </em><em>optional</em>) – The order of the axes in the image. Defaults to “zyx”.</p></li>
+<li><p><strong>value_transform</strong> (<em>Optional</em><em>[</em><em>callable</em><em>]</em><em>, </em><em>optional</em>) – A function to transform the image pixel data. Defaults to None.</p></li>
+<li><p><strong>context</strong> (<em>Optional</em><em>[</em><em>tensorstore.Context</em><em>]</em><em>, </em><em>optional</em>) – The context for the image data. Defaults to None.</p></li>
+<li><p><strong>pad</strong> (<em>bool</em>)</p></li>
+<li><p><strong>pad_value</strong> (<em>float</em><em> | </em><em>int</em>)</p></li>
+<li><p><strong>interpolation</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_class</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_voxel_shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">nan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interpolation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'nearest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'zyx'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value_transform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Context</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/cellmap_data/image.html#CellMapImage.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapImage.__init__" title="Link to this definition">#</a></dt>
+<dd><p>Initializes a CellMapImage object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<em>str</em>) – The path to the image file.</p></li>
+<li><p><strong>target_class</strong> (<em>str</em>) – The label class of the image.</p></li>
+<li><p><strong>target_scale</strong> (<em>Sequence</em><em>[</em><em>float</em><em>]</em>) – The scale of the image data to return in physical space.</p></li>
+<li><p><strong>target_voxel_shape</strong> (<em>Sequence</em><em>[</em><em>int</em><em>]</em>) – The shape of the image data to return in voxels.</p></li>
+<li><p><strong>axis_order</strong> (<em>str</em><em>, </em><em>optional</em>) – The order of the axes in the image. Defaults to “zyx”.</p></li>
+<li><p><strong>value_transform</strong> (<em>Optional</em><em>[</em><em>callable</em><em>]</em><em>, </em><em>optional</em>) – A function to transform the image pixel data. Defaults to None.</p></li>
+<li><p><strong>context</strong> (<em>Optional</em><em>[</em><em>tensorstore.Context</em><em>]</em><em>, </em><em>optional</em>) – The context for the image data. Defaults to None.</p></li>
+<li><p><strong>pad</strong> (<em>bool</em>)</p></li>
+<li><p><strong>pad_value</strong> (<em>float</em><em> | </em><em>int</em>)</p></li>
+<li><p><strong>interpolation</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Methods</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.__init__" title="cellmap_data.CellMapImage.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(path, target_class, target_scale, ...)</p></td>
+<td><p>Initializes a CellMapImage object.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.apply_spatial_transforms" title="cellmap_data.CellMapImage.apply_spatial_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_spatial_transforms</span></code></a>(coords)</p></td>
+<td><p>Applies spatial transformations to the given coordinates.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.find_level" title="cellmap_data.CellMapImage.find_level"><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_level</span></code></a>(target_scale)</p></td>
+<td><p>Finds the multiscale level that is closest to the target scale.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.return_data" title="cellmap_data.CellMapImage.return_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">return_data</span></code></a>(coords)</p></td>
+<td><p>Pulls data from the image based on the given coordinates, applying interpolation if necessary, and returns the data as an xarray DataArray.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.rotate_coords" title="cellmap_data.CellMapImage.rotate_coords"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rotate_coords</span></code></a>(coords, angles)</p></td>
+<td><p>Rotates the given coordinates by the given angles.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.set_spatial_transforms" title="cellmap_data.CellMapImage.set_spatial_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_spatial_transforms</span></code></a>(transforms)</p></td>
+<td><p>Sets spatial transformations for the image data, for setting global transforms at the 'dataset' level.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.to" title="cellmap_data.CellMapImage.to"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to</span></code></a>(device)</p></td>
+<td><p>Sets what device returned image data will be loaded onto.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="rubric">Attributes</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.array" title="cellmap_data.CellMapImage.array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">array</span></code></a></p></td>
+<td><p>Returns the image data as an xarray DataArray.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.array_path" title="cellmap_data.CellMapImage.array_path"><code class="xref py py-obj docutils literal notranslate"><span class="pre">array_path</span></code></a></p></td>
+<td><p>Returns the path to the single-scale image array.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.bg_count" title="cellmap_data.CellMapImage.bg_count"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bg_count</span></code></a></p></td>
+<td><p>Returns the number of background pixels in the ground truth data, normalized by the resolution.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.bounding_box" title="cellmap_data.CellMapImage.bounding_box"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bounding_box</span></code></a></p></td>
+<td><p>Returns the bounding box of the dataset in world units.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.center" title="cellmap_data.CellMapImage.center"><code class="xref py py-obj docutils literal notranslate"><span class="pre">center</span></code></a></p></td>
+<td><p>Returns the center of the image in world units.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.class_counts" title="cellmap_data.CellMapImage.class_counts"><code class="xref py py-obj docutils literal notranslate"><span class="pre">class_counts</span></code></a></p></td>
+<td><p>Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.coordinateTransformations" title="cellmap_data.CellMapImage.coordinateTransformations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coordinateTransformations</span></code></a></p></td>
+<td><p>Returns the coordinate transformations of the image, based on the multiscale metadata.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.full_coords" title="cellmap_data.CellMapImage.full_coords"><code class="xref py py-obj docutils literal notranslate"><span class="pre">full_coords</span></code></a></p></td>
+<td><p>Returns the full coordinates of the image's axes in world units.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.group" title="cellmap_data.CellMapImage.group"><code class="xref py py-obj docutils literal notranslate"><span class="pre">group</span></code></a></p></td>
+<td><p>Returns the zarr group object for the multiscale image.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.multiscale_attrs" title="cellmap_data.CellMapImage.multiscale_attrs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">multiscale_attrs</span></code></a></p></td>
+<td><p>Returns the multiscale metadata of the image.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.sampling_box" title="cellmap_data.CellMapImage.sampling_box"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sampling_box</span></code></a></p></td>
+<td><p>Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.scale_level" title="cellmap_data.CellMapImage.scale_level"><code class="xref py py-obj docutils literal notranslate"><span class="pre">scale_level</span></code></a></p></td>
+<td><p>Returns the multiscale level of the image.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.shape" title="cellmap_data.CellMapImage.shape"><code class="xref py py-obj docutils literal notranslate"><span class="pre">shape</span></code></a></p></td>
+<td><p>Returns the shape of the image.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.translation" title="cellmap_data.CellMapImage.translation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">translation</span></code></a></p></td>
+<td><p>Returns the translation of the image.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.__getitem__">
+<span class="sig-name descname"><span class="pre">__getitem__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/cellmap_data/image.html#CellMapImage.__getitem__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapImage.__getitem__" title="Link to this definition">#</a></dt>
+<dd><p>Returns image data centered around the given point, based on the scale and shape of the target output image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>center</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>float</em><em>]</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Tensor</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.shape">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">shape</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.CellMapImage.shape" title="Link to this definition">#</a></dt>
+<dd><p>Returns the shape of the image.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.center">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">center</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.CellMapImage.center" title="Link to this definition">#</a></dt>
+<dd><p>Returns the center of the image in world units.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.multiscale_attrs">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">multiscale_attrs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">GroupAttrs</span></em><a class="headerlink" href="#cellmap_data.CellMapImage.multiscale_attrs" title="Link to this definition">#</a></dt>
+<dd><p>Returns the multiscale metadata of the image.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.coordinateTransformations">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">coordinateTransformations</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.CellMapImage.coordinateTransformations" title="Link to this definition">#</a></dt>
+<dd><p>Returns the coordinate transformations of the image, based on the multiscale metadata.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.full_coords">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">full_coords</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataArray</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.CellMapImage.full_coords" title="Link to this definition">#</a></dt>
+<dd><p>Returns the full coordinates of the image’s axes in world units.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.scale_level">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">scale_level</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#cellmap_data.CellMapImage.scale_level" title="Link to this definition">#</a></dt>
+<dd><p>Returns the multiscale level of the image.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.group">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">group</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Group</span></em><a class="headerlink" href="#cellmap_data.CellMapImage.group" title="Link to this definition">#</a></dt>
+<dd><p>Returns the zarr group object for the multiscale image.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.array_path">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">array_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#cellmap_data.CellMapImage.array_path" title="Link to this definition">#</a></dt>
+<dd><p>Returns the path to the single-scale image array.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.array">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">array</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DataArray</span></em><a class="headerlink" href="#cellmap_data.CellMapImage.array" title="Link to this definition">#</a></dt>
+<dd><p>Returns the image data as an xarray DataArray.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.translation">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">translation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.CellMapImage.translation" title="Link to this definition">#</a></dt>
+<dd><p>Returns the translation of the image.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.bounding_box">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">bounding_box</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.CellMapImage.bounding_box" title="Link to this definition">#</a></dt>
+<dd><p>Returns the bounding box of the dataset in world units.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.sampling_box">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sampling_box</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.CellMapImage.sampling_box" title="Link to this definition">#</a></dt>
+<dd><p>Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.bg_count">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">bg_count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#cellmap_data.CellMapImage.bg_count" title="Link to this definition">#</a></dt>
+<dd><p>Returns the number of background pixels in the ground truth data, normalized by the resolution.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.class_counts">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">class_counts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#cellmap_data.CellMapImage.class_counts" title="Link to this definition">#</a></dt>
+<dd><p>Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.to">
+<span class="sig-name descname"><span class="pre">to</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/cellmap_data/image.html#CellMapImage.to"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapImage.to" title="Link to this definition">#</a></dt>
+<dd><p>Sets what device returned image data will be loaded onto.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>device</strong> (<em>str</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.find_level">
+<span class="sig-name descname"><span class="pre">find_level</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/cellmap_data/image.html#CellMapImage.find_level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapImage.find_level" title="Link to this definition">#</a></dt>
+<dd><p>Finds the multiscale level that is closest to the target scale.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>target_scale</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>float</em><em>]</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.rotate_coords">
+<span class="sig-name descname"><span class="pre">rotate_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">angles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/cellmap_data/image.html#CellMapImage.rotate_coords"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapImage.rotate_coords" title="Link to this definition">#</a></dt>
+<dd><p>Rotates the given coordinates by the given angles.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coords</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>Sequence</em><em>[</em><em>float</em><em>]</em><em>]</em>)</p></li>
+<li><p><strong>angles</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>float</em><em>]</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Mapping</em>[str, tuple[<em>Sequence</em>[str], <em>ndarray</em>]] | <em>Mapping</em>[str, <em>Sequence</em>[float]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.set_spatial_transforms">
+<span class="sig-name descname"><span class="pre">set_spatial_transforms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transforms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/cellmap_data/image.html#CellMapImage.set_spatial_transforms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapImage.set_spatial_transforms" title="Link to this definition">#</a></dt>
+<dd><p>Sets spatial transformations for the image data, for setting global transforms at the ‘dataset’ level.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>transforms</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>] </em><em>| </em><em>None</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.apply_spatial_transforms">
+<span class="sig-name descname"><span class="pre">apply_spatial_transforms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/cellmap_data/image.html#CellMapImage.apply_spatial_transforms"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapImage.apply_spatial_transforms" title="Link to this definition">#</a></dt>
+<dd><p>Applies spatial transformations to the given coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Tensor</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.return_data">
+<span class="sig-name descname"><span class="pre">return_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataArray</span></span></span><a class="reference internal" href="_modules/cellmap_data/image.html#CellMapImage.return_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapImage.return_data" title="Link to this definition">#</a></dt>
+<dd><p>Pulls data from the image based on the given coordinates, applying interpolation if necessary, and returns the data as an xarray DataArray.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>coords</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>Sequence</em><em>[</em><em>float</em><em>]</em><em>] </em><em>| </em><em>Mapping</em><em>[</em><em>str</em><em>, </em><em>tuple</em><em>[</em><em>Sequence</em><em>[</em><em>str</em><em>]</em><em>, </em><em>ndarray</em><em>]</em><em>]</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>DataArray</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="cellmap_data.utils.figs.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">cellmap_data.utils.figs</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="cellmap_data.CellMapDataset.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">cellmap_data.CellMapDataset</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage"><code class="docutils literal notranslate"><span class="pre">CellMapImage</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.__init__"><code class="docutils literal notranslate"><span class="pre">CellMapImage.__init__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.__getitem__"><code class="docutils literal notranslate"><span class="pre">CellMapImage.__getitem__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.shape"><code class="docutils literal notranslate"><span class="pre">CellMapImage.shape</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.center"><code class="docutils literal notranslate"><span class="pre">CellMapImage.center</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.multiscale_attrs"><code class="docutils literal notranslate"><span class="pre">CellMapImage.multiscale_attrs</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.coordinateTransformations"><code class="docutils literal notranslate"><span class="pre">CellMapImage.coordinateTransformations</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.full_coords"><code class="docutils literal notranslate"><span class="pre">CellMapImage.full_coords</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.scale_level"><code class="docutils literal notranslate"><span class="pre">CellMapImage.scale_level</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.group"><code class="docutils literal notranslate"><span class="pre">CellMapImage.group</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.array_path"><code class="docutils literal notranslate"><span class="pre">CellMapImage.array_path</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.array"><code class="docutils literal notranslate"><span class="pre">CellMapImage.array</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.translation"><code class="docutils literal notranslate"><span class="pre">CellMapImage.translation</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.bounding_box"><code class="docutils literal notranslate"><span class="pre">CellMapImage.bounding_box</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.sampling_box"><code class="docutils literal notranslate"><span class="pre">CellMapImage.sampling_box</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.bg_count"><code class="docutils literal notranslate"><span class="pre">CellMapImage.bg_count</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.class_counts"><code class="docutils literal notranslate"><span class="pre">CellMapImage.class_counts</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.to"><code class="docutils literal notranslate"><span class="pre">CellMapImage.to()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.find_level"><code class="docutils literal notranslate"><span class="pre">CellMapImage.find_level()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.rotate_coords"><code class="docutils literal notranslate"><span class="pre">CellMapImage.rotate_coords()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapImage.set_spatial_transforms()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.apply_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapImage.apply_spatial_transforms()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.return_data"><code class="docutils literal notranslate"><span class="pre">CellMapImage.return_data()</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Jeff Rhoades
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Jeff Rhoades.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
