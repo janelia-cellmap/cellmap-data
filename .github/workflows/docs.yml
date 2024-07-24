@@ -25,7 +25,9 @@ jobs:
 
     - name: Build documentation
       # run: make -C docs html  # Adjust the path to your docs directory if needed
-      run: sh docs/build_docs.sh
+      run: |
+        cd docs
+        sh build_docs.sh
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
