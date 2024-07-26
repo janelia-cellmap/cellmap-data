@@ -37,4 +37,8 @@ class CellposeFlow:
         self.device = _device
 
     def __call__(self, masks):
-        return self.flows_func(masks)
+        flows, centers = self.flows_func((masks > 0).squeeze().numpy())
+        flows = flows[None, ...]
+        if self.ndim == 2:
+            flows = flows[None, ...]
+        return torch.tensor(flows)

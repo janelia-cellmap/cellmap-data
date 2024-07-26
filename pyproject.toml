@@ -34,14 +34,16 @@ dependencies = [
     "xarray_ome_ngff",
     "tensorstore",
     "xarray-tensorstore @ git+https://github.com/google/xarray-tensorstore.git",
+    "universal_pathlib>=0.2.0",
+    "fsspec[s3,http]",
     "cellpose",
-    "py_distance_transforms",
+    # "py_distance_transforms",
 ]
 
 # extras
 # https://peps.python.org/pep-0621/#dependencies-optional-dependencies
 [project.optional-dependencies]
-test = ["pytest>=6.0", "pytest-cov"]
+test = ["pytest>=6.0", "pytest-cov", "mypy"]
 dev = [
     "black",
     "ipython",
@@ -56,7 +58,6 @@ dev = [
     "snakeviz",
     "sphinx",
     "sphinx-book-theme",
-
 ]
 all = [
     "cellmap-data[dev,test]",
@@ -135,12 +136,13 @@ filterwarnings = ["error"]
 
 # https://mypy.readthedocs.io/en/stable/config_file.html
 [tool.mypy]
-files = "src/**/"
+files = "src/cellmap_data"
 strict = true
 disallow_any_generics = false
 disallow_subclassing_any = false
 show_error_codes = true
 pretty = true
+ignore_missing_imports = true
 
 # # module specific overrides
 # [[tool.mypy.overrides]]

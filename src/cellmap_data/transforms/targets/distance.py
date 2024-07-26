@@ -49,10 +49,10 @@ class DistanceTransform(torch.nn.Module):
     def forward(self, x: torch.Tensor):
         """Forward pass."""
         # TODO: Need to figure out how to prevent having inaccurate distance values at the edges --> precompute
-        # distance = self._transform(x[b, class_ind].nan_to_num(0))
-        distance = self._transform(x[b, class_ind])
-        distance[x[b, class_ind].isnan()] = torch.nan
-        x[b, class_ind] = distance
+        # distance = self._transform(x.nan_to_num(0))
+        distance = self._transform(x)
+        distance[x.isnan()] = torch.nan
+        x = distance
         return x
 
 
@@ -99,8 +99,8 @@ class SignedDistanceTransform(torch.nn.Module):
     def forward(self, x: torch.Tensor):
         """Forward pass."""
         # TODO: Need to figure out how to prevent having inaccurate distance values at the edges --> precompute
-        # distance = self._transform(x[b, class_ind].nan_to_num(0))
-        distance = self._transform(x[b, class_ind])
-        distance[x[b, class_ind].isnan()] = torch.nan
-        x[b, class_ind] = distance
+        # distance = self._transform(x.nan_to_num(0))
+        distance = self._transform(x)
+        distance[x.isnan()] = torch.nan
+        x = distance
         return x

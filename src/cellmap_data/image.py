@@ -411,12 +411,12 @@ class CellMapImage:
         # Apply and spatial transformations that require the image array (e.g. transpose)
         if self._current_spatial_transforms is not None:
             for transform, params in self._current_spatial_transforms.items():
-                if transform in self.post_image_transforms:
-                    if transform == "transpose":
-                        new_order = [params[c] for c in self.axes]
-                        data = np.transpose(data, new_order)
-                    else:
-                        raise ValueError(f"Unknown spatial transform: {transform}")
+                # if transform in self.post_image_transforms:
+                if transform == "transpose":
+                    new_order = [params[c] for c in self.axes]
+                    data = np.transpose(data, new_order)
+                    # else:
+                    #     raise ValueError(f"Unknown spatial transform: {transform}")
 
         return torch.tensor(data)
 

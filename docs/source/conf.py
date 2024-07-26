@@ -52,6 +52,7 @@ html_static_path = ["_static"]
 html_title = "CellMap-Data"
 html_logo = "https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/CellMapLogo.png"
 html_favicon = "https://raw.githubusercontent.com/janelia-cellmap/cellmap-data/main/docs/source/_static/favicon.ico"
-# html_theme_options = {
-#     # "show_navbar_depth": 3,
-# }
+html_theme_options = {
+    # "show_navbar_depth": 3,
+    "home_page_in_toc": True,
+}

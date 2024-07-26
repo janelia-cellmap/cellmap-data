@@ -6,6 +6,8 @@
 [![PyPI](https://img.shields.io/pypi/v/cellmap-data.svg?color=green)](https://pypi.org/project/cellmap-data)
 [![Python Version](https://img.shields.io/pypi/pyversions/cellmap-data.svg?color=green)](https://python.org) -->
 
+[![Build Docs](https://github.com/janelia-cellmap/cellmap-data/actions/workflows/docs.yml/badge.svg?branch=main)](https://janelia-cellmap.github.io/cellmap-data/)
+
 Utility for loading CellMap data for machine learning training, utilizing PyTorch, Xarray, TensorStore, and PyDantic.
 
 You can select classes to load to construct targets separately from the labels you want to predict. This allows you to train a model to predict a subset of labels, while still using all labels to construct the target from true negatives as well as true positives.
