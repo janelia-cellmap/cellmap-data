@@ -10,7 +10,11 @@ CellMap-Data: the Docs
 
 This library provides a collection of classes and functions for working with cellmap data, specifically for the CellMap project team training machine learning models. The capabilities include loading data from the CellMap ZarrDataset, transforming data, and splitting data into training and validation sets. Functionality is not provided for writing data.
 
+
+Contents
+==============
 .. autosummary::
+   
    :recursive:
    :toctree:
 
@@ -24,6 +28,9 @@ This library provides a collection of classes and functions for working with cel
    cellmap_data.transforms
    cellmap_data.utils
    
+
+.. include:: ../../README.md
+   :parser: recommonmark
 
 
 Links
