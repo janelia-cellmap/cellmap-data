@@ -37,6 +37,10 @@ dependencies = [
     "universal_pathlib>=0.2.0",
     "fsspec[s3,http]",
     "cellpose",
+    "h5py",
+    "hdf5plugin",
+    "crc32c",
+    "blosc"
     # "py_distance_transforms",
 ]
 
