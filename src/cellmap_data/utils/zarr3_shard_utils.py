@@ -1,6 +1,7 @@
 import datetime
 import os
 from pathlib import Path
+from collections.abc import Iterable
 
 import blosc
 import crc32c
@@ -10,15 +11,15 @@ import numpy as np
 import numpy.typing as npt
 
 def zarr3_shard_offsets_and_lengths(
-    """
-    Extract chunk offsets and lengths from Zarr version 3 shard index
-    """
     shard_file_name: str,
     shard_shape: tuple[int, ...] | None = None,
     chunk_shape: tuple[int, ...] | None = None,
     *,
     nchunks = None
 ):
+    """
+    Extract chunk offsets and lengths from Zarr version 3 shard index
+    """
     if nchunks is None:
         if len(shard_shape) != len(chunk_shape):
             raise Exception("Length of shard_shape should match length of chunk_shape")
@@ -109,7 +110,7 @@ def zarr3_shard_decompress_chunks(
     shard_file_name: str,
     shard_shape: tuple[int, ...],
     chunk_shape: tuple[int, ...],
-    dtype: str,
+    dtype: npt.DTypeLike,
     decompress = blosc.decompress
 ):
     """
@@ -144,8 +145,8 @@ def zarr3_shard_raw_chunks(
     shard_file_name: str,
     shard_shape: tuple[int, ...] = None,
     chunk_shape: tuple[int, ...] = None,
-    offsets = None,
-    lengths = None
+    offsets: npt.ArrayLike = None,
+    lengths: npt.ArrayLike = None
 ):
     """
     Return a list of raw chunks from a Zarr version 3 shard
@@ -223,32 +224,52 @@ def zarr3_shard_hdf5_template(
     shard_file_name: str,
     shard_shape: tuple[int, ...],
     chunk_shape: tuple[int, ...],
-    dtype: str,
+    dtype: npt.DTypeLike,
     *,
     verify: bool = False,
-    delete_backup = False
+    delete_backup: bool = False,
+    raw_chunks: list[bytes] | None = None,
+    chunk_write_order: Iterable[int] | None = None
 ) -> None:
     """
     Create a hybrid HDF5-Zarr version 3 shard from an existing Zarr version 3 shard
+
+    Parameters
+    ----------
+    shard_file_name:    Path to shard file
+    shard_shape:        Tuple describing dimensions of a shard
+    chunk_shape:        Tuple describing dimensions of a chunk
+    dtype:              Data type of the array
+    verify:             (Optional) Default: False. If True, compare decompressed shard with backup shard.
+    delete_backup:      (Optional) Default: False. If True and verify is True, delete backup file if verified.
+    raw_chunks:         (Optional) Default: None. Use given raw chunks instead of reading from an existing shard.
+    chunk_write_order:  (Optional) Default: None. Order to write chunks in. 
     """
     if len(shard_shape) != len(chunk_shape):
         raise Exception("Length of shard_shape and chunk_shape do not match")
 
-    # Read information from shard
-    offsets, lengths = zarr3_shard_offsets_and_lengths(
-        shard_file_name,
-        shard_shape,
-        chunk_shape
-    )
-    raw_chunks = zarr3_shard_raw_chunks(
-        shard_file_name,
-        offsets = offsets,
-        lengths = lengths
-    )
+    if raw_chunks is None:
+        # Read information from shard
+        offsets, lengths = zarr3_shard_offsets_and_lengths(
+            shard_file_name,
+            shard_shape,
+            chunk_shape
+        )
+        raw_chunks = zarr3_shard_raw_chunks(
+            shard_file_name,
+            offsets = offsets,
+            lengths = lengths
+        )
+        if chunk_write_order is None:
+            chunk_write_order = np.argsort(offsets)
+
+    if chunk_write_order is None:
+        chunk_write_order = range(len(raw_chunks))
 
     # Backup shard
     backup_shard_file_name = shard_file_name + "_" + datetime.datetime.now().isoformat() + ".bak"
-    os.rename(shard_file_name, backup_shard_file_name)
+    if Path(shard_file_name).is_file():
+        os.rename(shard_file_name, backup_shard_file_name)
 
     # number of chunks per axes
     nc = tuple(map(lambda s,c: s//c, shard_shape, chunk_shape))
@@ -263,7 +284,7 @@ def zarr3_shard_hdf5_template(
         h5ds = h5f.create_dataset(
             "zarrshard",
             shard_shape,
-            dtype="uint8",
+            dtype=dtype,
             chunks=chunk_shape,
             **hdf5plugin.Blosc(
                 cname="zstd",
@@ -271,14 +292,12 @@ def zarr3_shard_hdf5_template(
                 shuffle=hdf5plugin.Blosc.BITSHUFFLE
             )
         )
-        # TODO: generalize for n-dimensions
-        coordinates = [(z,y,x) for z in range(nc[0]) for y in range(nc[1]) for x in range(nc[2])]
-        for i in np.argsort(offsets):
+        coordinates = [idx for idx in np.ndindex(nc)]
+        for i in chunk_write_order:
             if offsets[i] != 0xFFFFFFFFFFFFFFFF:
                 h5ds.id.write_direct_chunk(tuple(map(lambda x,c: x*c, coordinates[i], chunk_shape)), raw_chunks[i])
 
         # collect chunk byte offsets and sizes
-        coordinates = [(z,y,x) for z in range(nc[0]) for y in range(nc[1]) for x in range(nc[2])]
         chunk_info = {}
         h5ds.id.chunk_iter(lambda x: chunk_info.__setitem__(x.chunk_offset, x))
         offsets_and_lengths = np.empty((nchunks,2), dtype="uint64")
@@ -310,12 +329,15 @@ def zarr3_shard_hdf5_template(
         )
 
     if verify:
-        a = zarr3_shard_decompress(shard_file_name, shard_shape, chunk_shape, dtype)
-        b = zarr3_shard_decompress(backup_shard_file_name, shard_shape, chunk_shape, dtype)
-        if not np.array_equal(a,b):
-            raise Exception("Unable to verify shard via decompression")
-        if delete_backup:
-            os.remove(backup_shard_file_name)
+        if Path(backup_shard_file_name).is_file():
+            a = zarr3_shard_decompress(shard_file_name, shard_shape, chunk_shape, dtype)
+            b = zarr3_shard_decompress(backup_shard_file_name, shard_shape, chunk_shape, dtype)
+            if not np.array_equal(a,b):
+                raise Exception("Unable to verify shard via decompression")
+            if delete_backup:
+                os.remove(backup_shard_file_name)
+        else:
+            raise Exception("Unable to verify shard since backup file does not exist")
     
     return None
 
