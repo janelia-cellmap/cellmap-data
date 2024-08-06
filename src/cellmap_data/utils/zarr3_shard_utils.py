@@ -145,8 +145,10 @@ def zarr3_shard_raw_chunks(
     shard_file_name: str,
     shard_shape: tuple[int, ...] = None,
     chunk_shape: tuple[int, ...] = None,
-    offsets: npt.ArrayLike = None,
-    lengths: npt.ArrayLike = None
+    *,
+    offsets: npt.ArrayLike | None = None,
+    lengths: npt.ArrayLike | None = None,
+    nchunks: int | None = None,
 ):
     """
     Return a list of raw chunks from a Zarr version 3 shard
@@ -155,7 +157,8 @@ def zarr3_shard_raw_chunks(
         offsets, lengths = zarr3_shard_offsets_and_lengths(
             shard_file_name,
             shard_shape,
-            chunk_shape
+            chunk_shape,
+            nchunks = nchunks
         )
 
     # read raw chunks
@@ -225,6 +228,7 @@ def zarr3_shard_hdf5_template(
     shard_shape: tuple[int, ...],
     chunk_shape: tuple[int, ...],
     dtype: npt.DTypeLike,
+    compression: dict = {},
     *,
     verify: bool = False,
     delete_backup: bool = False,
@@ -240,6 +244,7 @@ def zarr3_shard_hdf5_template(
     shard_shape:        Tuple describing dimensions of a shard
     chunk_shape:        Tuple describing dimensions of a chunk
     dtype:              Data type of the array
+    compression:        (Optional) Default: {}
     verify:             (Optional) Default: False. If True, compare decompressed shard with backup shard.
     delete_backup:      (Optional) Default: False. If True and verify is True, delete backup file if verified.
     raw_chunks:         (Optional) Default: None. Use given raw chunks instead of reading from an existing shard.
@@ -262,6 +267,8 @@ def zarr3_shard_hdf5_template(
         )
         if chunk_write_order is None:
             chunk_write_order = np.argsort(offsets)
+    else:
+        offsets = np.zeros(len(raw_chunks), dtype="uint64")
 
     if chunk_write_order is None:
         chunk_write_order = range(len(raw_chunks))
@@ -286,11 +293,7 @@ def zarr3_shard_hdf5_template(
             shard_shape,
             dtype=dtype,
             chunks=chunk_shape,
-            **hdf5plugin.Blosc(
-                cname="zstd",
-                clevel="5",
-                shuffle=hdf5plugin.Blosc.BITSHUFFLE
-            )
+            **compression
         )
         coordinates = [idx for idx in np.ndindex(nc)]
         for i in chunk_write_order:
