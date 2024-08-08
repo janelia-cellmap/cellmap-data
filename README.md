@@ -2,11 +2,16 @@
 
 # CellMap-Data
 
-<!-- [![License](https://img.shields.io/pypi/l/cellmap-data.svg?color=green)](https://github.com/janelia-cellmap/cellmap-data/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/cellmap-data.svg?color=green)](https://pypi.org/project/cellmap-data)
-[![Python Version](https://img.shields.io/pypi/pyversions/cellmap-data.svg?color=green)](https://python.org) -->
-
 [![Build Docs](https://github.com/janelia-cellmap/cellmap-data/actions/workflows/docs.yml/badge.svg?branch=main)](https://janelia-cellmap.github.io/cellmap-data/)
+![GitHub License](https://img.shields.io/github/license/janelia-cellmap/cellmap-data)
+![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fjanelia-cellmap%2Fcellmap-data%2Fmain%2Fpyproject.toml)
+[![tests](https://github.com/janelia-cellmap/cellmap-data/actions/workflows/tests.yml/badge.svg)](https://github.com/janelia-cellmap/cellmap-data/actions/workflows/tests.yml)
+[![black](https://github.com/janelia-cellmap/cellmap-data/actions/workflows/black.yml/badge.svg)](https://github.com/janelia-cellmap/cellmap-data/actions/workflows/black.yml)
+[![mypy](https://github.com/janelia-cellmap/cellmap-data/actions/workflows/mypy.yml/badge.svg)](https://github.com/janelia-cellmap/cellmap-data/actions/workflows/mypy.yml)
+[![codecov](https://codecov.io/gh/janelia-cellmap/cellmap-data/branch/main/graph/badge.svg)](https://codecov.io/gh/janelia-cellmap/cellmap-data)
+
+
 
 Utility for loading CellMap data for machine learning training, utilizing PyTorch, Xarray, TensorStore, and PyDantic.
 
