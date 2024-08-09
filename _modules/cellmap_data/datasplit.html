@@ -266,7 +266,7 @@ document.write(`
   <h1>Source code for cellmap_data.datasplit</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">csv</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">import</span> <span class="nn">tensorstore</span>
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">.dataset</span> <span class="kn">import</span> <span class="n">CellMapDataset</span>
@@ -479,7 +479,9 @@ document.write(`
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">train_datasets_combined</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CellMapMultiDataset</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;A multi-dataset from the combination of all training datasets.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_train_datasets_combined&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_train_datasets_combined</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_train_datasets_combined</span> <span class="o">=</span> <span class="n">CellMapMultiDataset</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span><span class="p">,</span>
@@ -490,13 +492,15 @@ document.write(`
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_has_data</span> <span class="ow">or</span> <span class="n">ds</span><span class="o">.</span><span class="n">has_data</span>
                 <span class="p">],</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_train_datasets_combined</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_train_datasets_combined</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">validation_datasets_combined</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CellMapMultiDataset</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;A multi-dataset from the combination of all validation datasets.&quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Validation datasets not loaded.&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_validation_datasets_combined&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validation_datasets_combined</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_validation_datasets_combined</span> <span class="o">=</span> <span class="n">CellMapMultiDataset</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span><span class="p">,</span>
@@ -507,31 +511,35 @@ document.write(`
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_has_data</span> <span class="ow">or</span> <span class="n">ds</span><span class="o">.</span><span class="n">has_data</span>
                 <span class="p">],</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validation_datasets_combined</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validation_datasets_combined</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">validation_blocks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CellMapSubset</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_validation_blocks&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validation_blocks</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_validation_blocks</span> <span class="o">=</span> <span class="n">CellMapSubset</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets_combined</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets_combined</span><span class="o">.</span><span class="n">validation_indices</span><span class="p">,</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validation_blocks</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validation_blocks</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">class_counts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+    <span class="k">def</span> <span class="nf">class_counts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;A dictionary containing the class counts for the training and validation datasets.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_class_counts&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets_combined</span><span class="o">.</span><span class="n">class_counts</span><span class="p">,</span>
                 <span class="s2">&quot;validate&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets_combined</span><span class="o">.</span><span class="n">class_counts</span><span class="p">,</span>
             <span class="p">}</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span>
 
 <div class="viewcode-block" id="CellMapDataSplit.from_csv">
 <a class="viewcode-back" href="../../cellmap_data.datasplit.html#cellmap_data.CellMapDataSplit.from_csv">[docs]</a>
-    <span class="k">def</span> <span class="nf">from_csv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]]:</span>
+    <span class="k">def</span> <span class="nf">from_csv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Loads the dataset_dict data from a csv file.&quot;&quot;&quot;</span>
         <span class="n">dataset_dict</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">csv_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>

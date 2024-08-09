@@ -269,7 +269,12 @@ document.write(`
 
 <span class="kn">from</span> <span class="nn">scipy.ndimage</span> <span class="kn">import</span> <span class="n">distance_transform_edt</span> <span class="k">as</span> <span class="n">edt</span>
 
-<span class="n">transform</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">edt</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+<div class="viewcode-block" id="transform">
+<a class="viewcode-back" href="../../../../cellmap_data.transforms.targets.distance.html#cellmap_data.transforms.targets.distance.transform">[docs]</a>
+<span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">edt</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span></div>
+
 
 
 <div class="viewcode-block" id="DistanceTransform">
@@ -286,7 +291,7 @@ document.write(`
 <span class="sd">        forward: Forward pass.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cuda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cuda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize the distance transform.</span>
 
@@ -304,19 +309,19 @@ document.write(`
                 <span class="s2">&quot;CUDA is not supported yet because testing did not return expected results.&quot;</span>
             <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform the input.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_cuda</span> <span class="ow">and</span> <span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
                 <span class="s2">&quot;CUDA is not supported yet because testing did not return expected results.&quot;</span>
             <span class="p">)</span>
-            <span class="k">return</span> <span class="n">transform_cuda</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="c1"># return transform_cuda(x)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 
 <div class="viewcode-block" id="DistanceTransform.forward">
 <a class="viewcode-back" href="../../../../cellmap_data.transforms.targets.distance.html#cellmap_data.transforms.targets.distance.DistanceTransform.forward">[docs]</a>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass.&quot;&quot;&quot;</span>
         <span class="c1"># TODO: Need to figure out how to prevent having inaccurate distance values at the edges --&gt; precompute</span>
         <span class="c1"># distance = self._transform(x.nan_to_num(0))</span>
@@ -342,7 +347,7 @@ document.write(`
 <span class="sd">        forward: Forward pass.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cuda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cuda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize the signed distance transform.</span>
 
@@ -360,19 +365,19 @@ document.write(`
                 <span class="s2">&quot;CUDA is not supported yet because testing did not return expected results.&quot;</span>
             <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform the input.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_cuda</span> <span class="ow">and</span> <span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
                 <span class="s2">&quot;CUDA is not supported yet because testing did not return expected results.&quot;</span>
             <span class="p">)</span>
-            <span class="k">return</span> <span class="n">transform_cuda</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">transform_cuda</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">logical_not</span><span class="p">())</span>
+            <span class="c1"># return transform_cuda(x) - transform_cuda(x.logical_not())</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">logical_not</span><span class="p">())</span>
 
 <div class="viewcode-block" id="SignedDistanceTransform.forward">
 <a class="viewcode-back" href="../../../../cellmap_data.transforms.targets.distance.html#cellmap_data.transforms.targets.distance.SignedDistanceTransform.forward">[docs]</a>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass.&quot;&quot;&quot;</span>
         <span class="c1"># TODO: Need to figure out how to prevent having inaccurate distance values at the edges --&gt; precompute</span>
         <span class="c1"># distance = self._transform(x.nan_to_num(0))</span>

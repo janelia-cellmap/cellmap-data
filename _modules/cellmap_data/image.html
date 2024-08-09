@@ -419,36 +419,44 @@ document.write(`
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">shape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the shape of the image.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_shape&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shape</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_shape</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="n">c</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_level</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
                 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">axes</span><span class="p">)</span>
             <span class="p">}</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shape</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shape</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">center</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the center of the image in world units.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_center&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_center</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="n">center</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bounding_box</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="n">center</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="p">(</span><span class="n">stop</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_center</span> <span class="o">=</span> <span class="n">center</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_center</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_center</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">multiscale_attrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GroupAttrs</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the multiscale metadata of the image.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_multiscale_attrs&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span> <span class="o">=</span> <span class="n">GroupAttrs</span><span class="p">(</span>
                 <span class="n">multiscales</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;multiscales&quot;</span><span class="p">]</span>
             <span class="p">)</span><span class="o">.</span><span class="n">multiscales</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">coordinateTransformations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the coordinate transformations of the image, based on the multiscale metadata.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_coordinateTransformations&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coordinateTransformations</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="c1"># multi_tx = multi.coordinateTransformations</span>
             <span class="n">dset</span> <span class="o">=</span> <span class="p">[</span>
                 <span class="n">ds</span>
@@ -457,77 +465,95 @@ document.write(`
             <span class="p">][</span><span class="mi">0</span><span class="p">]</span>
             <span class="c1"># tx_fused = normalize_transforms(multi_tx, dset.coordinateTransformations)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_coordinateTransformations</span> <span class="o">=</span> <span class="n">dset</span><span class="o">.</span><span class="n">coordinateTransformations</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coordinateTransformations</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coordinateTransformations</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">full_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">xarray</span><span class="o">.</span><span class="n">DataArray</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the full coordinates of the image&#39;s axes in world units.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_full_coords&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_full_coords</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_full_coords</span> <span class="o">=</span> <span class="n">coords_from_transforms</span><span class="p">(</span>
                 <span class="n">axes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">multiscale_attrs</span><span class="o">.</span><span class="n">axes</span><span class="p">,</span>
                 <span class="n">transforms</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">coordinateTransformations</span><span class="p">,</span>
                 <span class="c1"># transforms=tx_fused,</span>
                 <span class="n">shape</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_level</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_full_coords</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_full_coords</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">scale_level</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the multiscale level of the image.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_scale_level&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scale_level</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_scale_level</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_level</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scale_level</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scale_level</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">group</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">zarr</span><span class="o">.</span><span class="n">Group</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the zarr group object for the multiscale image.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_group&quot;</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_group</span>  <span class="c1"># type: ignore</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_group</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">[:</span><span class="mi">5</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;s3://&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="n">zarr</span><span class="o">.</span><span class="n">N5FSStore</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_group</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_group</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_group</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">array_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the path to the single-scale image array.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_array_path&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array_path</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_array_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_level</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array_path</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array_path</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">array</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xarray</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the image data as an xarray DataArray.&quot;&quot;&quot;</span>
-        <span class="c1"># TODO: Would it be faster to do Try/Except instead of hasattr?</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_array&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="c1"># Construct an xarray with Tensorstore backend</span>
             <span class="n">spec</span> <span class="o">=</span> <span class="n">xt</span><span class="o">.</span><span class="n">_zarr_spec_from_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">array_path</span><span class="p">)</span>
-            <span class="n">array_future</span> <span class="o">=</span> <span class="n">tensorstore</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+            <span class="n">array_future</span> <span class="o">=</span> <span class="n">tensorstore</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
                 <span class="n">spec</span><span class="p">,</span> <span class="n">read</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span>
             <span class="p">)</span>
             <span class="n">array</span> <span class="o">=</span> <span class="n">array_future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">xt</span><span class="o">.</span><span class="n">_TensorStoreAdapter</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_array</span> <span class="o">=</span> <span class="n">xarray</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">full_coords</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">translation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the translation of the image.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_translation&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_translation</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="c1"># Get the translation of the image</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_translation</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">bounding_box</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">axes</span><span class="p">}</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_translation</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_translation</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">bounding_box</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the bounding box of the dataset in world units.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_bounding_box&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bounding_box</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_bounding_box</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">full_coords</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_bounding_box</span><span class="p">[</span><span class="n">coord</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="n">coord</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">coord</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">max</span><span class="p">()]</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bounding_box</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bounding_box</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">sampling_box</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_sampling_box&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sampling_box</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sampling_box</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_sampling_box</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="n">output_padding</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">s</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_size</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
             <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bounding_box</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -548,20 +574,24 @@ document.write(`
                     <span class="k">else</span><span class="p">:</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_sampling_box</span> <span class="o">=</span> <span class="kc">None</span>
                         <span class="k">raise</span> <span class="n">e</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sampling_box</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sampling_box</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">bg_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the number of background pixels in the ground truth data, normalized by the resolution.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_bg_count&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bg_count</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="c1"># Get from cellmap-schemas metadata, then normalize by resolution - get class counts at same time</span>
             <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">class_counts</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bg_count</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bg_count</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">class_counts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_class_counts&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span>  <span class="c1"># type: ignore</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="c1"># Get from cellmap-schemas metadata, then normalize by resolution</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="c1"># TODO: Make work with HDF5 files</span>
@@ -569,14 +599,14 @@ document.write(`
                     <span class="s2">&quot;complement_counts&quot;</span>
                 <span class="p">][</span><span class="s2">&quot;absent&quot;</span><span class="p">]</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_level</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">-</span> <span class="n">bg_count</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_level</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">-</span> <span class="n">bg_count</span>
                 <span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_bg_count</span> <span class="o">=</span> <span class="n">bg_count</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span> <span class="o">=</span> <span class="mf">0.1</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_bg_count</span> <span class="o">=</span> <span class="mf">0.1</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span>  <span class="c1"># type: ignore</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span>  <span class="c1"># type: ignore</span>
 
 <div class="viewcode-block" id="CellMapImage.to">
 <a class="viewcode-back" href="../../cellmap_data.image.html#cellmap_data.CellMapImage.to">[docs]</a>
@@ -725,19 +755,22 @@ document.write(`
                 <span class="n">method</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interpolation</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">pad</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_tolerance&quot;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">tolerance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tolerance</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_tolerance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span>
                     <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
                 <span class="p">)</span>
+                <span class="n">tolerance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tolerance</span>
             <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span>
                 <span class="o">**</span><span class="n">coords</span><span class="p">,</span>
                 <span class="n">method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
-                <span class="n">tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_tolerance</span><span class="p">,</span>
+                <span class="n">tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">,</span>
                 <span class="n">fill_value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pad_value</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span>
-                <span class="o">**</span><span class="n">coords</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+                <span class="o">**</span><span class="n">coords</span><span class="p">,</span>
                 <span class="n">method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">data</span></div>
