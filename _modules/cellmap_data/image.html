@@ -269,7 +269,8 @@ document.write(`
 <span class="kn">import</span> <span class="nn">torch</span>
 
 <span class="kn">from</span> <span class="nn">xarray_ome_ngff.v04.multiscale</span> <span class="kn">import</span> <span class="n">coords_from_transforms</span>
-<span class="kn">from</span> <span class="nn">pydantic_ome_ngff.v04.multiscale</span> <span class="kn">import</span> <span class="n">GroupAttrs</span>
+<span class="kn">from</span> <span class="nn">pydantic_ome_ngff.v04.multiscale</span> <span class="kn">import</span> <span class="n">GroupAttrs</span><span class="p">,</span> <span class="n">MultiscaleMetadata</span>
+<span class="kn">from</span> <span class="nn">pydantic_ome_ngff.v04.transform</span> <span class="kn">import</span> <span class="n">Scale</span><span class="p">,</span> <span class="n">Translation</span>
 
 <span class="kn">import</span> <span class="nn">xarray</span>
 <span class="kn">import</span> <span class="nn">tensorstore</span>
@@ -422,7 +423,7 @@ document.write(`
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shape</span>
         <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_shape</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_shape</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="n">c</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_level</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
                 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">axes</span><span class="p">)</span>
             <span class="p">}</span>
@@ -437,22 +438,24 @@ document.write(`
             <span class="n">center</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bounding_box</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="n">center</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="p">(</span><span class="n">stop</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_center</span> <span class="o">=</span> <span class="n">center</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_center</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">center</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_center</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">multiscale_attrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GroupAttrs</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">multiscale_attrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MultiscaleMetadata</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the multiscale metadata of the image.&quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span>
         <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span> <span class="o">=</span> <span class="n">GroupAttrs</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span><span class="p">:</span> <span class="n">MultiscaleMetadata</span> <span class="o">=</span> <span class="n">GroupAttrs</span><span class="p">(</span>
                 <span class="n">multiscales</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;multiscales&quot;</span><span class="p">]</span>
             <span class="p">)</span><span class="o">.</span><span class="n">multiscales</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">coordinateTransformations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+    <span class="k">def</span> <span class="nf">coordinateTransformations</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Scale</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Scale</span><span class="p">,</span> <span class="n">Translation</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the coordinate transformations of the image, based on the multiscale metadata.&quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coordinateTransformations</span>
@@ -468,16 +471,16 @@ document.write(`
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coordinateTransformations</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">full_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">xarray</span><span class="o">.</span><span class="n">DataArray</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">full_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">xarray</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the full coordinates of the image&#39;s axes in world units.&quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_full_coords</span>
         <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_full_coords</span> <span class="o">=</span> <span class="n">coords_from_transforms</span><span class="p">(</span>
                 <span class="n">axes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">multiscale_attrs</span><span class="o">.</span><span class="n">axes</span><span class="p">,</span>
-                <span class="n">transforms</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">coordinateTransformations</span><span class="p">,</span>
+                <span class="n">transforms</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">coordinateTransformations</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
                 <span class="c1"># transforms=tx_fused,</span>
-                <span class="n">shape</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_level</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                <span class="n">shape</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_level</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_full_coords</span>
 
