@@ -1,3 +1,4 @@
+from typing import Sequence
 import torch
 from torchvision.transforms.v2 import ToDtype
 
@@ -17,7 +18,7 @@ class RandomGamma(torch.nn.Module):
         forward: Forward pass.
     """
 
-    def __init__(self, gamma_range=(0.5, 1.5)):
+    def __init__(self, gamma_range: Sequence[float] = (0.5, 1.5)) -> None:
         """
         Initialize the random gamma augmentation.
 
@@ -27,7 +28,7 @@ class RandomGamma(torch.nn.Module):
         super().__init__()
         self.gamma_range = gamma_range
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
         gamma = torch.as_tensor(
             float(

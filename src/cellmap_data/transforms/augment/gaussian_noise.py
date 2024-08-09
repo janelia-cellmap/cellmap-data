@@ -13,7 +13,7 @@ class GaussianNoise(torch.nn.Module):
         forward: Forward pass.
     """
 
-    def __init__(self, mean=0.0, std=1.0):
+    def __init__(self, mean: float = 0.0, std: float = 1.0) -> None:
         """
         Initialize the Gaussian noise.
 
@@ -25,7 +25,7 @@ class GaussianNoise(torch.nn.Module):
         self.mean = mean
         self.std = std
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
         noise = torch.normal(mean=self.mean, std=self.std, size=x.size())
         return x + noise.to(x.device)

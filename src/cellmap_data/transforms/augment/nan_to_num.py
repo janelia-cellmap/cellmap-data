@@ -12,7 +12,7 @@ class NaNtoNum(T.Transform):
         _transform: Transform the input.
     """
 
-    def __init__(self, params: Dict[str, Any]):
+    def __init__(self, params: Dict[str, Any]) -> None:
         """Initialize the NaN to number transformation.
 
         Args:

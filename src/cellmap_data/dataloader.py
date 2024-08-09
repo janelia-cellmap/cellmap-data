@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader, Sampler
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .subdataset import CellMapSubset
-from typing import Callable, Iterable, Optional
+from typing import Callable, Iterable, Optional, Sequence
 
 
 class CellMapDataLoader:
@@ -90,6 +90,10 @@ class CellMapDataLoader:
             kwargs["shuffle"] = False
         # TODO: Try persistent workers
         self.loader = DataLoader(**kwargs)
+
+    def __getitem__(self, indices: Sequence[int]) -> dict:
+        """Get an item from the DataLoader."""
+        return self.collate_fn([self.loader.dataset[index] for index in indices])
 
     def refresh(self):
         """If the sampler is a Callable, refresh the DataLoader with the current sampler."""

@@ -1,16 +1,18 @@
+from typing import Optional, Sequence
 import matplotlib.pyplot as plt
+import torch
 
 
 def get_image_grid(
-    input_data,
-    target_data,
-    outputs,
-    classes,
-    batch_size=None,
-    fig_size=3,
-    clim=None,
-    cmap=None,
-):
+    input_data: torch.Tensor,
+    target_data: torch.Tensor,
+    outputs: torch.Tensor,
+    classes: Sequence[str],
+    batch_size: Optional[int] = None,
+    fig_size: int = 3,
+    clim: Optional[Sequence] = None,
+    cmap: Optional[str] = None,
+) -> plt.Figure:  # type: ignore
     """
     Create a grid of images for input, target, and output data.
     Args:
@@ -70,22 +72,24 @@ def get_image_grid(
         ax[b, 0].axis("off")
         ax[b, 0].set_title("Full FOV")
         w, h = output.shape[1], output.shape[0]
-        rect = plt.Rectangle((x_pad, y_pad), w, h, edgecolor="r", facecolor="none")
+        rect = plt.Rectangle(
+            (x_pad, y_pad), w, h, edgecolor="r", facecolor="none"
+        )  # type: ignore
         ax[b, 0].add_patch(rect)
     fig.tight_layout()
     return fig
 
 
 def get_image_dict(
-    input_data,
-    target_data,
-    outputs,
-    classes,
-    batch_size=None,
-    fig_size=3,
-    clim=None,
-    colorbar=True,
-):
+    input_data: torch.Tensor,
+    target_data: torch.Tensor,
+    outputs: torch.Tensor,
+    classes: Sequence[str],
+    batch_size: Optional[int] = None,
+    fig_size: int = 3,
+    clim: Optional[Sequence] = None,
+    colorbar: bool = True,
+) -> dict:
     """
     Create a dictionary of images for input, target, and output data.
     Args:
@@ -106,7 +110,9 @@ def get_image_dict(
     image_dict = {}
     for c, label in enumerate(classes):
         fig, ax = plt.subplots(
-            batch_size, 4, figsize=(fig_size * 4, fig_size * batch_size)
+            batch_size,
+            4 + colorbar,
+            figsize=(fig_size * (4 + colorbar), fig_size * batch_size),
         )
         if len(ax.shape) == 1:
             ax = ax[None, :]
@@ -124,13 +130,12 @@ def get_image_dict(
             ax[b, 3].axis("off")
             ax[b, 3].set_title(f"Pred. {label}")
             if colorbar and clim is None:
-                if batch_size == 1:
-                    orientation = "horizontal"
-                    location = "bottom"
-                else:
-                    orientation = "vertical"
-                    location = "right"
-                fig.colorbar(im, orientation=orientation, location=location)
+                orientation = "vertical"
+                location = "right"
+                fig.colorbar(
+                    im, orientation=orientation, location=location, cax=ax[b, 4]
+                )
+                ax[b, 4].aspect = 10
             input_img = input_data[b][0].squeeze().cpu().detach().numpy()
             if len(input_img.shape) == 3:
                 input_mid = input_img.shape[0] // 2
@@ -153,7 +158,9 @@ def get_image_dict(
             ax[b, 0].axis("off")
             ax[b, 0].set_title("Full FOV")
             w, h = output.shape[1], output.shape[0]
-            rect = plt.Rectangle((x_pad, y_pad), w, h, edgecolor="r", facecolor="none")
+            rect = plt.Rectangle(  # type: ignore
+                (x_pad, y_pad), w, h, edgecolor="r", facecolor="none"
+            )
             ax[b, 0].add_patch(rect)
         fig.tight_layout()
         image_dict[label] = fig

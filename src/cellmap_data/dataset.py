@@ -100,7 +100,7 @@ class CellMapDataset(Dataset):
         classes: Sequence[str],
         input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
         target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
-        spatial_transforms: Optional[Mapping[str, any]] = None,  # type: ignore
+        spatial_transforms: Optional[Mapping[str, Mapping]] = None,  # type: ignore
         raw_value_transforms: Optional[Callable] = None,
         target_value_transforms: Optional[
             Callable | Sequence[Callable] | Mapping[str, Callable]
@@ -132,7 +132,7 @@ class CellMapDataset(Dataset):
 
             where 'array_name' is the name of the array, 'shape' is the shape of the array in voxels, and 'scale' is the scale of the array in world units.
             target_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as 'input_arrays'.
-            spatial_transforms (Optional[Sequence[Mapping[str, any]]], optional): A sequence of dictionaries containing the spatial transformations to apply to the data. Defaults to None. The dictionary should have the following structure::
+            spatial_transforms (Optional[Mapping[str, Any]] = None, optional): A sequence of dictionaries containing the spatial transformations to apply to the data. Defaults to None. The dictionary should have the following structure::
 
                 {transform_name: {transform_args}}
 
@@ -165,7 +165,7 @@ class CellMapDataset(Dataset):
         self.pad = pad
         self._current_center = None
         self._current_spatial_transforms = None
-        self.input_sources = {}
+        self.input_sources: dict[str, CellMapImage] = {}
         for array_name, array_info in self.input_arrays.items():
             self.input_sources[array_name] = CellMapImage(
                 self.raw_path,
@@ -178,7 +178,9 @@ class CellMapDataset(Dataset):
                 pad_value=0,  # inputs to the network should be padded with 0
                 interpolation="linear",
             )
-        self.target_sources = {}
+        self.target_sources: dict[
+            str, dict[str, CellMapImage | EmptyImage | Sequence[str]]
+        ] = {}
         self.has_data = False
         for array_name, array_info in self.target_arrays.items():
             self.target_sources[array_name] = self.get_target_array(array_info)
@@ -186,7 +188,9 @@ class CellMapDataset(Dataset):
     @property
     def center(self) -> Mapping[str, float] | None:
         """Returns the center of the dataset in world units."""
-        if not hasattr(self, "_center"):
+        try:
+            return self._center
+        except AttributeError:
             if self.bounding_box is None:
                 self._center = None
             else:
@@ -194,21 +198,23 @@ class CellMapDataset(Dataset):
                 for c, (start, stop) in self.bounding_box.items():
                     center[c] = start + (stop - start) / 2
                 self._center = center
-        return self._center
+            return self._center
 
     @property
     def largest_voxel_sizes(self) -> Mapping[str, float]:
         """Returns the largest voxel size of the dataset."""
-        if not hasattr(self, "_largest_voxel_sizes"):
-            largest_voxel_size = {c: 0 for c in self.axis_order}
+        try:
+            return self._largest_voxel_sizes
+        except AttributeError:
+            largest_voxel_size = {c: 0.0 for c in self.axis_order}
             for source in list(self.input_sources.values()) + list(
                 self.target_sources.values()
             ):
                 if isinstance(source, dict):
-                    for label, source in source.items():
-                        if not hasattr(source, "scale") or source.scale is None:
+                    for _, source in source.items():
+                        if not hasattr(source, "scale") or source.scale is None:  # type: ignore
                             continue
-                        for c, size in source.scale.items():
+                        for c, size in source.scale.items():  # type: ignore
                             largest_voxel_size[c] = max(largest_voxel_size[c], size)
                 else:
                     if not hasattr(source, "scale") or source.scale is None:
@@ -217,12 +223,14 @@ class CellMapDataset(Dataset):
                         largest_voxel_size[c] = max(largest_voxel_size[c], size)
             self._largest_voxel_sizes = largest_voxel_size
 
-        return self._largest_voxel_sizes
+            return self._largest_voxel_sizes
 
     @property
-    def bounding_box(self) -> Mapping[str, list[float]] | None:
+    def bounding_box(self) -> Mapping[str, list[float]]:
         """Returns the bounding box of the dataset."""
-        if not hasattr(self, "_bounding_box"):
+        try:
+            return self._bounding_box
+        except AttributeError:
             bounding_box = None
             for source in list(self.input_sources.values()) + list(
                 self.target_sources.values()
@@ -232,7 +240,7 @@ class CellMapDataset(Dataset):
                         if not hasattr(source, "bounding_box"):
                             continue
                         bounding_box = self._get_box_intersection(
-                            source.bounding_box, bounding_box
+                            source.bounding_box, bounding_box  # type: ignore
                         )
                 else:
                     if not hasattr(source, "bounding_box"):
@@ -240,20 +248,29 @@ class CellMapDataset(Dataset):
                     bounding_box = self._get_box_intersection(
                         source.bounding_box, bounding_box
                     )
+            if bounding_box is None:
+                logger.warning(
+                    "Bounding box is None. This may result in errors when trying to sample from the dataset."
+                )
+                bounding_box = {c: [-np.inf, np.inf] for c in self.axis_order}
             self._bounding_box = bounding_box
-        return self._bounding_box
+            return self._bounding_box
 
     @property
     def bounding_box_shape(self) -> Mapping[str, int]:
         """Returns the shape of the bounding box of the dataset in voxels of the largest voxel size requested."""
-        if not hasattr(self, "_bounding_box_shape"):
+        try:
+            return self._bounding_box_shape
+        except AttributeError:
             self._bounding_box_shape = self._get_box_shape(self.bounding_box)
-        return self._bounding_box_shape
+            return self._bounding_box_shape
 
     @property
-    def sampling_box(self) -> Mapping[str, list[float]] | None:
+    def sampling_box(self) -> Mapping[str, list[float]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
-        if not hasattr(self, "_sampling_box"):
+        try:
+            return self._sampling_box
+        except AttributeError:
             sampling_box = None
             for source in list(self.input_sources.values()) + list(
                 self.target_sources.values()
@@ -263,7 +280,7 @@ class CellMapDataset(Dataset):
                         if not hasattr(source, "sampling_box"):
                             continue
                         sampling_box = self._get_box_intersection(
-                            source.sampling_box, sampling_box
+                            source.sampling_box, sampling_box  # type: ignore
                         )
                 else:
                     if not hasattr(source, "sampling_box"):
@@ -271,13 +288,20 @@ class CellMapDataset(Dataset):
                     sampling_box = self._get_box_intersection(
                         source.sampling_box, sampling_box
                     )
+            if sampling_box is None:
+                logger.warning(
+                    "Sampling box is None. This may result in errors when trying to sample from the dataset."
+                )
+                sampling_box = {c: [-np.inf, np.inf] for c in self.axis_order}
             self._sampling_box = sampling_box
-        return self._sampling_box
+            return self._sampling_box
 
     @property
-    def sampling_box_shape(self) -> Mapping[str, int]:
+    def sampling_box_shape(self) -> dict[str, int]:
         """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size requested."""
-        if not hasattr(self, "_sampling_box_shape"):
+        try:
+            return self._sampling_box_shape
+        except AttributeError:
             self._sampling_box_shape = self._get_box_shape(self.sampling_box)
             if self.pad:
                 for c, size in self._sampling_box_shape.items():
@@ -286,21 +310,25 @@ class CellMapDataset(Dataset):
                             f"Sampling box shape is <= 0 for axis {c} with size {size}. Setting to 1"
                         )
                         self._sampling_box_shape[c] = 1
-        return self._sampling_box_shape
+            return self._sampling_box_shape
 
     @property
     def size(self) -> int:
         """Returns the size of the dataset in voxels of the largest voxel size requested."""
-        if not hasattr(self, "_size"):
+        try:
+            return self._size
+        except AttributeError:
             self._size = np.prod(
                 [stop - start for start, stop in self.bounding_box.values()]
-            )
-        return self._size
+            ).astype(int)
+            return self._size
 
     @property
     def class_counts(self) -> Mapping[str, Mapping[str, float]]:
         """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
-        if not hasattr(self, "_class_counts"):
+        try:
+            return self._class_counts
+        except AttributeError:
             class_counts = {"totals": {c: 0.0 for c in self.classes}}
             class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
             for array_name, sources in self.target_sources.items():
@@ -315,12 +343,14 @@ class CellMapDataset(Dataset):
                         class_counts["totals"][label] += source.class_counts
                         class_counts["totals"][label + "_bg"] += source.bg_count
             self._class_counts = class_counts
-        return self._class_counts
+            return self._class_counts
 
     @property
     def class_weights(self) -> Mapping[str, float]:
         """Returns the class weights for the dataset based on the number of samples in each class. Classes without any samples will have a weight of NaN."""
-        if not hasattr(self, "_class_weights"):
+        try:
+            return self._class_weights
+        except AttributeError:
             class_weights = {
                 c: (
                     self.class_counts["totals"][c + "_bg"]
@@ -331,22 +361,26 @@ class CellMapDataset(Dataset):
                 for c in self.classes
             }
             self._class_weights = class_weights
-        return self._class_weights
+            return self._class_weights
 
     @property
     def validation_indices(self) -> Sequence[int]:
         """Returns the indices of the dataset that will produce non-overlapping tiles for use in validation, based on the largest requested voxel size."""
-        if not hasattr(self, "_validation_indices"):
+        try:
+            return self._validation_indices
+        except AttributeError:
             chunk_size = {}
             for c, size in self.bounding_box_shape.items():
                 chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
             self._validation_indices = self.get_indices(chunk_size)
-        return self._validation_indices
+            return self._validation_indices
 
     @property
     def device(self) -> torch.device:
         """Returns the device for the dataset."""
-        if not hasattr(self, "_device"):
+        try:
+            return self._device
+        except AttributeError:
             if torch.cuda.is_available():
                 self._device = torch.device("cuda")
             elif torch.backends.mps.is_available():
@@ -354,18 +388,20 @@ class CellMapDataset(Dataset):
             else:
                 self._device = torch.device("cpu")
             self.to(self._device)
-        return self._device
+            return self._device
 
     def __len__(self) -> int:
         """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for an array request."""
         if not self.has_data and not self.force_has_data:
             return 0
-        if not hasattr(self, "_len"):
+        try:
+            return self._len
+        except AttributeError:
             size = np.prod([self.sampling_box_shape[c] for c in self.axis_order])
             self._len = int(size)
-        return self._len
+            return self._len
 
-    def __getitem__(self, idx) -> dict[str, torch.Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
         try:
             center = np.unravel_index(
@@ -389,7 +425,7 @@ class CellMapDataset(Dataset):
         outputs = {}
         for array_name in self.input_arrays.keys():
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
-            array = self.input_sources[array_name][center]
+            array = self.input_sources[array_name][center]  # type: ignore
             # TODO: Assumes 1 channel (i.e. grayscale)
             if array.shape[0] != 1:
                 outputs[array_name] = array[None, ...]
@@ -403,10 +439,14 @@ class CellMapDataset(Dataset):
                 if isinstance(
                     self.target_sources[array_name][label], (CellMapImage, EmptyImage)
                 ):
-                    self.target_sources[array_name][label].set_spatial_transforms(
+                    self.target_sources[array_name][
+                        label
+                    ].set_spatial_transforms(  # type: ignore
                         spatial_transforms
                     )
-                    array = self.target_sources[array_name][label][center].squeeze()
+                    array = self.target_sources[array_name][label][
+                        center
+                    ].squeeze()  # type: ignore
                 else:
                     # Add to list of arrays to infer
                     inferred_arrays.append(label)
@@ -415,9 +455,9 @@ class CellMapDataset(Dataset):
 
             for label in inferred_arrays:
                 # Make array of true negatives
-                array = self.get_empty_store(self.target_arrays[array_name]).to(
-                    self.device
-                )
+                array = self.get_empty_store(
+                    self.target_arrays[array_name], device=self.device
+                )  # type: ignore
                 for other_label in self.target_sources[array_name][label]:  # type: ignore
                     if class_arrays[other_label] is not None:
                         mask = class_arrays[other_label] > 0
@@ -432,20 +472,22 @@ class CellMapDataset(Dataset):
         return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.target_paths}\n\tClasses: {self.classes})"
 
     def get_empty_store(
-        self, array_info: Mapping[str, Sequence[int | float]]
+        self, array_info: Mapping[str, Sequence[int]], device: torch.device
     ) -> torch.Tensor:
         """Returns an empty store, based on the requested array."""
-        assert isinstance(
-            self.empty_value, (float, int)
-        ), "Empty value must be a number or NaN."
-        empty_store = torch.ones(array_info["shape"]) * self.empty_value
+        # assert isinstance(
+        #     self.empty_value, (float, int)
+        # ), "Empty value must be a number or NaN."
+        empty_store = torch.ones(array_info["shape"], device=device) * self.empty_value
         return empty_store.squeeze()
 
-    def get_target_array(self, array_info: Mapping[str, Sequence[int | float]]) -> dict:
+    def get_target_array(
+        self, array_info: Mapping[str, Sequence[int | float]]
+    ) -> dict[str, CellMapImage | EmptyImage | Sequence[str]]:
         """Returns a target array source for the dataset. Creates a dictionary of image sources for each class in the dataset. For classes that are not present in the ground truth data, the data can be inferred from the other classes in the dataset. This is useful for training segmentation networks with mutually exclusive classes."""
-        empty_store = self.get_empty_store(array_info)
+        empty_store = self.get_empty_store(array_info, device=self.device)  # type: ignore
         target_array = {}
-        for i, label in enumerate(self.classes):  # type: ignore
+        for i, label in enumerate(self.classes):
             target_array[label] = self.get_label_array(
                 label, i, array_info, empty_store
             )
@@ -479,9 +521,9 @@ class CellMapDataset(Dataset):
             if isinstance(self.target_value_transforms, dict):
                 value_transform: Callable = self.target_value_transforms[label]
             elif isinstance(self.target_value_transforms, list):
-                value_transform: Callable = self.target_value_transforms[i]
+                value_transform = self.target_value_transforms[i]
             else:
-                value_transform: Callable = self.target_value_transforms  # type: ignore
+                value_transform = self.target_value_transforms  # type: ignore
             array = CellMapImage(
                 self.target_path_str.format(label=label),
                 label,
@@ -504,13 +546,11 @@ class CellMapDataset(Dataset):
                 array = self.class_relation_dict[label]
             else:
                 array = EmptyImage(
-                    label, array_info["scale"], array_info["shape"], empty_store
+                    label, array_info["scale"], array_info["shape"], empty_store  # type: ignore
                 )
         return array
 
-    def _get_box_shape(
-        self, source_box: Mapping[str, list[float]]
-    ) -> Mapping[str, int]:
+    def _get_box_shape(self, source_box: Mapping[str, list[float]]) -> dict[str, int]:
         """Returns the shape of the box in voxels of the largest voxel size requested."""
         box_shape = {}
         for c, (start, stop) in source_box.items():
@@ -559,9 +599,9 @@ class CellMapDataset(Dataset):
             indices.append(index)
         return indices
 
-    def to(self, device) -> "CellMapDataset":
+    def to(self, device: str | torch.device) -> "CellMapDataset":
         """Sets the device for the dataset."""
-        self._device = device
+        self._device = torch.device(device)
         for source in list(self.input_sources.values()) + list(
             self.target_sources.values()
         ):
@@ -587,7 +627,7 @@ class CellMapDataset(Dataset):
 
         if not self.is_train or self.spatial_transforms is None:
             return None
-        spatial_transforms = {}
+        spatial_transforms: dict[str, Any] = {}
         for transform, params in self.spatial_transforms.items():
             if transform == "mirror":
                 # input: "mirror": {"axes": {"x": 0.5, "y": 0.5, "z":0.1}}

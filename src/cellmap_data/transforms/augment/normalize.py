@@ -9,7 +9,7 @@ class Normalize(T.Transform):
         _transform: Transform the input.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the normalization transformation."""
         super().__init__()
 

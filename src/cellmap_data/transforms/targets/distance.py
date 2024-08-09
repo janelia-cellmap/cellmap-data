@@ -3,7 +3,9 @@ import torch
 
 from scipy.ndimage import distance_transform_edt as edt
 
-transform = lambda x: torch.tensor(edt(x.cpu().numpy())).to(x.device)
+
+def transform(x: torch.Tensor) -> torch.Tensor:
+    return torch.tensor(edt(x.cpu().numpy())).to(x.device)
 
 
 class DistanceTransform(torch.nn.Module):
@@ -18,7 +20,7 @@ class DistanceTransform(torch.nn.Module):
         forward: Forward pass.
     """
 
-    def __init__(self, use_cuda: bool = False):
+    def __init__(self, use_cuda: bool = False) -> None:
         """
         Initialize the distance transform.
 
@@ -36,17 +38,17 @@ class DistanceTransform(torch.nn.Module):
                 "CUDA is not supported yet because testing did not return expected results."
             )
 
-    def _transform(self, x: torch.Tensor):
+    def _transform(self, x: torch.Tensor) -> torch.Tensor:
         """Transform the input."""
         if self.use_cuda and x.device.type == "cuda":
             raise NotImplementedError(
                 "CUDA is not supported yet because testing did not return expected results."
             )
-            return transform_cuda(x)
+            # return transform_cuda(x)
         else:
             return transform(x)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
         # TODO: Need to figure out how to prevent having inaccurate distance values at the edges --> precompute
         # distance = self._transform(x.nan_to_num(0))
@@ -68,7 +70,7 @@ class SignedDistanceTransform(torch.nn.Module):
         forward: Forward pass.
     """
 
-    def __init__(self, use_cuda: bool = False):
+    def __init__(self, use_cuda: bool = False) -> None:
         """
         Initialize the signed distance transform.
 
@@ -86,17 +88,17 @@ class SignedDistanceTransform(torch.nn.Module):
                 "CUDA is not supported yet because testing did not return expected results."
             )
 
-    def _transform(self, x: torch.Tensor):
+    def _transform(self, x: torch.Tensor) -> torch.Tensor:
         """Transform the input."""
         if self.use_cuda and x.device.type == "cuda":
             raise NotImplementedError(
                 "CUDA is not supported yet because testing did not return expected results."
             )
-            return transform_cuda(x) - transform_cuda(x.logical_not())
+            # return transform_cuda(x) - transform_cuda(x.logical_not())
         else:
             return transform(x) - transform(x.logical_not())
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
         # TODO: Need to figure out how to prevent having inaccurate distance values at the edges --> precompute
         # distance = self._transform(x.nan_to_num(0))

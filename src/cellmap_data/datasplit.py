@@ -1,6 +1,6 @@
 import csv
 import os
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 import tensorstore
 import torch
 from .dataset import CellMapDataset
@@ -208,7 +208,9 @@ class CellMapDataSplit:
     @property
     def train_datasets_combined(self) -> CellMapMultiDataset:
         """A multi-dataset from the combination of all training datasets."""
-        if not hasattr(self, "_train_datasets_combined"):
+        try:
+            return self._train_datasets_combined
+        except AttributeError:
             self._train_datasets_combined = CellMapMultiDataset(
                 self.classes,
                 self.input_arrays,
@@ -219,13 +221,15 @@ class CellMapDataSplit:
                     if self.force_has_data or ds.has_data
                 ],
             )
-        return self._train_datasets_combined
+            return self._train_datasets_combined
 
     @property
     def validation_datasets_combined(self) -> CellMapMultiDataset:
         """A multi-dataset from the combination of all validation datasets."""
         assert len(self.validation_datasets) > 0, "Validation datasets not loaded."
-        if not hasattr(self, "_validation_datasets_combined"):
+        try:
+            return self._validation_datasets_combined
+        except AttributeError:
             self._validation_datasets_combined = CellMapMultiDataset(
                 self.classes,
                 self.input_arrays,
@@ -236,29 +240,33 @@ class CellMapDataSplit:
                     if self.force_has_data or ds.has_data
                 ],
             )
-        return self._validation_datasets_combined
+            return self._validation_datasets_combined
 
     @property
     def validation_blocks(self) -> CellMapSubset:
         """A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks."""
-        if not hasattr(self, "_validation_blocks"):
+        try:
+            return self._validation_blocks
+        except AttributeError:
             self._validation_blocks = CellMapSubset(
                 self.validation_datasets_combined,
                 self.validation_datasets_combined.validation_indices,
             )
-        return self._validation_blocks
+            return self._validation_blocks
 
     @property
-    def class_counts(self) -> Dict[str, Dict[str, int]]:
+    def class_counts(self) -> dict[str, dict[str, float]]:
         """A dictionary containing the class counts for the training and validation datasets."""
-        if not hasattr(self, "_class_counts"):
+        try:
+            return self._class_counts
+        except AttributeError:
             self._class_counts = {
                 "train": self.train_datasets_combined.class_counts,
                 "validate": self.validation_datasets_combined.class_counts,
             }
-        return self._class_counts
+            return self._class_counts
 
-    def from_csv(self, csv_path) -> Dict[str, Sequence[Dict[str, str]]]:
+    def from_csv(self, csv_path) -> dict[str, Sequence[dict[str, str]]]:
         """Loads the dataset_dict data from a csv file."""
         dataset_dict = {}
         with open(csv_path, "r") as f:

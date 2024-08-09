@@ -145,36 +145,44 @@ class CellMapImage:
     @property
     def shape(self) -> Mapping[str, int]:
         """Returns the shape of the image."""
-        if not hasattr(self, "_shape"):
+        try:
+            return self._shape
+        except AttributeError:
             self._shape = {
                 c: self.group[self.scale_level].shape[i]
                 for i, c in enumerate(self.axes)
             }
-        return self._shape
+            return self._shape
 
     @property
     def center(self) -> Mapping[str, float]:
         """Returns the center of the image in world units."""
-        if not hasattr(self, "_center"):
+        try:
+            return self._center
+        except AttributeError:
             center = {}
             for c, (start, stop) in self.bounding_box.items():
                 center[c] = start + (stop - start) / 2
             self._center = center
-        return self._center
+            return self._center
 
     @property
     def multiscale_attrs(self) -> GroupAttrs:
         """Returns the multiscale metadata of the image."""
-        if not hasattr(self, "_multiscale_attrs"):
+        try:
+            return self._multiscale_attrs
+        except AttributeError:
             self._multiscale_attrs = GroupAttrs(
                 multiscales=self.group.attrs["multiscales"]
             ).multiscales[0]
-        return self._multiscale_attrs
+            return self._multiscale_attrs
 
     @property
     def coordinateTransformations(self) -> list[Mapping[str, Any]]:
         """Returns the coordinate transformations of the image, based on the multiscale metadata."""
-        if not hasattr(self, "_coordinateTransformations"):
+        try:
+            return self._coordinateTransformations
+        except AttributeError:
             # multi_tx = multi.coordinateTransformations
             dset = [
                 ds
@@ -183,77 +191,95 @@ class CellMapImage:
             ][0]
             # tx_fused = normalize_transforms(multi_tx, dset.coordinateTransformations)
             self._coordinateTransformations = dset.coordinateTransformations
-        return self._coordinateTransformations
+            return self._coordinateTransformations
 
     @property
     def full_coords(self) -> Mapping[str, xarray.DataArray]:
         """Returns the full coordinates of the image's axes in world units."""
-        if not hasattr(self, "_full_coords"):
+        try:
+            return self._full_coords
+        except AttributeError:
             self._full_coords = coords_from_transforms(
                 axes=self.multiscale_attrs.axes,
                 transforms=self.coordinateTransformations,
                 # transforms=tx_fused,
                 shape=self.group[self.scale_level].shape,
             )
-        return self._full_coords
+            return self._full_coords
 
     @property
     def scale_level(self) -> str:
         """Returns the multiscale level of the image."""
-        if not hasattr(self, "_scale_level"):
+        try:
+            return self._scale_level
+        except AttributeError:
             self._scale_level = self.find_level(self.scale)
-        return self._scale_level
+            return self._scale_level
 
     @property
     def group(self) -> zarr.Group:
         """Returns the zarr group object for the multiscale image."""
-        if not hasattr(self, "_group"):
-            self._group = zarr.open_group(self.path)
-        return self._group  # type: ignore
+        try:
+            return self._group
+        except AttributeError:
+            if self.path[:5] == "s3://":
+                self._group = zarr.open_group(zarr.N5FSStore(self.path, anon=True))
+            else:
+                self._group = zarr.open_group(self.path)
+            return self._group
 
     @property
     def array_path(self) -> str:
         """Returns the path to the single-scale image array."""
-        if not hasattr(self, "_array_path"):
+        try:
+            return self._array_path
+        except AttributeError:
             self._array_path = os.path.join(self.path, self.scale_level)
-        return self._array_path
+            return self._array_path
 
     @property
     def array(self) -> xarray.DataArray:
         """Returns the image data as an xarray DataArray."""
-        # TODO: Would it be faster to do Try/Except instead of hasattr?
-        if not hasattr(self, "_array"):
+        try:
+            return self._array
+        except AttributeError:
             # Construct an xarray with Tensorstore backend
             spec = xt._zarr_spec_from_path(self.array_path)
-            array_future = tensorstore.open(  # type: ignore
+            array_future = tensorstore.open(
                 spec, read=True, write=False, context=self.context
             )
             array = array_future.result()
             data = xt._TensorStoreAdapter(array)
             self._array = xarray.DataArray(data=data, coords=self.full_coords)
-        return self._array
+            return self._array
 
     @property
     def translation(self) -> Mapping[str, float]:
         """Returns the translation of the image."""
-        if not hasattr(self, "_translation"):
+        try:
+            return self._translation
+        except AttributeError:
             # Get the translation of the image
             self._translation = {c: self.bounding_box[c][0] for c in self.axes}
-        return self._translation
+            return self._translation
 
     @property
     def bounding_box(self) -> Mapping[str, list[float]]:
         """Returns the bounding box of the dataset in world units."""
-        if not hasattr(self, "_bounding_box"):
+        try:
+            return self._bounding_box
+        except AttributeError:
             self._bounding_box = {}
             for coord in self.full_coords:
                 self._bounding_box[coord.dims[0]] = [coord.data.min(), coord.data.max()]
-        return self._bounding_box
+            return self._bounding_box
 
     @property
     def sampling_box(self) -> Mapping[str, list[float]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units."""
-        if not hasattr(self, "_sampling_box") or self._sampling_box is None:
+        try:
+            return self._sampling_box
+        except AttributeError:
             self._sampling_box = {}
             output_padding = {c: np.ceil(s / 2) for c, s in self.output_size.items()}
             for c, (start, stop) in self.bounding_box.items():
@@ -274,20 +300,24 @@ class CellMapImage:
                     else:
                         self._sampling_box = None
                         raise e
-        return self._sampling_box
+            return self._sampling_box
 
     @property
     def bg_count(self) -> float:
         """Returns the number of background pixels in the ground truth data, normalized by the resolution."""
-        if hasattr(self, "_bg_count"):
+        try:
+            return self._bg_count
+        except AttributeError:
             # Get from cellmap-schemas metadata, then normalize by resolution - get class counts at same time
             _ = self.class_counts
-        return self._bg_count
+            return self._bg_count
 
     @property
     def class_counts(self) -> float:
         """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
-        if not hasattr(self, "_class_counts"):
+        try:
+            return self._class_counts  # type: ignore
+        except AttributeError:
             # Get from cellmap-schemas metadata, then normalize by resolution
             try:
                 # TODO: Make work with HDF5 files
@@ -295,14 +325,14 @@ class CellMapImage:
                     "complement_counts"
                 ]["absent"]
                 self._class_counts = (
-                    np.prod(self.group[self.scale_level].shape) - bg_count  # type: ignore
+                    np.prod(self.group[self.scale_level].shape) - bg_count
                 ) * np.prod(list(self.scale.values()))
                 self._bg_count = bg_count * np.prod(list(self.scale.values()))
             except Exception as e:
                 print(e)
                 self._class_counts = 0.1
                 self._bg_count = 0.1
-        return self._class_counts  # type: ignore
+            return self._class_counts  # type: ignore
 
     def to(self, device: str) -> None:
         """Sets what device returned image data will be loaded onto."""
@@ -434,19 +464,22 @@ class CellMapImage:
                 method=self.interpolation,  # type: ignore
             )
         elif self.pad:
-            if not hasattr(self, "_tolerance"):
+            try:
+                tolerance = self._tolerance
+            except AttributeError:
                 self._tolerance = np.ones(coords[self.axes[0]].shape) * np.max(
                     list(self.scale.values())
                 )
+                tolerance = self._tolerance
             data = self.array.reindex(
                 **coords,
                 method="nearest",
-                tolerance=self._tolerance,
+                tolerance=tolerance,
                 fill_value=self.pad_value,
             )
         else:
             data = self.array.sel(
-                **coords,  # type: ignore
+                **coords,
                 method="nearest",
             )
         return data

@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 import numpy as np
 import torch
 from torch.utils.data import ConcatDataset, WeightedRandomSampler
@@ -13,9 +13,9 @@ class CellMapMultiDataset(ConcatDataset):
     Attributes:
         classes: Sequence[str]
             The classes in the dataset.
-        input_arrays: dict[str, dict[str, Sequence[int | float]]]
+        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]]
             The input arrays for each dataset in the multi-dataset.
-        target_arrays: dict[str, dict[str, Sequence[int | float]]]
+        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]]
             The target arrays for each dataset in the multi-dataset.
         datasets: Sequence[CellMapDataset]
             The datasets to be combined into the multi-dataset.
@@ -27,21 +27,21 @@ class CellMapMultiDataset(ConcatDataset):
             Returns a weighted random sampler for the multi-dataset.
         get_subset_random_sampler(num_samples: int, weighted: bool = True, rng: Optional[torch.Generator] = None) -> torch.utils.data.SubsetRandomSampler:
             Returns a random sampler that samples num_samples from the multi-dataset.
-        get_indices(chunk_size: dict[str, int]) -> Sequence[int]:
+        get_indices(chunk_size: Mapping[str, int]) -> Sequence[int]:
             Returns the indices of the multi-dataset that will tile all of the datasets according to the requested chunk_size.
         set_raw_value_transforms(transforms: Callable) -> None:
             Sets the raw value transforms for each dataset in the multi-dataset.
         set_target_value_transforms(transforms: Callable) -> None:
             Sets the target value transforms for each dataset in the multi-dataset.
-        set_spatial_transforms(spatial_transforms: dict[str, Any] | None) -> None:
+        set_spatial_transforms(spatial_transforms: Mapping[str, Any] | None) -> None:
             Sets the spatial transforms for each dataset in the multi-dataset.
 
     Properties:
-        class_counts: dict[str, float]
+        class_counts: Mapping[str, float]
             Returns the number of samples in each class for each dataset in the multi-dataset, as well as the total number of samples in each class.
-        class_weights: dict[str, float]
+        class_weights: Mapping[str, float]
             Returns the class weights for the multi-dataset based on the number of samples in each class.
-        dataset_weights: dict[CellMapDataset, float]
+        dataset_weights: Mapping[CellMapDataset, float]
             Returns the weights for each dataset in the multi-dataset based on the number of samples of each class in each dataset.
         sample_weights: Sequence[float]
             Returns the weights for each sample in the multi-dataset based on the number of samples in each dataset.
@@ -53,8 +53,8 @@ class CellMapMultiDataset(ConcatDataset):
     def __init__(
         self,
         classes: Sequence[str],
-        input_arrays: dict[str, dict[str, Sequence[int | float]]],
-        target_arrays: dict[str, dict[str, Sequence[int | float]]],
+        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
+        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
         datasets: Sequence[CellMapDataset],
     ) -> None:
         super().__init__(datasets)
@@ -75,7 +75,9 @@ class CellMapMultiDataset(ConcatDataset):
         """
         Returns the number of samples in each class for each dataset in the multi-dataset, as well as the total number of samples in each class.
         """
-        if not hasattr(self, "_class_counts"):
+        try:
+            return self._class_counts
+        except AttributeError:
             class_counts = {c: 0.0 for c in self.classes}
             class_counts.update({c + "_bg": 0.0 for c in self.classes})
             for ds in self.datasets:
@@ -84,15 +86,17 @@ class CellMapMultiDataset(ConcatDataset):
                         class_counts[c] += ds.class_counts["totals"][c]
                         class_counts[c + "_bg"] += ds.class_counts["totals"][c + "_bg"]
             self._class_counts = class_counts
-        return self._class_counts
+            return self._class_counts
 
     @property
-    def class_weights(self) -> dict[str, float]:
+    def class_weights(self) -> Mapping[str, float]:
         """
         Returns the class weights for the multi-dataset based on the number of samples in each class.
         """
         # TODO: review this implementation
-        if not hasattr(self, "_class_weights"):
+        try:
+            return self._class_weights
+        except AttributeError:
             class_weights = {
                 c: (
                     self.class_counts[c + "_bg"] / self.class_counts[c]
@@ -102,14 +106,16 @@ class CellMapMultiDataset(ConcatDataset):
                 for c in self.classes
             }
             self._class_weights = class_weights
-        return self._class_weights
+            return self._class_weights
 
     @property
-    def dataset_weights(self) -> dict[CellMapDataset, float]:
+    def dataset_weights(self) -> Mapping[CellMapDataset, float]:
         """
         Returns the weights for each dataset in the multi-dataset based on the number of samples in each dataset.
         """
-        if not hasattr(self, "_dataset_weights"):
+        try:
+            return self._dataset_weights
+        except AttributeError:
             dataset_weights = {}
             for dataset in self.datasets:
                 dataset_weight = np.sum(
@@ -120,27 +126,31 @@ class CellMapMultiDataset(ConcatDataset):
                 )
                 dataset_weights[dataset] = dataset_weight
             self._dataset_weights = dataset_weights
-        return self._dataset_weights
+            return self._dataset_weights
 
     @property
     def sample_weights(self) -> Sequence[float]:
         """
         Returns the weights for each sample in the multi-dataset based on the number of samples in each dataset.
         """
-        if not hasattr(self, "_sample_weights"):
+        try:
+            return self._sample_weights
+        except AttributeError:
             dataset_weights = self.dataset_weights
             sample_weights = []
             for dataset, dataset_weight in dataset_weights.items():
                 sample_weights += [dataset_weight] * len(dataset)
             self._sample_weights = sample_weights
-        return self._sample_weights
+            return self._sample_weights
 
     @property
     def validation_indices(self) -> Sequence[int]:
         """
         Returns the indices of the validation set for each dataset in the multi-dataset.
         """
-        if not hasattr(self, "_validation_indices"):
+        try:
+            return self._validation_indices
+        except AttributeError:
             indices = []
             for i, dataset in enumerate(self.datasets):
                 try:
@@ -155,7 +165,7 @@ class CellMapMultiDataset(ConcatDataset):
                         f"Unable to get validation indices for dataset {dataset}\n skipping"
                     )
             self._validation_indices = indices
-        return self._validation_indices
+            return self._validation_indices
 
     def to(self, device: str | torch.device) -> "CellMapMultiDataset":
         for dataset in self.datasets:
@@ -211,7 +221,7 @@ class CellMapMultiDataset(ConcatDataset):
             indices = indices[torch.randperm(len(indices), generator=rng)]
             return torch.utils.data.SubsetRandomSampler(indices, generator=rng)
 
-    def get_indices(self, chunk_size: dict[str, int]) -> Sequence[int]:
+    def get_indices(self, chunk_size: Mapping[str, int]) -> Sequence[int]:
         """Returns the indices of the dataset that will tile all of the datasets according to the chunk_size."""
         indices = []
         for i, dataset in enumerate(self.datasets):
@@ -233,7 +243,9 @@ class CellMapMultiDataset(ConcatDataset):
         for dataset in self.datasets:
             dataset.set_target_value_transforms(transforms)
 
-    def set_spatial_transforms(self, spatial_transforms: dict[str, Any] | None) -> None:
+    def set_spatial_transforms(
+        self, spatial_transforms: Mapping[str, Any] | None
+    ) -> None:
         """Sets the raw value transforms for each dataset in the training multi-dataset."""
         for dataset in self.datasets:
             dataset.spatial_transforms = spatial_transforms
