@@ -111,9 +111,9 @@ class CellMapDataLoader:
             kwargs["sampler"] = self.sampler()
             self.loader = DataLoader(**kwargs)
 
-    def collate_fn(self, batch: list[dict]) -> dict:
+    def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
         """Combine a list of dictionaries from different sources into a single dictionary for output."""
-        outputs = {}
+        outputs: dict[str, torch.Tensor] = {}
         for b in batch:
             for key, value in b.items():
                 if key not in outputs:

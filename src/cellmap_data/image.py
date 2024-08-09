@@ -3,7 +3,8 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 import torch
 
 from xarray_ome_ngff.v04.multiscale import coords_from_transforms
-from pydantic_ome_ngff.v04.multiscale import GroupAttrs
+from pydantic_ome_ngff.v04.multiscale import GroupAttrs, MultiscaleMetadata
+from pydantic_ome_ngff.v04.transform import Scale, Translation
 
 import xarray
 import tensorstore
@@ -148,7 +149,7 @@ class CellMapImage:
         try:
             return self._shape
         except AttributeError:
-            self._shape = {
+            self._shape: dict[str, int] = {
                 c: self.group[self.scale_level].shape[i]
                 for i, c in enumerate(self.axes)
             }
@@ -163,22 +164,24 @@ class CellMapImage:
             center = {}
             for c, (start, stop) in self.bounding_box.items():
                 center[c] = start + (stop - start) / 2
-            self._center = center
+            self._center: dict[str, float] = center
             return self._center
 
     @property
-    def multiscale_attrs(self) -> GroupAttrs:
+    def multiscale_attrs(self) -> MultiscaleMetadata:
         """Returns the multiscale metadata of the image."""
         try:
             return self._multiscale_attrs
         except AttributeError:
-            self._multiscale_attrs = GroupAttrs(
+            self._multiscale_attrs: MultiscaleMetadata = GroupAttrs(
                 multiscales=self.group.attrs["multiscales"]
             ).multiscales[0]
             return self._multiscale_attrs
 
     @property
-    def coordinateTransformations(self) -> list[Mapping[str, Any]]:
+    def coordinateTransformations(
+        self,
+    ) -> tuple[Scale] | tuple[Scale, Translation]:
         """Returns the coordinate transformations of the image, based on the multiscale metadata."""
         try:
             return self._coordinateTransformations
@@ -194,16 +197,16 @@ class CellMapImage:
             return self._coordinateTransformations
 
     @property
-    def full_coords(self) -> Mapping[str, xarray.DataArray]:
+    def full_coords(self) -> tuple[xarray.DataArray, ...]:
         """Returns the full coordinates of the image's axes in world units."""
         try:
             return self._full_coords
         except AttributeError:
             self._full_coords = coords_from_transforms(
                 axes=self.multiscale_attrs.axes,
-                transforms=self.coordinateTransformations,
+                transforms=self.coordinateTransformations,  # type: ignore
                 # transforms=tx_fused,
-                shape=self.group[self.scale_level].shape,
+                shape=self.group[self.scale_level].shape,  # type: ignore
             )
             return self._full_coords
 
