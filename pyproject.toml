@@ -22,7 +22,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Typing :: Typed",
 ]
-dynamic = ["version"]
+# dynamic = ["version"]
+version = "0.1.0"
 dependencies = [
     "torch",
     "torchvision",
