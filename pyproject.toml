@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 # https://peps.python.org/pep-0621/
 [project]
 name = "cellmap-data"
-description = "Utility for loading CellMap data for machine learning training, utilizing PyTorch, and Jackson Lab's ZarrDataset."
+description = "Utility for loading CellMap data for machine learning training, utilizing PyTorch, Xarray, TensorStore, and PyDantic."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "BSD 3-Clause License" }
@@ -58,6 +58,7 @@ dev = [
     "sphinx-book-theme",
     "twine",
     "hatch",
+    "python-semantic-release",
 ]
 all = [
     "cellmap-data[dev,test]",
@@ -82,6 +83,9 @@ allow-direct-references = true
 # https://hatch.pypa.io/latest/config/metadata/
 [tool.hatch.version]
 source = "vcs"
+
+[tool.hatch.version.vcs]
+tag_regex = "v(?P<version>\\d+\\.\\d+\\.\\d+)"  # Customize this to match your tag format
 
 # https://hatch.pypa.io/latest/config/build/#file-selection
 # [tool.hatch.build.targets.sdist]
