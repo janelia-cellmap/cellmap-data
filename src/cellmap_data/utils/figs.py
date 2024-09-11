@@ -128,6 +128,7 @@ def get_image_grid_numpy(
         data = np.frombuffer(buff.getvalue(), dtype=np.uint8)
     w, h = fig.canvas.get_width_height()
     im = data.reshape((int(h), int(w), -1))
+    plt.close("all")
     return im
 
 
