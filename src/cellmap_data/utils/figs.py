@@ -1,5 +1,7 @@
+import io
 from typing import Optional, Sequence
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 
 
@@ -78,6 +80,55 @@ def get_image_grid(
         ax[b, 0].add_patch(rect)
     fig.tight_layout()
     return fig
+
+
+def get_image_grid_numpy(
+    input_data: torch.Tensor,
+    target_data: torch.Tensor,
+    outputs: torch.Tensor,
+    classes: Sequence[str],
+    batch_size: Optional[int] = None,
+    fig_size: int = 3,
+    clim: Optional[Sequence] = None,
+    cmap: Optional[str] = None,
+) -> np.ndarray:  # type: ignore
+    """
+    Create a grid of images for input, target, and output data using matplotlib and convert it to a numpy array.
+    Args:
+        input_data (torch.Tensor): Input data.
+        target_data (torch.Tensor): Target data.
+        outputs (torch.Tensor): Model outputs.
+        classes (list): List of class labels.
+        batch_size (int, optional): Number of images to display. Defaults to the length of the first axis of 'input_data'.
+        fig_size (int, optional): Size of the figure. Defaults to 3.
+        clim (tuple, optional): Color limits for the images. Defaults to be scaled by the image's intensity.
+        cmap (str, optional): Colormap for the images. Defaults to None.
+
+    Returns:
+        fig (numpy.ndarray): Image data.
+    """
+    fig = get_image_grid(
+        input_data=input_data,
+        target_data=target_data,
+        outputs=outputs,
+        classes=classes,
+        batch_size=batch_size,
+        fig_size=fig_size,
+        clim=clim,
+        cmap=cmap,
+    )
+    # fig.tight_layout(pad=0)
+    # fig.canvas.draw()
+    # im = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
+    # im = im.reshape(fig.canvas.get_width_height()[::-1] + (4,))
+    # plt.close(fig)
+    with io.BytesIO() as buff:
+        fig.savefig(buff, format="raw", dpi=fig.dpi)
+        buff.seek(0)
+        data = np.frombuffer(buff.getvalue(), dtype=np.uint8)
+    w, h = fig.canvas.get_width_height()
+    im = data.reshape((int(h), int(w), -1))
+    return im
 
 
 def get_image_dict(
