@@ -309,6 +309,7 @@ document.write(`
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.figs.get_image_grid"><code class="docutils literal notranslate"><span class="pre">get_image_grid()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.figs.get_image_grid_numpy"><code class="docutils literal notranslate"><span class="pre">get_image_grid_numpy()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.figs.get_image_dict"><code class="docutils literal notranslate"><span class="pre">get_image_dict()</span></code></a></li>
 </ul>
             </nav>
@@ -331,6 +332,9 @@ document.write(`
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.utils.figs.get_image_grid" title="cellmap_data.utils.figs.get_image_grid"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_image_grid</span></code></a>(input_data, target_data, ...)</p></td>
 <td><p>Create a grid of images for input, target, and output data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.utils.figs.get_image_grid_numpy" title="cellmap_data.utils.figs.get_image_grid_numpy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_image_grid_numpy</span></code></a>(input_data, ...[, ...])</p></td>
+<td><p>Create a grid of images for input, target, and output data using matplotlib and convert it to a numpy array.</p></td>
 </tr>
 </tbody>
 </table>
@@ -361,6 +365,48 @@ document.write(`
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>fig (matplotlib.figure.Figure)</p>
+</dd>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_data</strong> (<em>Tensor</em>)</p></li>
+<li><p><strong>target_data</strong> (<em>Tensor</em>)</p></li>
+<li><p><strong>outputs</strong> (<em>Tensor</em>)</p></li>
+<li><p><strong>classes</strong> (<em>Sequence</em><em>[</em><em>str</em><em>]</em>)</p></li>
+<li><p><strong>batch_size</strong> (<em>int</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>fig_size</strong> (<em>int</em>)</p></li>
+<li><p><strong>clim</strong> (<em>Sequence</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>cmap</strong> (<em>str</em><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cellmap_data.utils.figs.get_image_grid_numpy">
+<span class="sig-prename descclassname"><span class="pre">cellmap_data.utils.figs.</span></span><span class="sig-name descname"><span class="pre">get_image_grid_numpy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">classes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/cellmap_data/utils/figs.html#get_image_grid_numpy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.utils.figs.get_image_grid_numpy" title="Link to this definition">#</a></dt>
+<dd><p>Create a grid of images for input, target, and output data using matplotlib and convert it to a numpy array.
+:param input_data: Input data.
+:type input_data: torch.Tensor
+:param target_data: Target data.
+:type target_data: torch.Tensor
+:param outputs: Model outputs.
+:type outputs: torch.Tensor
+:param classes: List of class labels.
+:type classes: list
+:param batch_size: Number of images to display. Defaults to the length of the first axis of ‘input_data’.
+:type batch_size: int, optional
+:param fig_size: Size of the figure. Defaults to 3.
+:type fig_size: int, optional
+:param clim: Color limits for the images. Defaults to be scaled by the image’s intensity.
+:type clim: tuple, optional
+:param cmap: Colormap for the images. Defaults to None.
+:type cmap: str, optional</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Image data.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>fig (numpy.ndarray)</p>
 </dd>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -449,6 +495,7 @@ document.write(`
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.figs.get_image_grid"><code class="docutils literal notranslate"><span class="pre">get_image_grid()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.figs.get_image_grid_numpy"><code class="docutils literal notranslate"><span class="pre">get_image_grid_numpy()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.figs.get_image_dict"><code class="docutils literal notranslate"><span class="pre">get_image_dict()</span></code></a></li>
 </ul>
   </nav></div>

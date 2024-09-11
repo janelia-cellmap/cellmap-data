@@ -264,8 +264,10 @@ document.write(`
                 <article class="bd-article">
                   
   <h1>Source code for cellmap_data.utils.figs</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+<span></span><span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
 
 
@@ -346,6 +348,58 @@ document.write(`
         <span class="n">ax</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">add_patch</span><span class="p">(</span><span class="n">rect</span><span class="p">)</span>
     <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">fig</span></div>
+
+
+
+<div class="viewcode-block" id="get_image_grid_numpy">
+<a class="viewcode-back" href="../../../cellmap_data.utils.figs.html#cellmap_data.utils.figs.get_image_grid_numpy">[docs]</a>
+<span class="k">def</span> <span class="nf">get_image_grid_numpy</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">target_data</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">outputs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">classes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">batch_size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">fig_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="n">clim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a grid of images for input, target, and output data using matplotlib and convert it to a numpy array.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        input_data (torch.Tensor): Input data.</span>
+<span class="sd">        target_data (torch.Tensor): Target data.</span>
+<span class="sd">        outputs (torch.Tensor): Model outputs.</span>
+<span class="sd">        classes (list): List of class labels.</span>
+<span class="sd">        batch_size (int, optional): Number of images to display. Defaults to the length of the first axis of &#39;input_data&#39;.</span>
+<span class="sd">        fig_size (int, optional): Size of the figure. Defaults to 3.</span>
+<span class="sd">        clim (tuple, optional): Color limits for the images. Defaults to be scaled by the image&#39;s intensity.</span>
+<span class="sd">        cmap (str, optional): Colormap for the images. Defaults to None.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        fig (numpy.ndarray): Image data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">get_image_grid</span><span class="p">(</span>
+        <span class="n">input_data</span><span class="o">=</span><span class="n">input_data</span><span class="p">,</span>
+        <span class="n">target_data</span><span class="o">=</span><span class="n">target_data</span><span class="p">,</span>
+        <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
+        <span class="n">classes</span><span class="o">=</span><span class="n">classes</span><span class="p">,</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+        <span class="n">fig_size</span><span class="o">=</span><span class="n">fig_size</span><span class="p">,</span>
+        <span class="n">clim</span><span class="o">=</span><span class="n">clim</span><span class="p">,</span>
+        <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># fig.tight_layout(pad=0)</span>
+    <span class="c1"># fig.canvas.draw()</span>
+    <span class="c1"># im = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)</span>
+    <span class="c1"># im = im.reshape(fig.canvas.get_width_height()[::-1] + (4,))</span>
+    <span class="c1"># plt.close(fig)</span>
+    <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span> <span class="k">as</span> <span class="n">buff</span><span class="p">:</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">buff</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;raw&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="n">fig</span><span class="o">.</span><span class="n">dpi</span><span class="p">)</span>
+        <span class="n">buff</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">buff</span><span class="o">.</span><span class="n">getvalue</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+    <span class="n">w</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">get_width_height</span><span class="p">()</span>
+    <span class="n">im</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">h</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">w</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">im</span></div>
 
 
 

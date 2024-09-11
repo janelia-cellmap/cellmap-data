@@ -1,4 +1,4 @@
-cellmap\_data.utils.figs
+﻿cellmap\_data.utils.figs
 ========================
 
 .. automodule:: cellmap_data.utils.figs
@@ -10,4 +10,5 @@ cellmap\_data.utils.figs
    
       get_image_dict
       get_image_grid
+      get_image_grid_numpy
    
