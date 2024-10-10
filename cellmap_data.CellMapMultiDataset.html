@@ -328,6 +328,7 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapMultiDataset.set_raw_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.set_raw_value_transforms()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapMultiDataset.set_target_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.set_target_value_transforms()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapMultiDataset.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.set_spatial_transforms()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapMultiDataset.empty"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.empty()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -481,25 +482,28 @@ Sets the spatial transforms for each dataset in the multi-dataset.</p>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">cumsum</span></code>(sequence)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.get_indices" title="cellmap_data.CellMapMultiDataset.get_indices"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_indices</span></code></a>(chunk_size)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.empty" title="cellmap_data.CellMapMultiDataset.empty"><code class="xref py py-obj docutils literal notranslate"><span class="pre">empty</span></code></a>()</p></td>
+<td><p>Creates an empty dataset.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.get_indices" title="cellmap_data.CellMapMultiDataset.get_indices"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_indices</span></code></a>(chunk_size)</p></td>
 <td><p>Returns the indices of the dataset that will tile all of the datasets according to the chunk_size.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.get_subset_random_sampler" title="cellmap_data.CellMapMultiDataset.get_subset_random_sampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_subset_random_sampler</span></code></a>(num_samples[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.get_subset_random_sampler" title="cellmap_data.CellMapMultiDataset.get_subset_random_sampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_subset_random_sampler</span></code></a>(num_samples[, ...])</p></td>
 <td><p>Returns a random sampler that samples num_samples from the dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.get_weighted_sampler" title="cellmap_data.CellMapMultiDataset.get_weighted_sampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_weighted_sampler</span></code></a>([batch_size, rng])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.get_weighted_sampler" title="cellmap_data.CellMapMultiDataset.get_weighted_sampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_weighted_sampler</span></code></a>([batch_size, rng])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.set_raw_value_transforms" title="cellmap_data.CellMapMultiDataset.set_raw_value_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_raw_value_transforms</span></code></a>(transforms)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.set_raw_value_transforms" title="cellmap_data.CellMapMultiDataset.set_raw_value_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_raw_value_transforms</span></code></a>(transforms)</p></td>
 <td><p>Sets the raw value transforms for each dataset in the multi-dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.set_spatial_transforms" title="cellmap_data.CellMapMultiDataset.set_spatial_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_spatial_transforms</span></code></a>(spatial_transforms)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.set_spatial_transforms" title="cellmap_data.CellMapMultiDataset.set_spatial_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_spatial_transforms</span></code></a>(spatial_transforms)</p></td>
 <td><p>Sets the raw value transforms for each dataset in the training multi-dataset.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.set_target_value_transforms" title="cellmap_data.CellMapMultiDataset.set_target_value_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_target_value_transforms</span></code></a>(transforms)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.set_target_value_transforms" title="cellmap_data.CellMapMultiDataset.set_target_value_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_target_value_transforms</span></code></a>(transforms)</p></td>
 <td><p>Sets the target value transforms for each dataset in the multi-dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.to" title="cellmap_data.CellMapMultiDataset.to"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to</span></code></a>(device)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapMultiDataset.to" title="cellmap_data.CellMapMultiDataset.to"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to</span></code></a>(device)</p></td>
 <td><p></p></td>
 </tr>
 </tbody>
@@ -668,6 +672,17 @@ Sets the spatial transforms for each dataset in the multi-dataset.</p>
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.CellMapMultiDataset.empty">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">empty</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset" title="cellmap_data.multidataset.CellMapMultiDataset"><span class="pre">CellMapMultiDataset</span></a></span></span><a class="reference internal" href="_modules/cellmap_data/multidataset.html#CellMapMultiDataset.empty"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapMultiDataset.empty" title="Link to this definition">#</a></dt>
+<dd><p>Creates an empty dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset" title="cellmap_data.multidataset.CellMapMultiDataset"><em>CellMapMultiDataset</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -717,6 +732,7 @@ Sets the spatial transforms for each dataset in the multi-dataset.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapMultiDataset.set_raw_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.set_raw_value_transforms()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapMultiDataset.set_target_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.set_target_value_transforms()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapMultiDataset.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.set_spatial_transforms()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapMultiDataset.empty"><code class="docutils literal notranslate"><span class="pre">CellMapMultiDataset.empty()</span></code></a></li>
 </ul>
 </li>
 </ul>

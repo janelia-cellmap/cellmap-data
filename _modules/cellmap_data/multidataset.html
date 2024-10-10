@@ -540,6 +540,20 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the raw value transforms for each dataset in the training multi-dataset.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">:</span>
             <span class="n">dataset</span><span class="o">.</span><span class="n">spatial_transforms</span> <span class="o">=</span> <span class="n">spatial_transforms</span></div>
+
+
+<div class="viewcode-block" id="CellMapMultiDataset.empty">
+<a class="viewcode-back" href="../../cellmap_data.multidataset.html#cellmap_data.CellMapMultiDataset.empty">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">empty</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="s2">&quot;CellMapMultiDataset&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates an empty dataset.&quot;&quot;&quot;</span>
+        <span class="n">empty_dataset</span> <span class="o">=</span> <span class="n">CellMapMultiDataset</span><span class="p">([],</span> <span class="p">{},</span> <span class="p">{},</span> <span class="p">[</span><span class="n">CellMapDataset</span><span class="o">.</span><span class="n">empty</span><span class="p">()])</span>
+        <span class="n">empty_dataset</span><span class="o">.</span><span class="n">classes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">empty_dataset</span><span class="o">.</span><span class="n">_class_counts</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">empty_dataset</span><span class="o">.</span><span class="n">_class_weights</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">empty_dataset</span><span class="o">.</span><span class="n">_validation_indices</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">return</span> <span class="n">empty_dataset</span></div>
 </div>
 
 </pre></div>

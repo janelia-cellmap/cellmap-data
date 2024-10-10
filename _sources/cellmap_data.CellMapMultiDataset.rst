@@ -15,6 +15,7 @@
    
       ~CellMapMultiDataset.__init__
       ~CellMapMultiDataset.cumsum
+      ~CellMapMultiDataset.empty
       ~CellMapMultiDataset.get_indices
       ~CellMapMultiDataset.get_subset_random_sampler
       ~CellMapMultiDataset.get_weighted_sampler

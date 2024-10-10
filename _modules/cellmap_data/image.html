@@ -525,7 +525,16 @@ document.write(`
             <span class="n">array_future</span> <span class="o">=</span> <span class="n">tensorstore</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
                 <span class="n">spec</span><span class="p">,</span> <span class="n">read</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span>
             <span class="p">)</span>
-            <span class="n">array</span> <span class="o">=</span> <span class="n">array_future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">array</span> <span class="o">=</span> <span class="n">array_future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="ne">Warning</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="ne">UserWarning</span><span class="p">(</span><span class="s2">&quot;Falling back to zarr3 driver&quot;</span><span class="p">)</span>
+                <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;driver&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;zarr3&quot;</span>
+                <span class="n">array_future</span> <span class="o">=</span> <span class="n">tensorstore</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
+                    <span class="n">spec</span><span class="p">,</span> <span class="n">read</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span>
+                <span class="p">)</span>
+                <span class="n">array</span> <span class="o">=</span> <span class="n">array_future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">xt</span><span class="o">.</span><span class="n">_TensorStoreAdapter</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_array</span> <span class="o">=</span> <span class="n">xarray</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">full_coords</span><span class="p">)</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array</span>

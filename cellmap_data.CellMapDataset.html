@@ -335,6 +335,7 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapDataset.set_raw_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.set_raw_value_transforms()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapDataset.set_target_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.set_target_value_transforms()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapDataset.reset_arrays"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.reset_arrays()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapDataset.empty"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.empty()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -447,34 +448,37 @@ document.write(`
 <tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.__init__" title="cellmap_data.CellMapDataset.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(raw_path, target_path, classes, ...)</p></td>
 <td><p>Initializes the CellMapDataset class.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.generate_spatial_transforms" title="cellmap_data.CellMapDataset.generate_spatial_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">generate_spatial_transforms</span></code></a>()</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.empty" title="cellmap_data.CellMapDataset.empty"><code class="xref py py-obj docutils literal notranslate"><span class="pre">empty</span></code></a>()</p></td>
+<td><p>Creates an empty dataset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.generate_spatial_transforms" title="cellmap_data.CellMapDataset.generate_spatial_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">generate_spatial_transforms</span></code></a>()</p></td>
 <td><p>When 'self.is_train' is True, generates random spatial transforms for the dataset, based on the user specified transforms.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.get_empty_store" title="cellmap_data.CellMapDataset.get_empty_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_empty_store</span></code></a>(array_info, device)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.get_empty_store" title="cellmap_data.CellMapDataset.get_empty_store"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_empty_store</span></code></a>(array_info, device)</p></td>
 <td><p>Returns an empty store, based on the requested array.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.get_indices" title="cellmap_data.CellMapDataset.get_indices"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_indices</span></code></a>(chunk_size)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.get_indices" title="cellmap_data.CellMapDataset.get_indices"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_indices</span></code></a>(chunk_size)</p></td>
 <td><p>Returns the indices of the dataset that will tile the dataset according to the chunk_size.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.get_label_array" title="cellmap_data.CellMapDataset.get_label_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_label_array</span></code></a>(label, i, array_info, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.get_label_array" title="cellmap_data.CellMapDataset.get_label_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_label_array</span></code></a>(label, i, array_info, ...)</p></td>
 <td><p>Returns a target array source for a specific class in the dataset.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.get_target_array" title="cellmap_data.CellMapDataset.get_target_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_target_array</span></code></a>(array_info)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.get_target_array" title="cellmap_data.CellMapDataset.get_target_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_target_array</span></code></a>(array_info)</p></td>
 <td><p>Returns a target array source for the dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.reset_arrays" title="cellmap_data.CellMapDataset.reset_arrays"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reset_arrays</span></code></a>([type])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.reset_arrays" title="cellmap_data.CellMapDataset.reset_arrays"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reset_arrays</span></code></a>([type])</p></td>
 <td><p>Sets the arrays for the dataset to return.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.set_raw_value_transforms" title="cellmap_data.CellMapDataset.set_raw_value_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_raw_value_transforms</span></code></a>(transforms)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.set_raw_value_transforms" title="cellmap_data.CellMapDataset.set_raw_value_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_raw_value_transforms</span></code></a>(transforms)</p></td>
 <td><p>Sets the raw value transforms for the dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.set_target_value_transforms" title="cellmap_data.CellMapDataset.set_target_value_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_target_value_transforms</span></code></a>(transforms)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.set_target_value_transforms" title="cellmap_data.CellMapDataset.set_target_value_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_target_value_transforms</span></code></a>(transforms)</p></td>
 <td><p>Sets the ground truth value transforms for the dataset.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.to" title="cellmap_data.CellMapDataset.to"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to</span></code></a>(device)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.to" title="cellmap_data.CellMapDataset.to"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to</span></code></a>(device)</p></td>
 <td><p>Sets the device for the dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.verify" title="cellmap_data.CellMapDataset.verify"><code class="xref py py-obj docutils literal notranslate"><span class="pre">verify</span></code></a>()</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataset.verify" title="cellmap_data.CellMapDataset.verify"><code class="xref py py-obj docutils literal notranslate"><span class="pre">verify</span></code></a>()</p></td>
 <td><p>Verifies that the dataset is valid to draw samples from.</p></td>
 </tr>
 </tbody>
@@ -760,6 +764,17 @@ document.write(`
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.CellMapDataset.empty">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">empty</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset" title="cellmap_data.dataset.CellMapDataset"><span class="pre">CellMapDataset</span></a></span></span><a class="reference internal" href="_modules/cellmap_data/dataset.html#CellMapDataset.empty"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapDataset.empty" title="Link to this definition">#</a></dt>
+<dd><p>Creates an empty dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset" title="cellmap_data.dataset.CellMapDataset"><em>CellMapDataset</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -816,6 +831,7 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapDataset.set_raw_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.set_raw_value_transforms()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapDataset.set_target_value_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.set_target_value_transforms()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapDataset.reset_arrays"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.reset_arrays()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapDataset.empty"><code class="docutils literal notranslate"><span class="pre">CellMapDataset.empty()</span></code></a></li>
 </ul>
 </li>
 </ul>

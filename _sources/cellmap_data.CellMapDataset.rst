@@ -14,6 +14,7 @@
    .. autosummary::
    
       ~CellMapDataset.__init__
+      ~CellMapDataset.empty
       ~CellMapDataset.generate_spatial_transforms
       ~CellMapDataset.get_empty_store
       ~CellMapDataset.get_indices
