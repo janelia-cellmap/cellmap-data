@@ -16,14 +16,13 @@ release = "0.0.1"
 
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.napoleon",
     "sphinx.ext.githubpages",
     "sphinx.ext.viewcode",
     # "sphinx.ext.linkcode",
-    "sphinx.ext.autosectionlabel",
     "sphinx.ext.coverage",
-    "sphinx.ext.autosummary",
 ]
 
 autodoc_default_options = {

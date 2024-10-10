@@ -710,3 +710,14 @@ class CellMapDataset(Dataset):
                 self.target_sources[array_name] = self.get_target_array(array_info)
         else:
             raise ValueError(f"Unknown dataset array type: {type}")
+
+    @staticmethod
+    def empty() -> "CellMapDataset":
+        """Creates an empty dataset."""
+        empty_dataset = CellMapDataset("", "", [], {}, {})
+        empty_dataset.classes = []
+        empty_dataset._class_counts = {}
+        empty_dataset._class_weights = {}
+        empty_dataset._validation_indices = []
+
+        return empty_dataset

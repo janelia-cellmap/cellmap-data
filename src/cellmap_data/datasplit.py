@@ -226,20 +226,23 @@ class CellMapDataSplit:
     @property
     def validation_datasets_combined(self) -> CellMapMultiDataset:
         """A multi-dataset from the combination of all validation datasets."""
-        assert len(self.validation_datasets) > 0, "Validation datasets not loaded."
         try:
             return self._validation_datasets_combined
         except AttributeError:
-            self._validation_datasets_combined = CellMapMultiDataset(
-                self.classes,
-                self.input_arrays,
-                self.target_arrays,
-                [
-                    ds
-                    for ds in self.validation_datasets
-                    if self.force_has_data or ds.has_data
-                ],
-            )
+            if len(self.validation_datasets) == 0:
+                UserWarning("Validation datasets not loaded.")
+                self._validation_datasets_combined = CellMapMultiDataset.empty()
+            else:
+                self._validation_datasets_combined = CellMapMultiDataset(
+                    self.classes,
+                    self.input_arrays,
+                    self.target_arrays,
+                    [
+                        ds
+                        for ds in self.validation_datasets
+                        if self.force_has_data or ds.has_data
+                    ],
+                )
             return self._validation_datasets_combined
 
     @property

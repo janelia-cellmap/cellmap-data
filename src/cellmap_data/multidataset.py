@@ -249,3 +249,14 @@ class CellMapMultiDataset(ConcatDataset):
         """Sets the raw value transforms for each dataset in the training multi-dataset."""
         for dataset in self.datasets:
             dataset.spatial_transforms = spatial_transforms
+
+    @staticmethod
+    def empty() -> "CellMapMultiDataset":
+        """Creates an empty dataset."""
+        empty_dataset = CellMapMultiDataset([], {}, {}, [CellMapDataset.empty()])
+        empty_dataset.classes = []
+        empty_dataset._class_counts = {}
+        empty_dataset._class_weights = {}
+        empty_dataset._validation_indices = []
+
+        return empty_dataset

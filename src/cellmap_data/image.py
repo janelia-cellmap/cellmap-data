@@ -251,7 +251,16 @@ class CellMapImage:
             array_future = tensorstore.open(
                 spec, read=True, write=False, context=self.context
             )
-            array = array_future.result()
+            try:
+                array = array_future.result()
+            except ValueError as e:
+                Warning(e)
+                UserWarning("Falling back to zarr3 driver")
+                spec["driver"] = "zarr3"
+                array_future = tensorstore.open(
+                    spec, read=True, write=False, context=self.context
+                )
+                array = array_future.result()
             data = xt._TensorStoreAdapter(array)
             self._array = xarray.DataArray(data=data, coords=self.full_coords)
             return self._array
