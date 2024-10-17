@@ -580,7 +580,7 @@ class CellMapDataset(Dataset):
         try:
             return len(self) > 0
         except Exception as e:
-            # print(e)
+            print(f"Error: {e}")
             return False
 
     def get_indices(self, chunk_size: Mapping[str, int]) -> Sequence[int]:

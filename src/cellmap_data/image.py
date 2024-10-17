@@ -341,9 +341,11 @@ class CellMapImage:
                 ) * np.prod(list(self.scale.values()))
                 self._bg_count = bg_count * np.prod(list(self.scale.values()))
             except Exception as e:
-                print(e)
-                self._class_counts = 0.1
-                self._bg_count = 0.1
+                print(f"Error: {e}")
+                self._class_counts = np.prod(list(self.scale.values()))
+                self._bg_count = (
+                    np.prod(self.group[self.scale_level].shape) - 1
+                ) * np.prod(list(self.scale.values()))
             return self._class_counts  # type: ignore
 
     def to(self, device: str) -> None:
