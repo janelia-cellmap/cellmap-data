@@ -764,7 +764,6 @@ class ImageWriter:
                 # "metadata": self.metadata,
                 # "transaction": tensorstore.Transaction(atomic=True),
                 "context": self.context,
-                # "dimension_units": ["nm" if c != "c" else "" for c in self.axes],
             }
             array_future = tensorstore.open(
                 spec,
@@ -892,7 +891,7 @@ class ImageWriter:
         """Writes the given data to the image at the given center or coordinates (in world units)."""
         # Find vectors of coordinates in world space to write data to if necessary
         if isinstance(list(coords.values())[0], int | float):
-            center = self.align_coords(coords)
+            center = coords
             coords = {}
             for c in self.axes:
                 coords[c] = np.linspace(  # type: ignore
