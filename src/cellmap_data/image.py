@@ -780,6 +780,17 @@ class ImageWriter:
                 array = array_future.result()
             data = xt._TensorStoreAdapter(array)
             self._array = xarray.DataArray(data=data, coords=self.full_coords)
+
+            # Set the metadata for the Zarr array
+            ds = zarr.open_array(self.path)
+            for key, value in self.metadata.items():
+                ds.attrs[key] = value
+            ds.attrs["_ARRAY_DIMENSIONS"] = self.metadata["axes"]
+            ds.attrs["dimension_units"] = [
+                f"{s} {u}"
+                for s, u in zip(self.metadata["voxel_size"], self.metadata["units"])
+            ]
+
             return self._array
 
     @property
@@ -899,9 +910,10 @@ class ImageWriter:
             raise NotImplementedError(
                 "Writing to specific coordinates is not yet implemented."
             )
-        # if isinstance(data, torch.Tensor):
-        #     data = data.cpu().numpy()
-        self.array.loc[coords] = data.cpu().squeeze().numpy().astype(self.dtype)
+        if isinstance(data, torch.Tensor):
+            data = data.cpu()
+
+        self.array.loc[coords] = np.array(data).squeeze().astype(self.dtype)
 
     def __repr__(self) -> str:
         """Returns a string representation of the ImageWriter object."""
