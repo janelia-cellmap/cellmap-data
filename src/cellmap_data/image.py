@@ -863,17 +863,14 @@ class ImageWriter:
         """Aligns the given coordinates to the image's coordinates."""
         aligned_coords = {}
         for c in self.axes:
-            if c in coords:
-                # Align each coorinate for the axis to the nearest image's coordinates
-
-                aligned_coords[c] = (
-                    coords[c][0],
-                    np.linspace(
-                        self.offset[c],
-                        self.offset[c] + self.world_shape[c],
-                        len(coords[c][0]),
-                    ),
-                )
+            # Find the nearest coordinate in the image's actual coordinate grid
+            aligned_coords[c] = np.array(
+                self.array.coords[c][
+                    np.abs(np.array(self.array.coords[c])[:, None] - coords[c]).argmin(
+                        axis=0
+                    )
+                ]
+            ).squeeze()
         return aligned_coords
 
     def __setitem__(
@@ -884,7 +881,7 @@ class ImageWriter:
         """Writes the given data to the image at the given center or coordinates (in world units)."""
         # Find vectors of coordinates in world space to write data to if necessary
         if isinstance(list(coords.values())[0], int | float):
-            center = coords
+            center = self.align_coords(coords)
             coords = {}
             for c in self.axes:
                 coords[c] = np.linspace(  # type: ignore
@@ -892,9 +889,19 @@ class ImageWriter:
                     center[c] + self.write_world_shape[c] / 2,  # type: ignore
                     self.write_voxel_shape[c],
                 )
+            coords = self.align_coords(coords)
+        else:
+            # coords = self.align_coords(coords)
+            # print(
+            #     "Warning, setting data to specific coordinates is experimental and may be slow."
+            # )
+            # TODO: Add support for writing to full coordinates (not just center)
+            raise NotImplementedError(
+                "Writing to specific coordinates is not yet implemented."
+            )
         # if isinstance(data, torch.Tensor):
         #     data = data.cpu().numpy()
-        self.array.loc[coords] = data
+        self.array.loc[coords] = data.cpu().squeeze().numpy().astype(self.dtype)
 
     def __repr__(self) -> str:
         """Returns a string representation of the ImageWriter object."""
