@@ -1,10 +1,19 @@
+from functools import singledispatch
 import os
+from types import SimpleNamespace
 from typing import Any, Callable, Mapping, Optional, Sequence
 import torch
 
+from upath import UPath
 from xarray_ome_ngff.v04.multiscale import coords_from_transforms
 from pydantic_ome_ngff.v04.multiscale import GroupAttrs, MultiscaleMetadata
-from pydantic_ome_ngff.v04.transform import Scale, Translation
+from pydantic_ome_ngff.v04.axis import Axis
+from pydantic_ome_ngff.v04.transform import (
+    Scale,
+    Translation,
+    VectorScale,
+    VectorTranslation,
+)
 
 import xarray
 import tensorstore
@@ -106,33 +115,46 @@ class CellMapImage:
         self.context = context
         self._current_spatial_transforms = None
         self._current_coords = None
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._current_center = None
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
 
     def __getitem__(self, center: Mapping[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
-        # Find vectors of coordinates in world space to pull data from
-        coords = {}
-        for c in self.axes:
-            if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
-                # raise ValueError(
-                UserWarning(
-                    f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
-                )
-                # center[c] = self.bounding_box[c][0] + self.output_size[c] / 2
-            if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
-                # raise ValueError(
-                UserWarning(
-                    f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
-                )
-                # center[c] = self.bounding_box[c][1] - self.output_size[c] / 2
-            coords[c] = np.linspace(
-                center[c] - self.output_size[c] / 2,
-                center[c] + self.output_size[c] / 2,
-                self.output_shape[c],
-            )
+        if isinstance(list(center.values())[0], int | float):
+            self._current_center = center
 
-        # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
-        data = self.apply_spatial_transforms(coords)
+            # Find vectors of coordinates in world space to pull data from
+            coords = {}
+            for c in self.axes:
+                if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
+                    # raise ValueError(
+                    UserWarning(
+                        f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
+                    )
+                    # center[c] = self.bounding_box[c][0] + self.output_size[c] / 2
+                if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
+                    # raise ValueError(
+                    UserWarning(
+                        f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
+                    )
+                    # center[c] = self.bounding_box[c][1] - self.output_size[c] / 2
+                coords[c] = np.linspace(
+                    center[c] - self.output_size[c] / 2,
+                    center[c] + self.output_size[c] / 2,
+                    self.output_shape[c],
+                )
+
+            # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
+            data = self.apply_spatial_transforms(coords)
+        else:
+            self._current_center = None
+            self._current_coords = center
+            data = torch.tensor(self.return_data(self._current_coords).values)  # type: ignore
 
         # Apply any value transformations to the data
         if self.value_transform is not None:
@@ -475,7 +497,7 @@ class CellMapImage:
         ),
     ) -> xarray.DataArray:
         """Pulls data from the image based on the given coordinates, applying interpolation if necessary, and returns the data as an xarray DataArray."""
-        if not isinstance(coords[list(coords.keys())[0]][0], float | int):
+        if not isinstance(list(coords.values())[0][0], float | int):
             data = self.array.interp(
                 coords=coords,
                 method=self.interpolation,  # type: ignore
@@ -605,3 +627,275 @@ class EmptyImage:
     def set_spatial_transforms(self, transforms: Mapping[str, Any] | None) -> None:
         """Imitates the method in CellMapImage, but does nothing for an EmptyImage object."""
         pass
+
+
+class ImageWriter:
+    """
+    This class is used to write image data to a single-resolution zarr.
+
+    Attributes:
+        path (str): The path to the image file.
+        label_class (str): The label class of the image.
+        scale (Mapping[str, float]): The scale of the image in physical space.
+        write_voxel_shape (Mapping[str, int]): The shape of data written to the image in voxels.
+        axes (str): The order of the axes in the image.
+        context (Optional[tensorstore.Context]): The context for the TensorStore.
+
+    Methods:
+        __setitem__(center: Mapping[str, float], data: torch.Tensor): Writes the given data to the image at the given center.
+        __repr__() -> str: Returns a string representation of the ImageWriter object.
+
+    Properties:
+
+        shape (Mapping[str, int]): Returns the shape of the image in voxels.
+        center (Mapping[str, float]): Returns the center of the image in world units.
+        full_coords: Returns the full coordinates of the image in world units.
+        array_path (str): Returns the path to the single-scale image array.
+        translation (Mapping[str, float]): Returns the translation of the image in world units.
+        bounding_box (Mapping[str, list[float]]): Returns the bounding box of the dataset in world units.
+        sampling_box (Mapping[str, list[float]]): Returns the sampling box of the dataset in world units.
+    """
+
+    def __init__(
+        self,
+        path: str | UPath,
+        label_class: str,
+        scale: Mapping[str, float] | Sequence[float],
+        bounding_box: Mapping[str, list[float]],
+        write_voxel_shape: Mapping[str, int] | Sequence[int],
+        axis_order: str = "zyx",
+        context: Optional[tensorstore.Context] = None,
+        overwrite: bool = False,
+        dtype: np.dtype = np.float32,
+        fill_value: float | int = 0,
+    ) -> None:
+        """Initializes an ImageWriter object.
+
+        Args:
+            path (str): The path to the image file.
+            label_class (str): The label class of the image.
+            scale (Mapping[str, float]): The scale of the image in physical space.
+            bounding_box (Mapping[str, list[float]]): The total region of interest for the image in world units. Example: {"x": [12.0, 102.0], "y": [12.0, 102.0], "z": [12.0, 102.0]}.
+            write_voxel_shape (Mapping[str, int]): The shape of data written to the image in voxels.
+            axis_order (str, optional): The order of the axes in the image. Defaults to "zyx".
+            context (Optional[tensorstore.Context], optional): The context for the TensorStore. Defaults to None.
+            overwrite (bool, optional): Whether to overwrite the image if it already exists. Defaults to False.
+            dtype (np.dtype, optional): The data type of the image. Defaults to np.float32.
+            fill_value (float | int, optional): The value to fill the empty image with before values are written. Defaults to 0.
+        """
+        self.path = path
+        self.label_class = label_class
+        if isinstance(scale, Sequence):
+            if len(axis_order) > len(scale):
+                scale = [scale[0]] * (len(axis_order) - len(scale)) + list(scale)
+            scale = {c: s for c, s in zip(axis_order, scale)}
+        if isinstance(write_voxel_shape, Sequence):
+            if len(axis_order) > len(write_voxel_shape):
+                write_voxel_shape = [1] * (
+                    len(axis_order) - len(write_voxel_shape)
+                ) + list(write_voxel_shape)
+            write_voxel_shape = {c: t for c, t in zip(axis_order, write_voxel_shape)}
+        self.scale = scale
+        self.bounding_box = bounding_box
+        self.write_voxel_shape = write_voxel_shape
+        self.write_world_shape = {
+            c: write_voxel_shape[c] * scale[c] for c in axis_order
+        }
+        self.axes = axis_order[: len(write_voxel_shape)]
+        self.context = context
+        self.overwrite = overwrite
+        self.dtype = dtype
+        self.fill_value = fill_value
+
+        # Create the new zarr's metadata
+        dims = [c for c in axis_order]
+        self.metadata = {
+            "offset": list(self.offset.values()),
+            "axes": dims,
+            "voxel_size": list(self.scale.values()),
+            "shape": list(self.shape.values()),
+            "units": ["nm"] * len(write_voxel_shape),
+            "chunk_shape": list(write_voxel_shape.values()),
+        }
+        # array = xarray.DataArray(
+        #     self.fill_value,
+        #     dims=self.metadata["axes"],
+        #     coords=self.full_coords,
+        #     attrs=self.metadata,
+        #     name=self.label_class,
+        # )
+        # dataset = array.to_dataset()
+        # dataset[self.label_class].encoding = {"chunks": self.chunk_shape}
+        # if overwrite or not UPath(path).exists():
+        #     dataset.to_zarr(path, mode="w", write_empty_chunks=False, compute=False)
+        # else:
+        #     dataset.to_zarr(path, mode="a", write_empty_chunks=False, compute=False)
+
+    @property
+    def array(self) -> xarray.DataArray:
+        """Returns the image data as an xarray DataArray."""
+        try:
+            return self._array
+        except AttributeError:
+            # Construct an xarray with Tensorstore backend
+            # spec = xt._zarr_spec_from_path(self.path)
+            spec = {
+                "driver": "zarr",
+                "kvstore": {"driver": "file", "path": self.path},
+                # "transform": {
+                #     "input_labels": self.metadata["axes"],
+                #     # "scale": self.metadata["voxel_size"],
+                #     "input_inclusive_min": self.metadata["offset"],
+                #     "input_shape": self.metadata["shape"],
+                #     # "units": self.metadata["units"],
+                # },
+            }
+            open_kwargs = {
+                "read": True,
+                "write": True,
+                "create": True,
+                "delete_existing": self.overwrite,
+                "dtype": self.dtype,
+                "shape": list(self.shape.values()),
+                "fill_value": self.fill_value,
+                "chunk_layout": tensorstore.ChunkLayout(
+                    write_chunk_shape=self.chunk_shape
+                ),
+                # "metadata": self.metadata,
+                # "transaction": tensorstore.Transaction(atomic=True),
+                "context": self.context,
+                # "dimension_units": ["nm" if c != "c" else "" for c in self.axes],
+            }
+            array_future = tensorstore.open(
+                spec,
+                **open_kwargs,
+            )
+            try:
+                array = array_future.result()
+            except ValueError as e:
+                Warning(e)
+                UserWarning("Falling back to zarr3 driver")
+                spec["driver"] = "zarr3"
+                array_future = tensorstore.open(spec, **open_kwargs)
+                array = array_future.result()
+            data = xt._TensorStoreAdapter(array)
+            self._array = xarray.DataArray(data=data, coords=self.full_coords)
+            return self._array
+
+    @property
+    def chunk_shape(self) -> Sequence[int]:
+        """Returns the shape of the chunks for the image."""
+        try:
+            return self._chunk_shape
+        except AttributeError:
+            self._chunk_shape = list(self.write_voxel_shape.values())
+            return self._chunk_shape
+
+    @property
+    def world_shape(self) -> Mapping[str, float]:
+        """Returns the shape of the image in world units."""
+        try:
+            return self._world_shape
+        except AttributeError:
+            self._world_shape = {
+                c: self.bounding_box[c][1] - self.bounding_box[c][0] for c in self.axes
+            }
+            return self._world_shape
+
+    @property
+    def shape(self) -> Mapping[str, int]:
+        """Returns the shape of the image in voxels."""
+        try:
+            return self._shape
+        except AttributeError:
+            self._shape = {
+                c: int(self.world_shape[c] // self.scale[c]) for c in self.axes
+            }
+            return self._shape
+
+    @property
+    def center(self) -> Mapping[str, float]:
+        """Returns the center of the image in world units."""
+        try:
+            return self._center
+        except AttributeError:
+            center = {}
+            for c, (start, stop) in self.bounding_box.items():
+                center[c] = start + (stop - start) / 2
+            self._center = center
+            return self._center
+
+    @property
+    def offset(self) -> Mapping[str, float]:
+        """Returns the offset of the image in world units."""
+        try:
+            return self._offset
+        except AttributeError:
+            self._offset = {c: self.bounding_box[c][0] for c in self.axes}
+            return self._offset
+
+    @property
+    def full_coords(self) -> tuple[xarray.DataArray, ...]:
+        """Returns the full coordinates of the image in world units."""
+        try:
+            return self._full_coords
+        except AttributeError:
+            self._full_coords = coords_from_transforms(
+                axes=[
+                    Axis(
+                        name=c,
+                        type="space" if c != "c" else "channel",
+                        unit="nm" if c != "c" else "",
+                    )
+                    for c in self.axes
+                ],
+                transforms=(
+                    VectorScale(scale=tuple(self.scale.values())),
+                    VectorTranslation(translation=tuple(self.offset.values())),
+                ),
+                shape=tuple(self.shape.values()),
+            )
+            return self._full_coords
+
+    def align_coords(
+        self, coords: Mapping[str, tuple[Sequence, np.ndarray]]
+    ) -> Mapping[str, tuple[Sequence, np.ndarray]]:
+        """Aligns the given coordinates to the image's coordinates."""
+        aligned_coords = {}
+        for c in self.axes:
+            if c in coords:
+                # Align each coorinate for the axis to the nearest image's coordinates
+
+                aligned_coords[c] = (
+                    coords[c][0],
+                    np.linspace(
+                        self.offset[c],
+                        self.offset[c] + self.world_shape[c],
+                        len(coords[c][0]),
+                    ),
+                )
+        return aligned_coords
+
+    def __setitem__(
+        self,
+        coords: Mapping[str, float] | Mapping[str, tuple[Sequence, np.ndarray]],
+        data: torch.Tensor | np.ndarray,
+    ) -> None:
+        """Writes the given data to the image at the given center or coordinates (in world units)."""
+        # Find vectors of coordinates in world space to write data to if necessary
+        if isinstance(list(coords.values())[0], int | float):
+            center = coords
+            coords = {}
+            for c in self.axes:
+                coords[c] = np.linspace(  # type: ignore
+                    center[c] - self.write_world_shape[c] / 2,  # type: ignore
+                    center[c] + self.write_world_shape[c] / 2,  # type: ignore
+                    self.write_voxel_shape[c],
+                )
+        # if isinstance(data, torch.Tensor):
+        #     data = data.cpu().numpy()
+        self.array.loc[coords] = data
+
+    def __repr__(self) -> str:
+        """Returns a string representation of the ImageWriter object."""
+        return f"ImageWriter({self.path}: {self.label_class} @ {self.scale.values()})"
