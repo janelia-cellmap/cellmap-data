@@ -1,27 +1,25 @@
-from functools import singledispatch
 import os
-from types import SimpleNamespace
 from typing import Any, Callable, Mapping, Optional, Sequence
-import torch
 
-from upath import UPath
-from xarray_ome_ngff.v04.multiscale import coords_from_transforms
-from pydantic_ome_ngff.v04.multiscale import GroupAttrs, MultiscaleMetadata
+import numpy as np
+import tensorstore
+import torch
+import xarray
+import xarray_tensorstore as xt
+import zarr
 from pydantic_ome_ngff.v04.axis import Axis
+from pydantic_ome_ngff.v04.multiscale import GroupAttrs, MultiscaleMetadata
 from pydantic_ome_ngff.v04.transform import (
     Scale,
     Translation,
     VectorScale,
     VectorTranslation,
 )
-
-import xarray
-import tensorstore
-import xarray_tensorstore as xt
-import numpy as np
-import zarr
-
 from scipy.spatial.transform import Rotation as rot
+from upath import UPath
+from xarray_ome_ngff.v04.multiscale import coords_from_transforms
+
+from cellmap_data.utils import create_multiscale_metadata
 
 
 class CellMapImage:
@@ -663,6 +661,7 @@ class ImageWriter:
         scale: Mapping[str, float] | Sequence[float],
         bounding_box: Mapping[str, list[float]],
         write_voxel_shape: Mapping[str, int] | Sequence[int],
+        scale_level: int = 0,
         axis_order: str = "zyx",
         context: Optional[tensorstore.Context] = None,
         overwrite: bool = False,
@@ -672,8 +671,9 @@ class ImageWriter:
         """Initializes an ImageWriter object.
 
         Args:
-            path (str): The path to the image file.
+            path (str): The path to the base folder of the multiscale image file.
             label_class (str): The label class of the image.
+            scale_level (int): The multiscale level of the image. Defaults to 0.
             scale (Mapping[str, float]): The scale of the image in physical space.
             bounding_box (Mapping[str, list[float]]): The total region of interest for the image in world units. Example: {"x": [12.0, 102.0], "y": [12.0, 102.0], "z": [12.0, 102.0]}.
             write_voxel_shape (Mapping[str, int]): The shape of data written to the image in voxels.
@@ -683,7 +683,8 @@ class ImageWriter:
             dtype (np.dtype, optional): The data type of the image. Defaults to np.float32.
             fill_value (float | int, optional): The value to fill the empty image with before values are written. Defaults to 0.
         """
-        self.path = path
+        self.base_path = path
+        self.path = UPath(path) / f"s{scale_level}"
         self.label_class = label_class
         if isinstance(scale, Sequence):
             if len(axis_order) > len(scale):
@@ -702,6 +703,7 @@ class ImageWriter:
             c: write_voxel_shape[c] * scale[c] for c in axis_order
         }
         self.axes = axis_order[: len(write_voxel_shape)]
+        self.scale_level = scale_level
         self.context = context
         self.overwrite = overwrite
         self.dtype = dtype
@@ -714,7 +716,7 @@ class ImageWriter:
             "axes": dims,
             "voxel_size": list(self.scale.values()),
             "shape": list(self.shape.values()),
-            "units": ["nm"] * len(write_voxel_shape),
+            "units": "nanometer",
             "chunk_shape": list(write_voxel_shape.values()),
         }
         # array = xarray.DataArray(
@@ -737,11 +739,34 @@ class ImageWriter:
         try:
             return self._array
         except AttributeError:
+            # Write multi-scale metadata
+            os.makedirs(UPath(self.base_path), exist_ok=True)
+            # Add .zgroup files
+            group_path = str(self.base_path).split(".zarr")[0] + ".zarr"
+            # print(group_path)
+            for group in [""] + list(
+                UPath(str(self.base_path).split(".zarr")[-1]).parts
+            )[1:]:
+                group_path = UPath(group_path) / group
+                # print(group_path)
+                with open(group_path / ".zgroup", "w") as f:
+                    f.write('{"zarr_format": 2}')
+            create_multiscale_metadata(
+                ds_name=str(self.base_path),
+                voxel_size=self.metadata["voxel_size"],
+                translation=self.metadata["offset"],
+                units=self.metadata["units"],
+                axes=self.metadata["axes"],
+                base_scale_level=self.scale_level,
+                levels_to_add=0,
+                out_path=str(UPath(self.base_path) / ".zattrs"),
+            )
+
             # Construct an xarray with Tensorstore backend
             # spec = xt._zarr_spec_from_path(self.path)
             spec = {
                 "driver": "zarr",
-                "kvstore": {"driver": "file", "path": self.path},
+                "kvstore": {"driver": "file", "path": str(self.path)},
                 # "transform": {
                 #     "input_labels": self.metadata["axes"],
                 #     # "scale": self.metadata["voxel_size"],
@@ -780,15 +805,18 @@ class ImageWriter:
             data = xt._TensorStoreAdapter(array)
             self._array = xarray.DataArray(data=data, coords=self.full_coords)
 
+            # Add .zattrs file
+            with open(UPath(self.path) / ".zattrs", "w") as f:
+                f.write("{}")
             # Set the metadata for the Zarr array
-            ds = zarr.open_array(self.path)
-            for key, value in self.metadata.items():
-                ds.attrs[key] = value
-            ds.attrs["_ARRAY_DIMENSIONS"] = self.metadata["axes"]
-            ds.attrs["dimension_units"] = [
-                f"{s} {u}"
-                for s, u in zip(self.metadata["voxel_size"], self.metadata["units"])
-            ]
+            # ds = zarr.open_array(self.path)
+            # for key, value in self.metadata.items():
+            #     ds.attrs[key] = value
+            # ds.attrs["_ARRAY_DIMENSIONS"] = self.metadata["axes"]
+            # ds.attrs["dimension_units"] = [
+            #     f"{s} {u}"
+            #     for s, u in zip(self.metadata["voxel_size"], self.metadata["units"])
+            # ]
 
             return self._array
 
