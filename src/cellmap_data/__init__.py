@@ -19,6 +19,7 @@ from .multidataset import CellMapMultiDataset
 from .dataloader import CellMapDataLoader
 from .datasplit import CellMapDataSplit
 from .dataset import CellMapDataset
+from .dataset_writer import CellMapDatasetWriter
 from .image import CellMapImage, EmptyImage, ImageWriter
 from .subdataset import CellMapSubset
 from . import transforms

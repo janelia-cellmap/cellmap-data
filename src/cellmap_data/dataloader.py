@@ -113,7 +113,7 @@ class CellMapDataLoader:
 
     def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
         """Combine a list of dictionaries from different sources into a single dictionary for output."""
-        outputs: dict[str, torch.Tensor] = {}
+        outputs = {}
         for b in batch:
             for key, value in b.items():
                 if key not in outputs:
