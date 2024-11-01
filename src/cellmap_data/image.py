@@ -911,23 +911,36 @@ class ImageWriter:
             ).squeeze()
         return aligned_coords
 
+    def aligned_coords_from_center(self, center: Mapping[str, float]):
+        """Returns the aligned coordinates for the given center with linear sequential coordinates aligned to the image's reference frame."""
+        coords = {}
+        for c in self.axes:
+            # Get number of voxels for the axis
+            num_voxels = self.write_voxel_shape[c]
+
+            # Get index of closest start voxel to the edge of the write space, based on the center
+            start_requested = center[c] - self.write_world_shape[c] / 2
+            start_aligned_idx = int(
+                np.abs(self.array.coords[c] - start_requested).argmin()
+            )
+
+            # Get the aligned range of coordinates
+            coords[c] = self.array.coords[c][
+                start_aligned_idx : start_aligned_idx + num_voxels
+            ]
+
+        return coords
+
     def __setitem__(
         self,
         coords: Mapping[str, float] | Mapping[str, tuple[Sequence, np.ndarray]],
-        data: torch.Tensor | np.ndarray,
+        data: torch.Tensor | np.typing.ArrayLike | float | int,  # type: ignore
     ) -> None:
-        """Writes the given data to the image at the given center or coordinates (in world units)."""
+        """Writes the given data to the image at the given center or coordinates (in world units). Supports writing torch.Tensor, numpy.ndarray, and scalar data types."""
         # Find vectors of coordinates in world space to write data to if necessary
         if isinstance(list(coords.values())[0], int | float):
             center = coords
-            coords = {}
-            for c in self.axes:
-                coords[c] = np.linspace(  # type: ignore
-                    center[c] - self.write_world_shape[c] / 2,  # type: ignore
-                    center[c] + self.write_world_shape[c] / 2,  # type: ignore
-                    self.write_voxel_shape[c],
-                )
-            coords = self.align_coords(coords)
+            coords = self.aligned_coords_from_center(center)  # type: ignore
         else:
             # coords = self.align_coords(coords)
             # print(
@@ -944,4 +957,4 @@ class ImageWriter:
 
     def __repr__(self) -> str:
         """Returns a string representation of the ImageWriter object."""
-        return f"ImageWriter({self.path}: {self.label_class} @ {self.scale.values()})"
+        return f"ImageWriter({self.path}: {self.label_class} @ {list(self.scale.values())} {self.metadata['units']})"

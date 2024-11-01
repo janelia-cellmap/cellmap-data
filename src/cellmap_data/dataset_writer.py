@@ -123,56 +123,40 @@ class CellMapDatasetWriter(Dataset):
                 self._center = center
             return self._center
 
-    # TODO
     @property
-    def largest_voxel_sizes(self) -> Mapping[str, float]:
-        """Returns the largest voxel size of the dataset."""
+    def smallest_voxel_sizes(self) -> Mapping[str, float]:
+        """Returns the smallest voxel size of the dataset."""
         try:
-            return self._largest_voxel_sizes
+            return self._smallest_voxel_sizes
         except AttributeError:
-            largest_voxel_size = {c: 0.0 for c in self.axis_order}
+            smallest_voxel_size = {c: np.inf for c in self.axis_order}
             for source in list(self.input_sources.values()) + list(
-                self.target_sources.values()
+                self.target_array_writers.values()
             ):
                 if isinstance(source, dict):
                     for _, source in source.items():
                         if not hasattr(source, "scale") or source.scale is None:  # type: ignore
                             continue
                         for c, size in source.scale.items():  # type: ignore
-                            largest_voxel_size[c] = max(largest_voxel_size[c], size)
+                            smallest_voxel_size[c] = min(smallest_voxel_size[c], size)
                 else:
                     if not hasattr(source, "scale") or source.scale is None:
                         continue
                     for c, size in source.scale.items():
-                        largest_voxel_size[c] = max(largest_voxel_size[c], size)
-            self._largest_voxel_sizes = largest_voxel_size
+                        smallest_voxel_size[c] = min(smallest_voxel_size[c], size)
+            self._smallest_voxel_sizes = smallest_voxel_size
 
-            return self._largest_voxel_sizes
+            return self._smallest_voxel_sizes
 
-    # TODO
     @property
     def bounding_box(self) -> Mapping[str, list[float]]:
-        """Returns the bounding box of the dataset."""
+        """Returns the bounding box inclusive of all the target images."""
         try:
             return self._bounding_box
         except AttributeError:
             bounding_box = None
-            for source in list(self.input_sources.values()) + list(
-                self.target_sources.values()
-            ):
-                if isinstance(source, dict):
-                    for source in source.values():
-                        if not hasattr(source, "bounding_box"):
-                            continue
-                        bounding_box = self._get_box_intersection(
-                            source.bounding_box, bounding_box  # type: ignore
-                        )
-                else:
-                    if not hasattr(source, "bounding_box"):
-                        continue
-                    bounding_box = self._get_box_intersection(
-                        source.bounding_box, bounding_box
-                    )
+            for bounding_box in self.target_bounds.values():
+                ...
             if bounding_box is None:
                 logger.warning(
                     "Bounding box is None. This may result in errors when trying to sample from the dataset."
@@ -183,7 +167,7 @@ class CellMapDatasetWriter(Dataset):
 
     @property
     def bounding_box_shape(self) -> Mapping[str, int]:
-        """Returns the shape of the bounding box of the dataset in voxels of the largest voxel size requested."""
+        """Returns the shape of the bounding box of the dataset in voxels of the smallest voxel size requested."""
         try:
             return self._bounding_box_shape
         except AttributeError:
@@ -199,7 +183,7 @@ class CellMapDatasetWriter(Dataset):
         except AttributeError:
             sampling_box = None
             for source in list(self.input_sources.values()) + list(
-                self.target_sources.values()
+                self.target_array_writers.values()
             ):
                 if isinstance(source, dict):
                     for source in source.values():
@@ -224,23 +208,22 @@ class CellMapDatasetWriter(Dataset):
 
     @property
     def sampling_box_shape(self) -> dict[str, int]:
-        """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size requested."""
+        """Returns the shape of the sampling box of the dataset in voxels of the smallest voxel size requested."""
         try:
             return self._sampling_box_shape
         except AttributeError:
             self._sampling_box_shape = self._get_box_shape(self.sampling_box)
-            if self.pad:
-                for c, size in self._sampling_box_shape.items():
-                    if size <= 0:
-                        logger.warning(
-                            f"Sampling box shape is <= 0 for axis {c} with size {size}. Setting to 1"
-                        )
-                        self._sampling_box_shape[c] = 1
+            for c, size in self._sampling_box_shape.items():
+                if size <= 0:
+                    logger.warning(
+                        f"Sampling box shape is <= 0 for axis {c} with size {size}. Setting to 1"
+                    )
+                    self._sampling_box_shape[c] = 1
             return self._sampling_box_shape
 
     @property
     def size(self) -> int:
-        """Returns the size of the dataset in voxels of the largest voxel size requested."""
+        """Returns the size of the dataset in voxels of the smallest voxel size requested."""
         try:
             return self._size
         except AttributeError:
@@ -251,16 +234,16 @@ class CellMapDatasetWriter(Dataset):
 
     # TODO: Switch this to write_indices
     @property
-    def validation_indices(self) -> Sequence[int]:
-        """Returns the indices of the dataset that will produce non-overlapping tiles for use in validation, based on the largest requested voxel size."""
+    def writer_indices(self) -> Sequence[int]:
+        """Returns the indices of the dataset that will produce non-overlapping tiles for use in writer, based on the smallest requested voxel size."""
         try:
-            return self._validation_indices
+            return self._writer_indices
         except AttributeError:
             chunk_size = {}
             for c, size in self.bounding_box_shape.items():
                 chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
-            self._validation_indices = self.get_indices(chunk_size)
-            return self._validation_indices
+            self._writer_indices = self.get_indices(chunk_size)
+            return self._writer_indices
 
     @property
     def device(self) -> torch.device:
@@ -299,7 +282,7 @@ class CellMapDatasetWriter(Dataset):
             # TODO: This is a hacky temprorary fix. Need to figure out why this is happening
             center = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
         center = {
-            c: float(center[i] * self.largest_voxel_sizes[c] + self.sampling_box[c][0])
+            c: float(center[i] * self.smallest_voxel_sizes[c] + self.sampling_box[c][0])
             for i, c in enumerate(self.axis_order)
         }
         return center
@@ -322,13 +305,15 @@ class CellMapDatasetWriter(Dataset):
         return outputs
 
     def __setitem__(
-        self, idx: int, arrays: dict[str, torch.Tensor | np.ndarray]
+        self,
+        indices: int | torch.Tensor | np.ndarray | Sequence[int],
+        arrays: dict[str, torch.Tensor | np.ndarray],
     ) -> None:
         """
         Writes the values for the given arrays at the given index.
 
         Args:
-            idx (int): The index to write the arrays to.
+            indices (int | torch.Tensor | np.ndarray | Sequence[int]): The index or indices to write the arrays to.
             arrays (dict[str, torch.Tensor | np.ndarray]): The arrays to write to disk, with data either split by label class into a dictionary, or divided by class along the channel dimension of an array/tensor. The dictionary should have the following structure::
 
                 {
@@ -336,15 +321,21 @@ class CellMapDatasetWriter(Dataset):
                     ...
                 }
         """
-        self._current_idx = idx
-        self._current_center = center = self.get_center(idx)
-        for array_name, array in arrays.items():
-            if isinstance(array, dict):
-                for label, array in array.items():
-                    self.target_array_writers[array_name][label][center] = array
-            else:
-                for c, label in enumerate(self.classes):
-                    self.target_array_writers[array_name][label][center] = array[c]
+        if isinstance(indices, int):
+            indices = [indices]  # type: ignore
+        for idx in indices:  # type: ignore
+            self._current_idx = idx
+            self._current_center = center = self.get_center(idx)
+            for array_name, array in arrays.items():
+                if isinstance(array, int) or isinstance(array, float):
+                    for c, label in enumerate(self.classes):
+                        self.target_array_writers[array_name][label][center] = array
+                elif isinstance(array, dict):
+                    for label, array in array.items():
+                        self.target_array_writers[array_name][label][center] = array
+                else:
+                    for c, label in enumerate(self.classes):
+                        self.target_array_writers[array_name][label][center] = array[c]
 
     def __repr__(self) -> str:
         """Returns a string representation of the dataset."""
@@ -382,11 +373,11 @@ class CellMapDatasetWriter(Dataset):
         )
 
     def _get_box_shape(self, source_box: Mapping[str, list[float]]) -> dict[str, int]:
-        """Returns the shape of the box in voxels of the largest voxel size requested."""
+        """Returns the shape of the box in voxels of the smallest voxel size requested."""
         box_shape = {}
         for c, (start, stop) in source_box.items():
             size = stop - start
-            size /= self.largest_voxel_sizes[c]
+            size /= self.smallest_voxel_sizes[c]
             box_shape[c] = int(np.floor(size))
         return box_shape
 
