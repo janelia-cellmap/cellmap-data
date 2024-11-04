@@ -17,7 +17,7 @@ class CellMapSubset(Subset):
     ) -> None:
         """
         Args:
-            dataset: CellMapDataset | CellMapMultiDataset | CellMapDatasetWriter
+            dataset: CellMapDataset | CellMapMultiDataset
                 The dataset to be subsetted.
             indices: Sequence[int]
                 The indices of the dataset to be used as the subset.
