@@ -501,17 +501,11 @@ class CellMapImage:
                 method=self.interpolation,  # type: ignore
             )
         elif self.pad:
-            try:
-                tolerance = self._tolerance
-            except AttributeError:
-                self._tolerance = np.ones(coords[self.axes[0]].shape) * np.max(
-                    list(self.scale.values())
-                )
-                tolerance = self._tolerance
             data = self.array.reindex(
                 **coords,
                 method="nearest",
-                tolerance=tolerance,
+                tolerance=np.ones(coords[self.axes[0]].shape)
+                * np.max(list(self.scale.values())),
                 fill_value=self.pad_value,
             )
         else:
@@ -719,19 +713,6 @@ class ImageWriter:
             "units": "nanometer",
             "chunk_shape": list(write_voxel_shape.values()),
         }
-        # array = xarray.DataArray(
-        #     self.fill_value,
-        #     dims=self.metadata["axes"],
-        #     coords=self.full_coords,
-        #     attrs=self.metadata,
-        #     name=self.label_class,
-        # )
-        # dataset = array.to_dataset()
-        # dataset[self.label_class].encoding = {"chunks": self.chunk_shape}
-        # if overwrite or not UPath(path).exists():
-        #     dataset.to_zarr(path, mode="w", write_empty_chunks=False, compute=False)
-        # else:
-        #     dataset.to_zarr(path, mode="a", write_empty_chunks=False, compute=False)
 
     @property
     def array(self) -> xarray.DataArray:
@@ -847,7 +828,7 @@ class ImageWriter:
             return self._shape
         except AttributeError:
             self._shape = {
-                c: int(self.world_shape[c] // self.scale[c]) for c in self.axes
+                c: int(np.ceil(self.world_shape[c] / self.scale[c])) for c in self.axes
             }
             return self._shape
 
@@ -898,6 +879,7 @@ class ImageWriter:
     def align_coords(
         self, coords: Mapping[str, tuple[Sequence, np.ndarray]]
     ) -> Mapping[str, tuple[Sequence, np.ndarray]]:
+        # TODO: Deprecate this function?
         """Aligns the given coordinates to the image's coordinates."""
         aligned_coords = {}
         for c in self.axes:
@@ -915,9 +897,6 @@ class ImageWriter:
         """Returns the aligned coordinates for the given center with linear sequential coordinates aligned to the image's reference frame."""
         coords = {}
         for c in self.axes:
-            # Get number of voxels for the axis
-            num_voxels = self.write_voxel_shape[c]
-
             # Get index of closest start voxel to the edge of the write space, based on the center
             start_requested = center[c] - self.write_world_shape[c] / 2
             start_aligned_idx = int(
@@ -926,7 +905,7 @@ class ImageWriter:
 
             # Get the aligned range of coordinates
             coords[c] = self.array.coords[c][
-                start_aligned_idx : start_aligned_idx + num_voxels
+                start_aligned_idx : start_aligned_idx + self.write_voxel_shape[c]
             ]
 
         return coords
@@ -936,24 +915,40 @@ class ImageWriter:
         coords: Mapping[str, float] | Mapping[str, tuple[Sequence, np.ndarray]],
         data: torch.Tensor | np.typing.ArrayLike | float | int,  # type: ignore
     ) -> None:
-        """Writes the given data to the image at the given center or coordinates (in world units). Supports writing torch.Tensor, numpy.ndarray, and scalar data types."""
+        """Writes the given data to the image at the given center (in world units). Supports writing torch.Tensor, numpy.ndarray, and scalar data types, including for batches."""
+        if not isinstance(data, (int, float)):
+            if any(data.shape[i] > self.shape[c] for i, c in enumerate(self.axes)):
+                raise ValueError(
+                    f"Image {self.path} is too small to write data of shape {data.shape}. Image shape is {self.shape}."
+                )
         # Find vectors of coordinates in world space to write data to if necessary
         if isinstance(list(coords.values())[0], int | float):
             center = coords
             coords = self.aligned_coords_from_center(center)  # type: ignore
-        else:
-            # coords = self.align_coords(coords)
-            # print(
-            #     "Warning, setting data to specific coordinates is experimental and may be slow."
-            # )
-            # TODO: Add support for writing to full coordinates (not just center)
-            raise NotImplementedError(
-                "Writing to specific coordinates is not yet implemented."
-            )
-        if isinstance(data, torch.Tensor):
-            data = data.cpu()
+            if isinstance(data, torch.Tensor):
+                data = data.cpu()
 
-        self.array.loc[coords] = np.array(data).squeeze().astype(self.dtype)
+            data = np.array(data).squeeze().astype(self.dtype)
+
+            try:
+                self.array.loc[coords] = data
+            except ValueError as e:
+                print(
+                    f"Writing to center {center} in image {self.path} failed. Coordinates: are not all within the image's bounds. Will drop out of bounds data."
+                )
+                # Crop data to match the number of coordinates matched in the image
+                slices = [slice(None, len(coord)) for coord in coords.values()]
+                data = data[*slices]
+                self.array.loc[coords] = data
+
+        else:
+            # Write batches
+            for i in range(len(coords[self.axes[0]])):
+                if isinstance(data, (int, float)):
+                    this_data = data
+                else:
+                    this_data = data[i]
+                self[{c: coords[c][i] for c in self.axes}] = this_data
 
     def __repr__(self) -> str:
         """Returns a string representation of the ImageWriter object."""

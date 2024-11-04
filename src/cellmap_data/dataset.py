@@ -403,6 +403,8 @@ class CellMapDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
+        idx = np.array(idx)
+        idx[idx < 0] = len(self) + idx[idx < 0]
         try:
             center = np.unravel_index(
                 idx, [self.sampling_box_shape[c] for c in self.axis_order]

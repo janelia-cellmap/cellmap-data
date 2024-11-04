@@ -1,12 +1,15 @@
 # %%
 import os
-from typing import Any, Callable, Mapping, Sequence, Optional
+from typing import Callable, Mapping, Sequence, Optional
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 import tensorstore
 from upath import UPath
-from .image import CellMapImage, EmptyImage, ImageWriter
+
+from torch.utils.data import Subset
+
+from .image import CellMapImage, ImageWriter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -89,6 +92,7 @@ class CellMapDatasetWriter(Dataset):
         self.empty_value = empty_value
         self.overwrite = overwrite
         self._current_center = None
+        self._current_idx = None
         self.input_sources: dict[str, CellMapImage] = {}
         for array_name, array_info in self.input_arrays.items():
             self.input_sources[array_name] = CellMapImage(
@@ -155,8 +159,8 @@ class CellMapDatasetWriter(Dataset):
             return self._bounding_box
         except AttributeError:
             bounding_box = None
-            for bounding_box in self.target_bounds.values():
-                ...
+            for current_box in self.target_bounds.values():
+                bounding_box = self._get_box_union(current_box, bounding_box)
             if bounding_box is None:
                 logger.warning(
                     "Bounding box is None. This may result in errors when trying to sample from the dataset."
@@ -174,30 +178,20 @@ class CellMapDatasetWriter(Dataset):
             self._bounding_box_shape = self._get_box_shape(self.bounding_box)
             return self._bounding_box_shape
 
-    # TODO
     @property
     def sampling_box(self) -> Mapping[str, list[float]]:
-        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
+        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples written to within the bounding box)."""
         try:
             return self._sampling_box
         except AttributeError:
             sampling_box = None
-            for source in list(self.input_sources.values()) + list(
-                self.target_array_writers.values()
-            ):
-                if isinstance(source, dict):
-                    for source in source.values():
-                        if not hasattr(source, "sampling_box"):
-                            continue
-                        sampling_box = self._get_box_intersection(
-                            source.sampling_box, sampling_box  # type: ignore
-                        )
-                else:
-                    if not hasattr(source, "sampling_box"):
-                        continue
-                    sampling_box = self._get_box_intersection(
-                        source.sampling_box, sampling_box
-                    )
+            for array_name, array_info in self.target_arrays.items():
+                padding = {c: np.ceil((shape * scale) / 2) for c, shape, scale in zip(self.axis_order, array_info["shape"], array_info["scale"])}  # type: ignore
+                this_box = {
+                    c: [bounds[0] - padding[c], bounds[1] + padding[c]]
+                    for c, bounds in self.target_bounds[array_name].items()
+                }
+                sampling_box = self._get_box_union(this_box, sampling_box)
             if sampling_box is None:
                 logger.warning(
                     "Sampling box is None. This may result in errors when trying to sample from the dataset."
@@ -232,18 +226,56 @@ class CellMapDatasetWriter(Dataset):
             ).astype(int)
             return self._size
 
-    # TODO: Switch this to write_indices
     @property
     def writer_indices(self) -> Sequence[int]:
-        """Returns the indices of the dataset that will produce non-overlapping tiles for use in writer, based on the smallest requested voxel size."""
+        """Returns the indices of the dataset that will produce non-overlapping tiles for use in writer, based on the smallest requested target array."""
         try:
             return self._writer_indices
         except AttributeError:
-            chunk_size = {}
-            for c, size in self.bounding_box_shape.items():
-                chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
+            # Get smallest target array in world units
+            chunk_box = None
+            for array_info in self.target_arrays.values():
+                this_box = {
+                    c: [0, array_info["shape"][i] * array_info["scale"][i]]
+                    for i, c in enumerate(self.axis_order)
+                }
+                chunk_box = self._get_box_intersection(this_box, chunk_box)
+
+            # Convert to voxel units
+            chunk_size = {c: stop - start for c, (start, stop) in chunk_box.items()}
             self._writer_indices = self.get_indices(chunk_size)
             return self._writer_indices
+
+    def blocks(self) -> Subset:
+        """A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks."""
+        try:
+            return self._blocks
+        except AttributeError:
+            self._blocks = Subset(
+                self,
+                self.writer_indices,
+            )
+            return self._blocks
+
+    def loader(
+        self,
+        batch_size: int = 1,
+        num_workers: int = 0,
+        rng: Optional[torch.Generator] = None,
+        **kwargs,
+    ):
+        """Returns a DataLoader for the dataset."""
+        from .dataloader import CellMapDataLoader
+
+        return CellMapDataLoader(
+            self.blocks,
+            classes=self.classes,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            is_train=False,
+            rng=rng,
+            **kwargs,
+        )
 
     @property
     def device(self) -> torch.device:
@@ -270,6 +302,8 @@ class CellMapDatasetWriter(Dataset):
             return self._len
 
     def get_center(self, idx: int) -> dict[str, float]:
+        idx = np.array(idx)
+        idx[idx < 0] = len(self) + idx[idx < 0]
         try:
             center = np.unravel_index(
                 idx, [self.sampling_box_shape[c] for c in self.axis_order]
@@ -282,7 +316,7 @@ class CellMapDatasetWriter(Dataset):
             # TODO: This is a hacky temprorary fix. Need to figure out why this is happening
             center = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
         center = {
-            c: float(center[i] * self.smallest_voxel_sizes[c] + self.sampling_box[c][0])
+            c: center[i] * self.smallest_voxel_sizes[c] + self.sampling_box[c][0]
             for i, c in enumerate(self.axis_order)
         }
         return center
@@ -294,26 +328,26 @@ class CellMapDatasetWriter(Dataset):
         self._current_center = self.get_center(idx)
         outputs = {}
         for array_name in self.input_arrays.keys():
-            array = self.input_sources[array_name][center]  # type: ignore
+            array = self.input_sources[array_name][self._current_center]  # type: ignore
             # TODO: Assumes 1 channel (i.e. grayscale)
             if array.shape[0] != 1:
                 outputs[array_name] = array[None, ...]
             else:
                 outputs[array_name] = array
-        outputs["idx"] = idx
+        outputs["idx"] = torch.tensor(idx)
 
         return outputs
 
     def __setitem__(
         self,
-        indices: int | torch.Tensor | np.ndarray | Sequence[int],
+        idx: int | torch.Tensor | np.ndarray | Sequence[int],
         arrays: dict[str, torch.Tensor | np.ndarray],
     ) -> None:
         """
         Writes the values for the given arrays at the given index.
 
         Args:
-            indices (int | torch.Tensor | np.ndarray | Sequence[int]): The index or indices to write the arrays to.
+            idx (int | torch.Tensor | np.ndarray | Sequence[int]): The index or indices to write the arrays to.
             arrays (dict[str, torch.Tensor | np.ndarray]): The arrays to write to disk, with data either split by label class into a dictionary, or divided by class along the channel dimension of an array/tensor. The dictionary should have the following structure::
 
                 {
@@ -321,21 +355,24 @@ class CellMapDatasetWriter(Dataset):
                     ...
                 }
         """
-        if isinstance(indices, int):
-            indices = [indices]  # type: ignore
-        for idx in indices:  # type: ignore
-            self._current_idx = idx
-            self._current_center = center = self.get_center(idx)
-            for array_name, array in arrays.items():
-                if isinstance(array, int) or isinstance(array, float):
-                    for c, label in enumerate(self.classes):
-                        self.target_array_writers[array_name][label][center] = array
-                elif isinstance(array, dict):
-                    for label, array in array.items():
-                        self.target_array_writers[array_name][label][center] = array
-                else:
-                    for c, label in enumerate(self.classes):
-                        self.target_array_writers[array_name][label][center] = array[c]
+        self._current_idx = idx
+        self._current_center = self.get_center(self._current_idx)
+        for array_name, array in arrays.items():
+            if isinstance(array, int) or isinstance(array, float):
+                for c, label in enumerate(self.classes):
+                    self.target_array_writers[array_name][label][
+                        self._current_center
+                    ] = array
+            elif isinstance(array, dict):
+                for label, label_array in array.items():
+                    self.target_array_writers[array_name][label][
+                        self._current_center
+                    ] = label_array
+            else:
+                for c, label in enumerate(self.classes):
+                    self.target_array_writers[array_name][label][
+                        self._current_center
+                    ] = array[c]
 
     def __repr__(self) -> str:
         """Returns a string representation of the dataset."""
@@ -380,6 +417,21 @@ class CellMapDatasetWriter(Dataset):
             size /= self.smallest_voxel_sizes[c]
             box_shape[c] = int(np.floor(size))
         return box_shape
+
+    def _get_box_union(
+        self,
+        source_box: Mapping[str, list[float]] | None,
+        current_box: Mapping[str, list[float]] | None,
+    ) -> Mapping[str, list[float]] | None:
+        """Returns the union of the source and current boxes."""
+        if source_box is not None:
+            if current_box is None:
+                return source_box
+            for c, (start, stop) in source_box.items():
+                assert stop > start, f"Invalid box: {start} to {stop}"
+                current_box[c][0] = min(current_box[c][0], start)
+                current_box[c][1] = max(current_box[c][1], stop)
+        return current_box
 
     def _get_box_intersection(
         self,
