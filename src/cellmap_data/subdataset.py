@@ -10,7 +10,11 @@ class CellMapSubset(Subset):
     This subclasses PyTorch Subset to wrap a CellMapDataset or CellMapMultiDataset object under a common API, which can be used for dataloading. It maintains the same API as the Subset class. It retrieves raw and groundtruth data from a CellMapDataset or CellMapMultiDataset object.
     """
 
-    def __init__(self, dataset: CellMapDataset | CellMapMultiDataset, indices: Sequence[int], ) -> None:
+    def __init__(
+        self,
+        dataset: CellMapDataset | CellMapMultiDataset,
+        indices: Sequence[int],
+    ) -> None:
         """
         Args:
             dataset: CellMapDataset | CellMapMultiDataset
