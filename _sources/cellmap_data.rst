@@ -12,6 +12,7 @@
 
    dataloader
    dataset
+   dataset_writer
    datasplit
    image
    multidataset

@@ -260,10 +260,12 @@
  | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#N"><strong>N</strong></a>
+ | <a href="#O"><strong>O</strong></a>
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
  | <a href="#T"><strong>T</strong></a>
  | <a href="#V"><strong>V</strong></a>
+ | <a href="#W"><strong>W</strong></a>
  
 </div>
 <h2 id="_">_</h2>
@@ -279,6 +281,8 @@
         <li><a href="cellmap_data.dataloader.html#cellmap_data.dataloader.CellMapDataLoader.__getitem__">(cellmap_data.dataloader.CellMapDataLoader method)</a>
 </li>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.__getitem__">(cellmap_data.dataset.CellMapDataset method)</a>
+</li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.__getitem__">(cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
 </li>
         <li><a href="cellmap_data.image.html#cellmap_data.image.CellMapImage.__getitem__">(cellmap_data.image.CellMapImage method)</a>
 </li>
@@ -306,6 +310,8 @@
       <ul>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.__len__">(cellmap_data.dataset.CellMapDataset method)</a>
 </li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.__len__">(cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
+</li>
       </ul></li>
   </ul></td>
 </tr></table>
@@ -313,20 +319,28 @@
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cellmap_data.utils.metadata.html#cellmap_data.utils.metadata.add_multiscale_metadata_levels">add_multiscale_metadata_levels() (in module cellmap_data.utils.metadata)</a>
+</li>
+      <li><a href="cellmap_data.image.html#cellmap_data.image.ImageWriter.align_coords">align_coords() (cellmap_data.image.ImageWriter method)</a>
+</li>
+      <li><a href="cellmap_data.image.html#cellmap_data.image.ImageWriter.aligned_coords_from_center">aligned_coords_from_center() (cellmap_data.image.ImageWriter method)</a>
+</li>
       <li><a href="cellmap_data.CellMapImage.html#cellmap_data.CellMapImage.apply_spatial_transforms">apply_spatial_transforms() (cellmap_data.CellMapImage method)</a>
 
       <ul>
         <li><a href="cellmap_data.image.html#cellmap_data.image.CellMapImage.apply_spatial_transforms">(cellmap_data.image.CellMapImage method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cellmap_data.CellMapImage.html#cellmap_data.CellMapImage.array">array (cellmap_data.CellMapImage property)</a>
 
       <ul>
         <li><a href="cellmap_data.image.html#cellmap_data.image.CellMapImage.array">(cellmap_data.image.CellMapImage property)</a>
 </li>
+        <li><a href="cellmap_data.image.html#cellmap_data.image.ImageWriter.array">(cellmap_data.image.ImageWriter property)</a>
+</li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cellmap_data.CellMapImage.html#cellmap_data.CellMapImage.array_path">array_path (cellmap_data.CellMapImage property)</a>
 
       <ul>
@@ -347,12 +361,16 @@
         <li><a href="cellmap_data.image.html#cellmap_data.image.EmptyImage.bg_count">(cellmap_data.image.EmptyImage property)</a>
 </li>
       </ul></li>
+      <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.blocks">blocks (cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
+</li>
       <li><a href="cellmap_data.CellMapDataset.html#cellmap_data.CellMapDataset.bounding_box">bounding_box (cellmap_data.CellMapDataset property)</a>
 
       <ul>
         <li><a href="cellmap_data.CellMapImage.html#cellmap_data.CellMapImage.bounding_box">(cellmap_data.CellMapImage property)</a>
 </li>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.bounding_box">(cellmap_data.dataset.CellMapDataset property)</a>
+</li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.bounding_box">(cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
 </li>
         <li><a href="cellmap_data.image.html#cellmap_data.image.CellMapImage.bounding_box">(cellmap_data.image.CellMapImage property)</a>
 </li>
@@ -365,6 +383,8 @@
 
       <ul>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.bounding_box_shape">(cellmap_data.dataset.CellMapDataset property)</a>
+</li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.bounding_box_shape">(cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -392,6 +412,13 @@
 
       <ul>
         <li><a href="cellmap_data.dataset.html#module-cellmap_data.dataset">module</a>
+</li>
+      </ul></li>
+      <li>
+    cellmap_data.dataset_writer
+
+      <ul>
+        <li><a href="cellmap_data.dataset_writer.html#module-cellmap_data.dataset_writer">module</a>
 </li>
       </ul></li>
       <li>
@@ -513,20 +540,29 @@
         <li><a href="cellmap_data.utils.figs.html#module-cellmap_data.utils.figs">module</a>
 </li>
       </ul></li>
+      <li>
+    cellmap_data.utils.metadata
+
+      <ul>
+        <li><a href="cellmap_data.utils.metadata.html#module-cellmap_data.utils.metadata">module</a>
+</li>
+      </ul></li>
       <li><a href="cellmap_data.CellMapDataLoader.html#cellmap_data.CellMapDataLoader">CellMapDataLoader (class in cellmap_data)</a>
 
       <ul>
         <li><a href="cellmap_data.dataloader.html#cellmap_data.dataloader.CellMapDataLoader">(class in cellmap_data.dataloader)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cellmap_data.CellMapDataset.html#cellmap_data.CellMapDataset">CellMapDataset (class in cellmap_data)</a>
 
       <ul>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset">(class in cellmap_data.dataset)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter">CellMapDatasetWriter (class in cellmap_data.dataset_writer)</a>
+</li>
       <li><a href="cellmap_data.CellMapDataSplit.html#cellmap_data.CellMapDataSplit">CellMapDataSplit (class in cellmap_data)</a>
 
       <ul>
@@ -560,9 +596,15 @@
 </li>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.center">(cellmap_data.dataset.CellMapDataset property)</a>
 </li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.center">(cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
+</li>
         <li><a href="cellmap_data.image.html#cellmap_data.image.CellMapImage.center">(cellmap_data.image.CellMapImage property)</a>
 </li>
+        <li><a href="cellmap_data.image.html#cellmap_data.image.ImageWriter.center">(cellmap_data.image.ImageWriter property)</a>
+</li>
       </ul></li>
+      <li><a href="cellmap_data.image.html#cellmap_data.image.ImageWriter.chunk_shape">chunk_shape (cellmap_data.image.ImageWriter property)</a>
+</li>
       <li><a href="cellmap_data.CellMapDataset.html#cellmap_data.CellMapDataset.class_counts">class_counts (cellmap_data.CellMapDataset property)</a>
 
       <ul>
@@ -616,6 +658,8 @@
       <ul>
         <li><a href="cellmap_data.dataloader.html#cellmap_data.dataloader.CellMapDataLoader.collate_fn">(cellmap_data.dataloader.CellMapDataLoader method)</a>
 </li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.collate_fn">(cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
+</li>
       </ul></li>
       <li><a href="cellmap_data.CellMapDataSplit.html#cellmap_data.CellMapDataSplit.construct">construct() (cellmap_data.CellMapDataSplit method)</a>
 
@@ -629,6 +673,8 @@
         <li><a href="cellmap_data.image.html#cellmap_data.image.CellMapImage.coordinateTransformations">(cellmap_data.image.CellMapImage property)</a>
 </li>
       </ul></li>
+      <li><a href="cellmap_data.utils.metadata.html#cellmap_data.utils.metadata.create_multiscale_metadata">create_multiscale_metadata() (in module cellmap_data.utils.metadata)</a>
+</li>
       <li><a href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.cumulative_sizes">cumulative_sizes (cellmap_data.multidataset.CellMapMultiDataset attribute)</a>
 </li>
   </ul></td>
@@ -657,6 +703,8 @@
 
       <ul>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.device">(cellmap_data.dataset.CellMapDataset property)</a>
+</li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.device">(cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
 </li>
       </ul></li>
       <li><a href="cellmap_data.transforms.targets.distance.html#cellmap_data.transforms.targets.distance.DistanceTransform">DistanceTransform (class in cellmap_data.transforms.targets.distance)</a>
@@ -718,6 +766,8 @@
       <ul>
         <li><a href="cellmap_data.image.html#cellmap_data.image.CellMapImage.full_coords">(cellmap_data.image.CellMapImage property)</a>
 </li>
+        <li><a href="cellmap_data.image.html#cellmap_data.image.ImageWriter.full_coords">(cellmap_data.image.ImageWriter property)</a>
+</li>
       </ul></li>
   </ul></td>
 </tr></table>
@@ -727,12 +777,16 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cellmap_data.transforms.augment.gaussian_noise.html#cellmap_data.transforms.augment.gaussian_noise.GaussianNoise">GaussianNoise (class in cellmap_data.transforms.augment.gaussian_noise)</a>
 </li>
+      <li><a href="cellmap_data.utils.metadata.html#cellmap_data.utils.metadata.generate_base_multiscales_metadata">generate_base_multiscales_metadata() (in module cellmap_data.utils.metadata)</a>
+</li>
       <li><a href="cellmap_data.CellMapDataset.html#cellmap_data.CellMapDataset.generate_spatial_transforms">generate_spatial_transforms() (cellmap_data.CellMapDataset method)</a>
 
       <ul>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.generate_spatial_transforms">(cellmap_data.dataset.CellMapDataset method)</a>
 </li>
       </ul></li>
+      <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.get_center">get_center() (cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
+</li>
       <li><a href="cellmap_data.CellMapDataset.html#cellmap_data.CellMapDataset.get_empty_store">get_empty_store() (cellmap_data.CellMapDataset method)</a>
 
       <ul>
@@ -745,12 +799,16 @@
 </li>
       <li><a href="cellmap_data.utils.figs.html#cellmap_data.utils.figs.get_image_grid_numpy">get_image_grid_numpy() (in module cellmap_data.utils.figs)</a>
 </li>
+      <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.get_image_writer">get_image_writer() (cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
+</li>
       <li><a href="cellmap_data.CellMapDataset.html#cellmap_data.CellMapDataset.get_indices">get_indices() (cellmap_data.CellMapDataset method)</a>
 
       <ul>
         <li><a href="cellmap_data.CellMapMultiDataset.html#cellmap_data.CellMapMultiDataset.get_indices">(cellmap_data.CellMapMultiDataset method)</a>
 </li>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.get_indices">(cellmap_data.dataset.CellMapDataset method)</a>
+</li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.get_indices">(cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
 </li>
         <li><a href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.get_indices">(cellmap_data.multidataset.CellMapMultiDataset method)</a>
 </li>
@@ -775,6 +833,8 @@
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.get_target_array">(cellmap_data.dataset.CellMapDataset method)</a>
 </li>
       </ul></li>
+      <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.get_target_array_writer">get_target_array_writer() (cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
+</li>
       <li><a href="cellmap_data.CellMapMultiDataset.html#cellmap_data.CellMapMultiDataset.get_weighted_sampler">get_weighted_sampler() (cellmap_data.CellMapMultiDataset method)</a>
 
       <ul>
@@ -793,6 +853,8 @@
 <h2 id="I">I</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cellmap_data.image.html#cellmap_data.image.ImageWriter">ImageWriter (class in cellmap_data.image)</a>
+</li>
       <li><a href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.indices">indices (cellmap_data.subdataset.CellMapSubset attribute)</a>
 </li>
   </ul></td>
@@ -816,6 +878,10 @@
 </li>
       </ul></li>
   </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.loader">loader() (cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
+</li>
+  </ul></td>
 </tr></table>
 
 <h2 id="M">M</h2>
@@ -830,6 +896,8 @@
         <li><a href="cellmap_data.dataloader.html#module-cellmap_data.dataloader">cellmap_data.dataloader</a>
 </li>
         <li><a href="cellmap_data.dataset.html#module-cellmap_data.dataset">cellmap_data.dataset</a>
+</li>
+        <li><a href="cellmap_data.dataset_writer.html#module-cellmap_data.dataset_writer">cellmap_data.dataset_writer</a>
 </li>
         <li><a href="cellmap_data.datasplit.html#module-cellmap_data.datasplit">cellmap_data.datasplit</a>
 </li>
@@ -865,6 +933,8 @@
 </li>
         <li><a href="cellmap_data.utils.figs.html#module-cellmap_data.utils.figs">cellmap_data.utils.figs</a>
 </li>
+        <li><a href="cellmap_data.utils.metadata.html#module-cellmap_data.utils.metadata">cellmap_data.utils.metadata</a>
+</li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -885,6 +955,14 @@
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cellmap_data.transforms.augment.normalize.html#cellmap_data.transforms.augment.normalize.Normalize">Normalize (class in cellmap_data.transforms.augment.normalize)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cellmap_data.image.html#cellmap_data.image.ImageWriter.offset">offset (cellmap_data.image.ImageWriter property)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -941,6 +1019,8 @@
 </li>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.sampling_box">(cellmap_data.dataset.CellMapDataset property)</a>
 </li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.sampling_box">(cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
+</li>
         <li><a href="cellmap_data.image.html#cellmap_data.image.CellMapImage.sampling_box">(cellmap_data.image.CellMapImage property)</a>
 </li>
         <li><a href="cellmap_data.image.html#cellmap_data.image.EmptyImage.sampling_box">(cellmap_data.image.EmptyImage property)</a>
@@ -950,6 +1030,8 @@
 
       <ul>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.sampling_box_shape">(cellmap_data.dataset.CellMapDataset property)</a>
+</li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.sampling_box_shape">(cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
 </li>
       </ul></li>
       <li><a href="cellmap_data.CellMapImage.html#cellmap_data.CellMapImage.scale_level">scale_level (cellmap_data.CellMapImage property)</a>
@@ -975,6 +1057,8 @@
 </li>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.set_raw_value_transforms">(cellmap_data.dataset.CellMapDataset method)</a>
 </li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.set_raw_value_transforms">(cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
+</li>
         <li><a href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.set_raw_value_transforms">(cellmap_data.datasplit.CellMapDataSplit method)</a>
 </li>
         <li><a href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.set_raw_value_transforms">(cellmap_data.multidataset.CellMapMultiDataset method)</a>
@@ -982,8 +1066,6 @@
         <li><a href="cellmap_data.subdataset.html#cellmap_data.subdataset.CellMapSubset.set_raw_value_transforms">(cellmap_data.subdataset.CellMapSubset method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cellmap_data.CellMapDataSplit.html#cellmap_data.CellMapDataSplit.set_spatial_transforms">set_spatial_transforms() (cellmap_data.CellMapDataSplit method)</a>
 
       <ul>
@@ -1000,6 +1082,8 @@
         <li><a href="cellmap_data.multidataset.html#cellmap_data.multidataset.CellMapMultiDataset.set_spatial_transforms">(cellmap_data.multidataset.CellMapMultiDataset method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cellmap_data.CellMapDataset.html#cellmap_data.CellMapDataset.set_target_value_transforms">set_target_value_transforms() (cellmap_data.CellMapDataset method)</a>
 
       <ul>
@@ -1023,6 +1107,8 @@
       <ul>
         <li><a href="cellmap_data.image.html#cellmap_data.image.CellMapImage.shape">(cellmap_data.image.CellMapImage property)</a>
 </li>
+        <li><a href="cellmap_data.image.html#cellmap_data.image.ImageWriter.shape">(cellmap_data.image.ImageWriter property)</a>
+</li>
       </ul></li>
       <li><a href="cellmap_data.transforms.targets.distance.html#cellmap_data.transforms.targets.distance.SignedDistanceTransform">SignedDistanceTransform (class in cellmap_data.transforms.targets.distance)</a>
 </li>
@@ -1031,9 +1117,19 @@
       <ul>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.size">(cellmap_data.dataset.CellMapDataset property)</a>
 </li>
-      </ul></li>
-      <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.split_target_path">split_target_path() (in module cellmap_data.dataset)</a>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.size">(cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
 </li>
+      </ul></li>
+      <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.smallest_target_array">smallest_target_array (cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
+</li>
+      <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.smallest_voxel_sizes">smallest_voxel_sizes (cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
+</li>
+      <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.split_target_path">split_target_path() (in module cellmap_data.dataset)</a>
+
+      <ul>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.split_target_path">(in module cellmap_data.dataset_writer)</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -1056,6 +1152,8 @@
         <li><a href="cellmap_data.CellMapSubset.html#cellmap_data.CellMapSubset.to">(cellmap_data.CellMapSubset method)</a>
 </li>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.to">(cellmap_data.dataset.CellMapDataset method)</a>
+</li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.to">(cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
 </li>
         <li><a href="cellmap_data.image.html#cellmap_data.image.CellMapImage.to">(cellmap_data.image.CellMapImage method)</a>
 </li>
@@ -1123,6 +1221,8 @@
       <ul>
         <li><a href="cellmap_data.dataset.html#cellmap_data.dataset.CellMapDataset.verify">(cellmap_data.dataset.CellMapDataset method)</a>
 </li>
+        <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.verify">(cellmap_data.dataset_writer.CellMapDatasetWriter method)</a>
+</li>
       </ul></li>
       <li><a href="cellmap_data.CellMapDataSplit.html#cellmap_data.CellMapDataSplit.verify_datasets">verify_datasets() (cellmap_data.CellMapDataSplit method)</a>
 
@@ -1130,6 +1230,20 @@
         <li><a href="cellmap_data.datasplit.html#cellmap_data.datasplit.CellMapDataSplit.verify_datasets">(cellmap_data.datasplit.CellMapDataSplit method)</a>
 </li>
       </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cellmap_data.image.html#cellmap_data.image.ImageWriter.world_shape">world_shape (cellmap_data.image.ImageWriter property)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cellmap_data.utils.metadata.html#cellmap_data.utils.metadata.write_metadata">write_metadata() (in module cellmap_data.utils.metadata)</a>
+</li>
+      <li><a href="cellmap_data.dataset_writer.html#cellmap_data.dataset_writer.CellMapDatasetWriter.writer_indices">writer_indices (cellmap_data.dataset_writer.CellMapDatasetWriter property)</a>
+</li>
   </ul></td>
 </tr></table>
 

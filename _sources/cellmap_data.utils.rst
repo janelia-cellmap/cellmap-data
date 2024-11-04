@@ -12,3 +12,4 @@ cellmap\_data.utils
 
    dtype
    figs
+   metadata

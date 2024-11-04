@@ -1,4 +1,4 @@
-﻿cellmap\_data.utils.figs
+cellmap\_data.utils.figs
 ========================
 
 .. automodule:: cellmap_data.utils.figs

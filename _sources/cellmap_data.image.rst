@@ -10,4 +10,5 @@ cellmap\_data.image
    
       CellMapImage
       EmptyImage
+      ImageWriter
    

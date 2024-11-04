@@ -323,6 +323,18 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.EmptyImage.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">EmptyImage.set_spatial_transforms()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter"><code class="docutils literal notranslate"><span class="pre">ImageWriter</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.array"><code class="docutils literal notranslate"><span class="pre">ImageWriter.array</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.chunk_shape"><code class="docutils literal notranslate"><span class="pre">ImageWriter.chunk_shape</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.world_shape"><code class="docutils literal notranslate"><span class="pre">ImageWriter.world_shape</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.shape"><code class="docutils literal notranslate"><span class="pre">ImageWriter.shape</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.center"><code class="docutils literal notranslate"><span class="pre">ImageWriter.center</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.offset"><code class="docutils literal notranslate"><span class="pre">ImageWriter.offset</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.full_coords"><code class="docutils literal notranslate"><span class="pre">ImageWriter.full_coords</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.align_coords"><code class="docutils literal notranslate"><span class="pre">ImageWriter.align_coords()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.aligned_coords_from_center"><code class="docutils literal notranslate"><span class="pre">ImageWriter.aligned_coords_from_center()</span></code></a></li>
+</ul>
+</li>
 </ul>
             </nav>
         </div>
@@ -344,6 +356,9 @@
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.image.EmptyImage" title="cellmap_data.image.EmptyImage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">EmptyImage</span></code></a>(target_class, target_scale, ...)</p></td>
 <td><p>Initializes an empty image object.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.image.ImageWriter" title="cellmap_data.image.ImageWriter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ImageWriter</span></code></a>(path, label_class, scale, ...)</p></td>
+<td><p>Initializes an ImageWriter object.</p></td>
 </tr>
 </tbody>
 </table>
@@ -636,6 +651,96 @@
 
 </dd></dl>
 
+<dl class="py class">
+<dt class="sig sig-object py" id="cellmap_data.image.ImageWriter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cellmap_data.image.</span></span><span class="sig-name descname"><span class="pre">ImageWriter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">path:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">~upath.core.UPath,</span> <span class="pre">label_class:</span> <span class="pre">str,</span> <span class="pre">scale:</span> <span class="pre">~typing.Mapping[str,</span> <span class="pre">float]</span> <span class="pre">|</span> <span class="pre">~typing.Sequence[float],</span> <span class="pre">bounding_box:</span> <span class="pre">~typing.Mapping[str,</span> <span class="pre">list[float]],</span> <span class="pre">write_voxel_shape:</span> <span class="pre">~typing.Mapping[str,</span> <span class="pre">int]</span> <span class="pre">|</span> <span class="pre">~typing.Sequence[int],</span> <span class="pre">scale_level:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">axis_order:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'zyx',</span> <span class="pre">context:</span> <span class="pre">~tensorstore.Context</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">overwrite:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">dtype:</span> <span class="pre">~numpy.dtype</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;,</span> <span class="pre">fill_value:</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/image.html#ImageWriter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.image.ImageWriter" title="Link to this definition">#</a></dt>
+<dd><p>Initializes an ImageWriter object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<em>str</em>) – The path to the base folder of the multiscale image file.</p></li>
+<li><p><strong>label_class</strong> (<em>str</em>) – The label class of the image.</p></li>
+<li><p><strong>scale_level</strong> (<em>int</em>) – The multiscale level of the image. Defaults to 0.</p></li>
+<li><p><strong>scale</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>float</em><em>]</em>) – The scale of the image in physical space.</p></li>
+<li><p><strong>bounding_box</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>list</em><em>[</em><em>float</em><em>]</em><em>]</em>) – The total region of interest for the image in world units. Example: {“x”: [12.0, 102.0], “y”: [12.0, 102.0], “z”: [12.0, 102.0]}.</p></li>
+<li><p><strong>write_voxel_shape</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>int</em><em>]</em>) – The shape of data written to the image in voxels.</p></li>
+<li><p><strong>axis_order</strong> (<em>str</em><em>, </em><em>optional</em>) – The order of the axes in the image. Defaults to “zyx”.</p></li>
+<li><p><strong>context</strong> (<em>Optional</em><em>[</em><em>tensorstore.Context</em><em>]</em><em>, </em><em>optional</em>) – The context for the TensorStore. Defaults to None.</p></li>
+<li><p><strong>overwrite</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to overwrite the image if it already exists. Defaults to False.</p></li>
+<li><p><strong>dtype</strong> (<em>np.dtype</em><em>, </em><em>optional</em>) – The data type of the image. Defaults to np.float32.</p></li>
+<li><p><strong>fill_value</strong> (<em>float</em><em> | </em><em>int</em><em>, </em><em>optional</em>) – The value to fill the empty image with before values are written. Defaults to 0.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.image.ImageWriter.array">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">array</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DataArray</span></em><a class="headerlink" href="#cellmap_data.image.ImageWriter.array" title="Link to this definition">#</a></dt>
+<dd><p>Returns the image data as an xarray DataArray.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.image.ImageWriter.chunk_shape">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">chunk_shape</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.image.ImageWriter.chunk_shape" title="Link to this definition">#</a></dt>
+<dd><p>Returns the shape of the chunks for the image.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.image.ImageWriter.world_shape">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">world_shape</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.image.ImageWriter.world_shape" title="Link to this definition">#</a></dt>
+<dd><p>Returns the shape of the image in world units.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.image.ImageWriter.shape">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">shape</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.image.ImageWriter.shape" title="Link to this definition">#</a></dt>
+<dd><p>Returns the shape of the image in voxels.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.image.ImageWriter.center">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">center</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.image.ImageWriter.center" title="Link to this definition">#</a></dt>
+<dd><p>Returns the center of the image in world units.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.image.ImageWriter.offset">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">offset</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.image.ImageWriter.offset" title="Link to this definition">#</a></dt>
+<dd><p>Returns the offset of the image in world units.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.image.ImageWriter.full_coords">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">full_coords</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">DataArray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#cellmap_data.image.ImageWriter.full_coords" title="Link to this definition">#</a></dt>
+<dd><p>Returns the full coordinates of the image in world units.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.image.ImageWriter.align_coords">
+<span class="sig-name descname"><span class="pre">align_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/cellmap_data/image.html#ImageWriter.align_coords"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.image.ImageWriter.align_coords" title="Link to this definition">#</a></dt>
+<dd><p>Aligns the given coordinates to the image’s coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>coords</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>tuple</em><em>[</em><em>Sequence</em><em>, </em><em>ndarray</em><em>]</em><em>]</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Mapping</em>[str, tuple[<em>Sequence</em>, <em>ndarray</em>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.image.ImageWriter.aligned_coords_from_center">
+<span class="sig-name descname"><span class="pre">aligned_coords_from_center</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/image.html#ImageWriter.aligned_coords_from_center"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.image.ImageWriter.aligned_coords_from_center" title="Link to this definition">#</a></dt>
+<dd><p>Returns the aligned coordinates for the given center with linear sequential coordinates aligned to the image’s reference frame.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>center</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>float</em><em>]</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 
 
@@ -698,6 +803,18 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.EmptyImage.class_counts"><code class="docutils literal notranslate"><span class="pre">EmptyImage.class_counts</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.EmptyImage.to"><code class="docutils literal notranslate"><span class="pre">EmptyImage.to()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.EmptyImage.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">EmptyImage.set_spatial_transforms()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter"><code class="docutils literal notranslate"><span class="pre">ImageWriter</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.array"><code class="docutils literal notranslate"><span class="pre">ImageWriter.array</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.chunk_shape"><code class="docutils literal notranslate"><span class="pre">ImageWriter.chunk_shape</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.world_shape"><code class="docutils literal notranslate"><span class="pre">ImageWriter.world_shape</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.shape"><code class="docutils literal notranslate"><span class="pre">ImageWriter.shape</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.center"><code class="docutils literal notranslate"><span class="pre">ImageWriter.center</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.offset"><code class="docutils literal notranslate"><span class="pre">ImageWriter.offset</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.full_coords"><code class="docutils literal notranslate"><span class="pre">ImageWriter.full_coords</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.align_coords"><code class="docutils literal notranslate"><span class="pre">ImageWriter.align_coords()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.image.ImageWriter.aligned_coords_from_center"><code class="docutils literal notranslate"><span class="pre">ImageWriter.aligned_coords_from_center()</span></code></a></li>
 </ul>
 </li>
 </ul>
