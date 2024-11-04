@@ -3,11 +3,9 @@ import os
 from typing import Callable, Mapping, Sequence, Optional
 import numpy as np
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset, DataLoader
 import tensorstore
 from upath import UPath
-
-from torch.utils.data import Subset
 
 from .image import CellMapImage, ImageWriter
 import logging
@@ -153,6 +151,20 @@ class CellMapDatasetWriter(Dataset):
             return self._smallest_voxel_sizes
 
     @property
+    def smallest_target_array(self) -> Mapping[str, float]:
+        """Returns the smallest target array in world units."""
+        try:
+            return self._smallest_target_array
+        except AttributeError:
+            smallest_target_array = {c: np.inf for c in self.axis_order}
+            for writer in self.target_array_writers.values():
+                for _, writer in writer.items():
+                    for c, size in writer.write_world_shape.items():
+                        smallest_target_array[c] = min(smallest_target_array[c], size)
+            self._smallest_target_array = smallest_target_array
+            return self._smallest_target_array
+
+    @property
     def bounding_box(self) -> Mapping[str, list[float]]:
         """Returns the bounding box inclusive of all the target images."""
         try:
@@ -180,7 +192,7 @@ class CellMapDatasetWriter(Dataset):
 
     @property
     def sampling_box(self) -> Mapping[str, list[float]]:
-        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples written to within the bounding box)."""
+        """Returns the sampling box of the dataset (i.e. where centers should be drawn from and to fully sample within the bounding box)."""
         try:
             return self._sampling_box
         except AttributeError:
@@ -188,7 +200,7 @@ class CellMapDatasetWriter(Dataset):
             for array_name, array_info in self.target_arrays.items():
                 padding = {c: np.ceil((shape * scale) / 2) for c, shape, scale in zip(self.axis_order, array_info["shape"], array_info["scale"])}  # type: ignore
                 this_box = {
-                    c: [bounds[0] - padding[c], bounds[1] + padding[c]]
+                    c: [bounds[0] + padding[c], bounds[1] - padding[c]]
                     for c, bounds in self.target_bounds[array_name].items()
                 }
                 sampling_box = self._get_box_union(this_box, sampling_box)
@@ -232,20 +244,10 @@ class CellMapDatasetWriter(Dataset):
         try:
             return self._writer_indices
         except AttributeError:
-            # Get smallest target array in world units
-            chunk_box = None
-            for array_info in self.target_arrays.values():
-                this_box = {
-                    c: [0, array_info["shape"][i] * array_info["scale"][i]]
-                    for i, c in enumerate(self.axis_order)
-                }
-                chunk_box = self._get_box_intersection(this_box, chunk_box)
-
-            # Convert to voxel units
-            chunk_size = {c: stop - start for c, (start, stop) in chunk_box.items()}
-            self._writer_indices = self.get_indices(chunk_size)
+            self._writer_indices = self.get_indices(self.smallest_target_array)
             return self._writer_indices
 
+    @property
     def blocks(self) -> Subset:
         """A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks."""
         try:
@@ -261,21 +263,28 @@ class CellMapDatasetWriter(Dataset):
         self,
         batch_size: int = 1,
         num_workers: int = 0,
-        rng: Optional[torch.Generator] = None,
         **kwargs,
     ):
         """Returns a DataLoader for the dataset."""
-        from .dataloader import CellMapDataLoader
-
-        return CellMapDataLoader(
+        return DataLoader(
             self.blocks,
-            classes=self.classes,
             batch_size=batch_size,
             num_workers=num_workers,
-            is_train=False,
-            rng=rng,
+            collate_fn=self.collate_fn,
             **kwargs,
         )
+
+    def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
+        """Combine a list of dictionaries from different sources into a single dictionary for output."""
+        outputs = {}
+        for b in batch:
+            for key, value in b.items():
+                if key not in outputs:
+                    outputs[key] = []
+                outputs[key].append(value)
+        for key, value in outputs.items():
+            outputs[key] = torch.stack(value)
+        return outputs
 
     @property
     def device(self) -> torch.device:
@@ -376,7 +385,7 @@ class CellMapDatasetWriter(Dataset):
 
     def __repr__(self) -> str:
         """Returns a string representation of the dataset."""
-        return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tOutput path(s): {self.target_path}\n\tClasses: {self.classes})"
+        return f"CellMapDatasetWriter(\n\tRaw path: {self.raw_path}\n\tOutput path(s): {self.target_path}\n\tClasses: {self.classes})"
 
     def get_target_array_writer(
         self, array_name: str, array_info: Mapping[str, Sequence[int | float]]
@@ -457,13 +466,25 @@ class CellMapDatasetWriter(Dataset):
             print(f"Error: {e}")
             return False
 
-    def get_indices(self, chunk_size: Mapping[str, int]) -> Sequence[int]:
-        """Returns the indices of the dataset that will tile the dataset according to the chunk_size."""
+    def get_indices(self, chunk_size: Mapping[str, float]) -> Sequence[int]:
+        """Returns the indices of the dataset that will tile the dataset according to the chunk_size (supplied in world units)."""
         # TODO: ADD TEST
-        # Get padding per axis
+
+        # Convert the target chunk size in world units to voxel units
+        chunk_size = {
+            c: int(size // self.smallest_voxel_sizes[c])
+            for c, size in chunk_size.items()
+        }
+
         indices_dict = {}
         for c, size in chunk_size.items():
             indices_dict[c] = np.arange(0, self.sampling_box_shape[c], size, dtype=int)
+
+            # Make sure the last index is included
+            if indices_dict[c][-1] != self.sampling_box_shape[c] - 1:
+                indices_dict[c] = np.append(
+                    indices_dict[c], self.sampling_box_shape[c] - 1
+                )
 
         indices = []
         # Generate linear indices by unraveling all combinations of axes indices
@@ -493,3 +514,6 @@ class CellMapDatasetWriter(Dataset):
         self.raw_value_transforms = transforms
         for source in self.input_sources.values():
             source.value_transform = transforms
+
+
+# %%
