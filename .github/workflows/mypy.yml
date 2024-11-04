@@ -1,6 +1,9 @@
 name: Python mypy
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
 
 jobs:
   static-analysis:
@@ -9,6 +12,8 @@ jobs:
     steps:
       - name: Setup Python
         uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
       - name: Setup checkout
         uses: actions/checkout@v4
       - name: mypy

@@ -1,8 +1,8 @@
 import torch
-from torch.utils.data import DataLoader, Sampler
+from torch.utils.data import DataLoader, Sampler, Subset
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
-from .subdataset import CellMapSubset
+from .dataset_writer import CellMapDatasetWriter
 from typing import Callable, Iterable, Optional, Sequence
 
 
@@ -30,7 +30,7 @@ class CellMapDataLoader:
 
     def __init__(
         self,
-        dataset: CellMapMultiDataset | CellMapDataset | CellMapSubset,
+        dataset: CellMapMultiDataset | CellMapDataset | Subset | CellMapDatasetWriter,
         classes: Iterable[str],
         batch_size: int = 1,
         num_workers: int = 0,
@@ -113,7 +113,7 @@ class CellMapDataLoader:
 
     def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
         """Combine a list of dictionaries from different sources into a single dictionary for output."""
-        outputs: dict[str, torch.Tensor] = {}
+        outputs = {}
         for b in batch:
             for key, value in b.items():
                 if key not in outputs:

@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 name = "cellmap-data"
 description = "Utility for loading CellMap data for machine learning training, utilizing PyTorch, Xarray, TensorStore, and PyDantic."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "BSD 3-Clause License" }
 authors = [
     { email = "rhoadesj@hhmi.org", name = "Jeff Rhoades" },
@@ -17,9 +17,8 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Typing :: Typed",
 ]
 dynamic = ["version"]
@@ -32,8 +31,9 @@ dependencies = [
     "pydantic_ome_ngff",
     "xarray_ome_ngff",
     "tensorstore",
+    "xarray-tensorstore @ git+https://github.com/rhoadesScholar/xarray-tensorstore.git",
     # "xarray-tensorstore @ git+https://github.com/google/xarray-tensorstore.git",
-    "xarray-tensorstore",
+    # "xarray-tensorstore",
     "universal_pathlib>=0.2.0",
     "fsspec[s3,http]",
     "cellpose",

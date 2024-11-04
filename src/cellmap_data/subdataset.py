@@ -1,6 +1,7 @@
 from typing import Callable, Sequence
 from torch.utils.data import Subset
 from .dataset import CellMapDataset
+
 from .multidataset import CellMapMultiDataset
 
 
@@ -10,7 +11,9 @@ class CellMapSubset(Subset):
     """
 
     def __init__(
-        self, dataset: CellMapDataset | CellMapMultiDataset, indices: Sequence[int]
+        self,
+        dataset: CellMapDataset | CellMapMultiDataset,
+        indices: Sequence[int],
     ) -> None:
         """
         Args:

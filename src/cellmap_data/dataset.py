@@ -403,16 +403,18 @@ class CellMapDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
+        idx = np.array(idx)
+        idx[idx < 0] = len(self) + idx[idx < 0]
         try:
             center = np.unravel_index(
                 idx, [self.sampling_box_shape[c] for c in self.axis_order]
             )
         except ValueError:
+            # TODO: This is a hacky temprorary fix. Need to figure out why this is happening
             logger.error(
                 f"Index {idx} out of bounds for dataset {self} of length {len(self)}"
             )
             logger.warning(f"Returning closest index in bounds")
-            # TODO: This is a hacky temprorary fix. Need to figure out why this is happening
             center = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
         center = {
             c: center[i] * self.largest_voxel_sizes[c] + self.sampling_box[c][0]
