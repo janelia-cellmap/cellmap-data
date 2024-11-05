@@ -933,7 +933,10 @@ class ImageWriter:
                     f"Writing to center {center} in image {self.path} failed. Coordinates: are not all within the image's bounds. Will drop out of bounds data."
                 )
                 # Crop data to match the number of coordinates matched in the image
-                slices = [slice(None, len(coord)) for coord in coords.values()]
+                slices = []
+                for coord in coords.values():
+                    if len(coord) > 1:
+                        slices.append(slice(None, len(coord)))
                 data = data[*slices]
                 self.array.loc[coords] = data
 

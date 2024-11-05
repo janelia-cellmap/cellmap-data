@@ -381,7 +381,7 @@ class CellMapDatasetWriter(Dataset):
                 for c, label in enumerate(self.classes):
                     self.target_array_writers[array_name][label][
                         self._current_center
-                    ] = array[c]
+                    ] = array[:, c, ...]
 
     def __repr__(self) -> str:
         """Returns a string representation of the dataset."""
