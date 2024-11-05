@@ -916,11 +916,7 @@ class ImageWriter:
         data: torch.Tensor | np.typing.ArrayLike | float | int,  # type: ignore
     ) -> None:
         """Writes the given data to the image at the given center (in world units). Supports writing torch.Tensor, numpy.ndarray, and scalar data types, including for batches."""
-        if not isinstance(data, (int, float)):
-            if any(data.shape[i] > self.shape[c] for i, c in enumerate(self.axes)):
-                raise ValueError(
-                    f"Image {self.path} is too small to write data of shape {data.shape}. Image shape is {self.shape}."
-                )
+
         # Find vectors of coordinates in world space to write data to if necessary
         if isinstance(list(coords.values())[0], int | float):
             center = coords
