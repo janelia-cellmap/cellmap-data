@@ -28,4 +28,4 @@ jobs:
         pytest --color=yes --cov=cellmap_models --cov-report=xml --cov-report=term-missing tests
     # Coverage should work out of the box for public repos. For private repos, more setup is likely required.
     - name: Coverage
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
