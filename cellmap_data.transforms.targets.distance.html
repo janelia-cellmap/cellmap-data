@@ -323,10 +323,10 @@
 <p class="rubric">Classes</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.transforms.targets.distance.DistanceTransform" title="cellmap_data.transforms.targets.distance.DistanceTransform"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DistanceTransform</span></code></a>([use_cuda])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.transforms.targets.distance.DistanceTransform" title="cellmap_data.transforms.targets.distance.DistanceTransform"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DistanceTransform</span></code></a>([use_cuda, clip])</p></td>
 <td><p>Initialize the distance transform.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform" title="cellmap_data.transforms.targets.distance.SignedDistanceTransform"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SignedDistanceTransform</span></code></a>([use_cuda])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform" title="cellmap_data.transforms.targets.distance.SignedDistanceTransform"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SignedDistanceTransform</span></code></a>([use_cuda, clip])</p></td>
 <td><p>Initialize the signed distance transform.</p></td>
 </tr>
 </tbody>
@@ -347,11 +347,14 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="cellmap_data.transforms.targets.distance.DistanceTransform">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cellmap_data.transforms.targets.distance.</span></span><span class="sig-name descname"><span class="pre">DistanceTransform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_cuda</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/transforms/targets/distance.html#DistanceTransform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.transforms.targets.distance.DistanceTransform" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cellmap_data.transforms.targets.distance.</span></span><span class="sig-name descname"><span class="pre">DistanceTransform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_cuda</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[-inf,</span> <span class="pre">inf]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/transforms/targets/distance.html#DistanceTransform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.transforms.targets.distance.DistanceTransform" title="Link to this definition">#</a></dt>
 <dd><p>Initialize the distance transform.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>use_cuda</strong> (<em>bool</em><em>, </em><em>optional</em>) – Use CUDA. Defaults to False.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>use_cuda</strong> (<em>bool</em><em>, </em><em>optional</em>) – Use CUDA. Defaults to False.</p></li>
+<li><p><strong>clip</strong> (<em>list</em><em>, </em><em>optional</em>) – Clip the output to the specified range. Defaults to [-torch.inf, torch.inf].</p></li>
+</ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>NotImplementedError</strong> – CUDA is not supported yet.</p>
@@ -375,11 +378,14 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="cellmap_data.transforms.targets.distance.SignedDistanceTransform">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cellmap_data.transforms.targets.distance.</span></span><span class="sig-name descname"><span class="pre">SignedDistanceTransform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_cuda</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/transforms/targets/distance.html#SignedDistanceTransform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cellmap_data.transforms.targets.distance.</span></span><span class="sig-name descname"><span class="pre">SignedDistanceTransform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_cuda</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[-inf,</span> <span class="pre">inf]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/transforms/targets/distance.html#SignedDistanceTransform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform" title="Link to this definition">#</a></dt>
 <dd><p>Initialize the signed distance transform.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>use_cuda</strong> (<em>bool</em><em>, </em><em>optional</em>) – Use CUDA. Defaults to False.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>use_cuda</strong> (<em>bool</em><em>, </em><em>optional</em>) – Use CUDA. Defaults to False.</p></li>
+<li><p><strong>clip</strong> (<em>list</em><em>, </em><em>optional</em>) – Clip the output to the specified range. Defaults to [-torch.inf, torch.inf].</p></li>
+</ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>NotImplementedError</strong> – CUDA is not supported yet.</p>

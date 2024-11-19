@@ -266,18 +266,20 @@
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        use_cuda (bool): Use CUDA.</span>
+<span class="sd">        clip (list): Clip the output to the specified range.</span>
 
 <span class="sd">    Methods:</span>
 <span class="sd">        _transform: Transform the input.</span>
 <span class="sd">        forward: Forward pass.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cuda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cuda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">clip</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">inf</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize the distance transform.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            use_cuda (bool, optional): Use CUDA. Defaults to False.</span>
+<span class="sd">            clip (list, optional): Clip the output to the specified range. Defaults to [-torch.inf, torch.inf].</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            NotImplementedError: CUDA is not supported yet.</span>
@@ -285,6 +287,7 @@
         <span class="ne">UserWarning</span><span class="p">(</span><span class="s2">&quot;This is still in development and may not work as expected&quot;</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">use_cuda</span> <span class="o">=</span> <span class="n">use_cuda</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clip</span> <span class="o">=</span> <span class="n">clip</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_cuda</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
                 <span class="s2">&quot;CUDA is not supported yet because testing did not return expected results.&quot;</span>
@@ -298,7 +301,7 @@
             <span class="p">)</span>
             <span class="c1"># return transform_cuda(x)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">clip</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">clip</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 
 <div class="viewcode-block" id="DistanceTransform.forward">
 <a class="viewcode-back" href="../../../../cellmap_data.transforms.targets.distance.html#cellmap_data.transforms.targets.distance.DistanceTransform.forward">[docs]</a>
@@ -322,18 +325,20 @@
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        use_cuda (bool): Use CUDA.</span>
+<span class="sd">        clip (list): Clip the output to the specified range.</span>
 
 <span class="sd">    Methods:</span>
 <span class="sd">        _transform: Transform the input.</span>
 <span class="sd">        forward: Forward pass.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cuda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_cuda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">clip</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">inf</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize the signed distance transform.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            use_cuda (bool, optional): Use CUDA. Defaults to False.</span>
+<span class="sd">            clip (list, optional): Clip the output to the specified range. Defaults to [-torch.inf, torch.inf].</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            NotImplementedError: CUDA is not supported yet.</span>
@@ -341,6 +346,7 @@
         <span class="ne">UserWarning</span><span class="p">(</span><span class="s2">&quot;This is still in development and may not work as expected&quot;</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">use_cuda</span> <span class="o">=</span> <span class="n">use_cuda</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clip</span> <span class="o">=</span> <span class="n">clip</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_cuda</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
                 <span class="s2">&quot;CUDA is not supported yet because testing did not return expected results.&quot;</span>
@@ -354,7 +360,9 @@
             <span class="p">)</span>
             <span class="c1"># return transform_cuda(x) - transform_cuda(x.logical_not())</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">logical_not</span><span class="p">())</span>
+            <span class="c1"># TODO: Fix this to be correct</span>
+            
+            <span class="k">return</span> <span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">clip</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">clip</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">logical_not</span><span class="p">())</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">clip</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">clip</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 
 <div class="viewcode-block" id="SignedDistanceTransform.forward">
 <a class="viewcode-back" href="../../../../cellmap_data.transforms.targets.distance.html#cellmap_data.transforms.targets.distance.SignedDistanceTransform.forward">[docs]</a>
