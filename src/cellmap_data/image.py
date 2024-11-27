@@ -362,9 +362,8 @@ class CellMapImage:
                 self._bg_count = bg_count * np.prod(list(self.scale.values()))
             except Exception as e:
                 # print(f"Error: {e}")
-                print(
-                    "Unable to get class counts from metadata, falling back to giving foreground 1 pixel, and the rest to background."
-                )
+                print(f"Unable to get class counts for {self.path}")
+                # print("from metadata, falling back to giving foreground 1 pixel, and the rest to background.")
                 self._class_counts = np.prod(list(self.scale.values()))
                 self._bg_count = (
                     np.prod(self.group[self.scale_level].shape) - 1
