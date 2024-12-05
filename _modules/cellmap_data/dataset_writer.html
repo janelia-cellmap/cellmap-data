@@ -474,7 +474,7 @@
             <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sampling_box_shape</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="k">if</span> <span class="n">size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Sampling box shape is &lt;= 0 for axis </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> with size </span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">. Setting to 1&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Sampling box shape is &lt;= 0 for axis </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> with size </span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">. Setting to 1 and padding&quot;</span>
                     <span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_sampling_box_shape</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sampling_box_shape</span>

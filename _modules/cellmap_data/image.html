@@ -607,16 +607,22 @@
         <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="c1"># Get from cellmap-schemas metadata, then normalize by resolution</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="c1"># TODO: Make work with HDF5 files</span>
-                <span class="n">bg_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_level</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;cellmap&quot;</span><span class="p">][</span><span class="s2">&quot;annotation&quot;</span><span class="p">][</span>
+                <span class="n">bg_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="s2">&quot;s0&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;cellmap&quot;</span><span class="p">][</span><span class="s2">&quot;annotation&quot;</span><span class="p">][</span>
                     <span class="s2">&quot;complement_counts&quot;</span>
                 <span class="p">][</span><span class="s2">&quot;absent&quot;</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">scale</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;multiscales&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;datasets&quot;</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="n">scale</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;s0&quot;</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">transform</span> <span class="ow">in</span> <span class="n">scale</span><span class="p">[</span><span class="s2">&quot;coordinateTransformations&quot;</span><span class="p">]:</span>
+                            <span class="k">if</span> <span class="s2">&quot;scale&quot;</span> <span class="ow">in</span> <span class="n">transform</span><span class="p">:</span>
+                                <span class="n">s0_scale</span> <span class="o">=</span> <span class="n">transform</span><span class="p">[</span><span class="s2">&quot;scale&quot;</span><span class="p">]</span>
+                                <span class="k">break</span>
+                        <span class="k">break</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_level</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">-</span> <span class="n">bg_count</span>
-                <span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_bg_count</span> <span class="o">=</span> <span class="n">bg_count</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="p">[</span><span class="s2">&quot;s0&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">-</span> <span class="n">bg_count</span>
+                <span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">s0_scale</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_bg_count</span> <span class="o">=</span> <span class="n">bg_count</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">s0_scale</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="c1"># print(f&quot;Error: {e}&quot;)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unable to get class counts for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="c1"># print(&quot;from metadata, falling back to giving foreground 1 pixel, and the rest to background.&quot;)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
@@ -1222,9 +1228,11 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">coords</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
             <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Writing to center </span><span class="si">{</span><span class="n">center</span><span class="si">}</span><span class="s2"> in image </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2"> failed. Coordinates: are not all within the image&#39;s bounds. Will drop out of bounds data.&quot;</span>
-                <span class="p">)</span>
+                <span class="c1"># print(e)</span>
+                <span class="c1"># print(data.shape)</span>
+                <span class="c1"># print(</span>
+                <span class="c1">#     f&quot;Writing to center {center} in image {self.path} failed. Coordinates: are not all within the image&#39;s bounds. Will drop out of bounds data.&quot;</span>
+                <span class="c1"># )</span>
                 <span class="c1"># Crop data to match the number of coordinates matched in the image</span>
                 <span class="n">slices</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">coords</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
