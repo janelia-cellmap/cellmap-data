@@ -105,7 +105,7 @@ class CellMapDataLoader:
                 "num_workers": self.num_workers,
                 "collate_fn": self.collate_fn,
             }
-        )        
+        )
         if self.sampler is not None:
             if isinstance(self.sampler, Callable):
                 kwargs["sampler"] = self.sampler()
