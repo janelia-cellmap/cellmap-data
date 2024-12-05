@@ -307,7 +307,7 @@ class CellMapDataset(Dataset):
                 for c, size in self._sampling_box_shape.items():
                     if size <= 0:
                         logger.warning(
-                            f"Sampling box shape is <= 0 for axis {c} with size {size}. Setting to 1"
+                            f"Sampling box shape is <= 0 for axis {c} with size {size}. Setting to 1 and padding."
                         )
                         self._sampling_box_shape[c] = 1
             return self._sampling_box_shape
