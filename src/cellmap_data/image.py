@@ -783,6 +783,10 @@ class ImageWriter:
             try:
                 array = array_future.result()
             except ValueError as e:
+                if "ALREADY_EXISTS" in str(e):
+                    raise FileExistsError(
+                        f"Image already exists at {self.path}. Set overwrite=True to overwrite the image."
+                    )
                 Warning(e)
                 UserWarning("Falling back to zarr3 driver")
                 spec["driver"] = "zarr3"
