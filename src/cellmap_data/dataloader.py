@@ -97,19 +97,25 @@ class CellMapDataLoader:
 
     def refresh(self):
         """If the sampler is a Callable, refresh the DataLoader with the current sampler."""
-        if isinstance(self.sampler, Callable):
-            kwargs = self.default_kwargs.copy()
-            kwargs.update(
-                {
-                    "dataset": self.dataset,
-                    "batch_size": self.batch_size,
-                    "num_workers": self.num_workers,
-                    "collate_fn": self.collate_fn,
-                    "shuffle": False,
-                }
-            )
-            kwargs["sampler"] = self.sampler()
-            self.loader = DataLoader(**kwargs)
+        kwargs = self.default_kwargs.copy()
+        kwargs.update(
+            {
+                "dataset": self.dataset,
+                "batch_size": self.batch_size,
+                "num_workers": self.num_workers,
+                "collate_fn": self.collate_fn,
+            }
+        )
+        if self.sampler is not None:
+            if isinstance(self.sampler, Callable):
+                kwargs["sampler"] = self.sampler()
+            else:
+                kwargs["sampler"] = self.sampler
+        elif self.is_train:
+            kwargs["shuffle"] = True
+        else:
+            kwargs["shuffle"] = False
+        self.loader = DataLoader(**kwargs)
 
     def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
         """Combine a list of dictionaries from different sources into a single dictionary for output."""

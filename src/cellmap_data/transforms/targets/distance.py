@@ -14,18 +14,20 @@ class DistanceTransform(torch.nn.Module):
 
     Attributes:
         use_cuda (bool): Use CUDA.
+        clip (list): Clip the output to the specified range.
 
     Methods:
         _transform: Transform the input.
         forward: Forward pass.
     """
 
-    def __init__(self, use_cuda: bool = False) -> None:
+    def __init__(self, use_cuda: bool = False, clip=[-torch.inf, torch.inf]) -> None:
         """
         Initialize the distance transform.
 
         Args:
             use_cuda (bool, optional): Use CUDA. Defaults to False.
+            clip (list, optional): Clip the output to the specified range. Defaults to [-torch.inf, torch.inf].
 
         Raises:
             NotImplementedError: CUDA is not supported yet.
@@ -33,6 +35,7 @@ class DistanceTransform(torch.nn.Module):
         UserWarning("This is still in development and may not work as expected")
         super().__init__()
         self.use_cuda = use_cuda
+        self.clip = clip
         if self.use_cuda:
             raise NotImplementedError(
                 "CUDA is not supported yet because testing did not return expected results."
@@ -46,7 +49,7 @@ class DistanceTransform(torch.nn.Module):
             )
             # return transform_cuda(x)
         else:
-            return transform(x)
+            return transform(x).clip(self.clip[0], self.clip[1])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
@@ -64,18 +67,20 @@ class SignedDistanceTransform(torch.nn.Module):
 
     Attributes:
         use_cuda (bool): Use CUDA.
+        clip (list): Clip the output to the specified range.
 
     Methods:
         _transform: Transform the input.
         forward: Forward pass.
     """
 
-    def __init__(self, use_cuda: bool = False) -> None:
+    def __init__(self, use_cuda: bool = False, clip=[-torch.inf, torch.inf]) -> None:
         """
         Initialize the signed distance transform.
 
         Args:
             use_cuda (bool, optional): Use CUDA. Defaults to False.
+            clip (list, optional): Clip the output to the specified range. Defaults to [-torch.inf, torch.inf].
 
         Raises:
             NotImplementedError: CUDA is not supported yet.
@@ -83,6 +88,7 @@ class SignedDistanceTransform(torch.nn.Module):
         UserWarning("This is still in development and may not work as expected")
         super().__init__()
         self.use_cuda = use_cuda
+        self.clip = clip
         if self.use_cuda:
             raise NotImplementedError(
                 "CUDA is not supported yet because testing did not return expected results."
@@ -96,7 +102,11 @@ class SignedDistanceTransform(torch.nn.Module):
             )
             # return transform_cuda(x) - transform_cuda(x.logical_not())
         else:
-            return transform(x) - transform(x.logical_not())
+            # TODO: Fix this to be correct
+
+            return transform(x).clip(self.clip[0], self.clip[1]) - transform(
+                x.logical_not()
+            ).clip(self.clip[0], self.clip[1])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass."""

@@ -157,7 +157,7 @@ class CellMapMultiDataset(ConcatDataset):
                     if i == 0:
                         offset = 0
                     else:
-                        offset = self.cummulative_sizes[i - 1]
+                        offset = self.cumulative_sizes[i - 1]
                     sample_indices = np.array(dataset.validation_indices) + offset
                     indices.extend(list(sample_indices))
                 except AttributeError:

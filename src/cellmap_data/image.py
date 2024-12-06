@@ -352,19 +352,24 @@ class CellMapImage:
         except AttributeError:
             # Get from cellmap-schemas metadata, then normalize by resolution
             try:
-                # TODO: Make work with HDF5 files
-                bg_count = self.group[self.scale_level].attrs["cellmap"]["annotation"][
+                bg_count = self.group["s0"].attrs["cellmap"]["annotation"][
                     "complement_counts"
                 ]["absent"]
+                for scale in self.group.attrs["multiscales"][0]["datasets"]:
+                    if scale["path"] == "s0":
+                        for transform in scale["coordinateTransformations"]:
+                            if "scale" in transform:
+                                s0_scale = transform["scale"]
+                                break
+                        break
                 self._class_counts = (
-                    np.prod(self.group[self.scale_level].shape) - bg_count
-                ) * np.prod(list(self.scale.values()))
-                self._bg_count = bg_count * np.prod(list(self.scale.values()))
+                    np.prod(self.group["s0"].shape) - bg_count
+                ) * np.prod(s0_scale)
+                self._bg_count = bg_count * np.prod(s0_scale)
             except Exception as e:
-                # print(f"Error: {e}")
-                print(
-                    "Unable to get class counts from metadata, falling back to giving foreground 1 pixel, and the rest to background."
-                )
+                print(f"Error: {e}")
+                print(f"Unable to get class counts for {self.path}")
+                # print("from metadata, falling back to giving foreground 1 pixel, and the rest to background.")
                 self._class_counts = np.prod(list(self.scale.values()))
                 self._bg_count = (
                     np.prod(self.group[self.scale_level].shape) - 1
@@ -778,6 +783,10 @@ class ImageWriter:
             try:
                 array = array_future.result()
             except ValueError as e:
+                if "ALREADY_EXISTS" in str(e):
+                    raise FileExistsError(
+                        f"Image already exists at {self.path}. Set overwrite=True to overwrite the image."
+                    )
                 Warning(e)
                 UserWarning("Falling back to zarr3 driver")
                 spec["driver"] = "zarr3"
@@ -929,9 +938,11 @@ class ImageWriter:
             try:
                 self.array.loc[coords] = data
             except ValueError as e:
-                print(
-                    f"Writing to center {center} in image {self.path} failed. Coordinates: are not all within the image's bounds. Will drop out of bounds data."
-                )
+                # print(e)
+                # print(data.shape)
+                # print(
+                #     f"Writing to center {center} in image {self.path} failed. Coordinates: are not all within the image's bounds. Will drop out of bounds data."
+                # )
                 # Crop data to match the number of coordinates matched in the image
                 slices = []
                 for coord in coords.values():
