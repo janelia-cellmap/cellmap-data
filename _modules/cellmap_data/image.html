@@ -1071,6 +1071,10 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">array</span> <span class="o">=</span> <span class="n">array_future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
             <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s2">&quot;ALREADY_EXISTS&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Image already exists at </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">. Set overwrite=True to overwrite the image.&quot;</span>
+                    <span class="p">)</span>
                 <span class="ne">Warning</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
                 <span class="ne">UserWarning</span><span class="p">(</span><span class="s2">&quot;Falling back to zarr3 driver&quot;</span><span class="p">)</span>
                 <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;driver&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;zarr3&quot;</span>
