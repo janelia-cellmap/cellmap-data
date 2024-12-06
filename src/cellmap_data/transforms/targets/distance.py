@@ -103,8 +103,10 @@ class SignedDistanceTransform(torch.nn.Module):
             # return transform_cuda(x) - transform_cuda(x.logical_not())
         else:
             # TODO: Fix this to be correct
-            
-            return transform(x).clip(self.clip[0], self.clip[1]) - transform(x.logical_not()).clip(self.clip[0], self.clip[1])
+
+            return transform(x).clip(self.clip[0], self.clip[1]) - transform(
+                x.logical_not()
+            ).clip(self.clip[0], self.clip[1])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
