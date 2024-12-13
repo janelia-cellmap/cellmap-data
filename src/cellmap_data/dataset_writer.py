@@ -501,6 +501,8 @@ class CellMapDatasetWriter(Dataset):
 
     def to(self, device: str | torch.device) -> "CellMapDatasetWriter":
         """Sets the device for the dataset."""
+        if device is None:
+            device = self.device
         self._device = torch.device(device)
         for source in self.input_sources.values():
             if isinstance(source, dict):
