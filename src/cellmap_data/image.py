@@ -8,7 +8,7 @@ import xarray
 import xarray_tensorstore as xt
 import zarr
 from pydantic_ome_ngff.v04.axis import Axis
-from pydantic_ome_ngff.v04.multiscale import GroupAttrs, MultiscaleMetadata
+from pydantic_ome_ngff.v04.multiscale import MultiscaleGroupAttrs, MultiscaleMetadata
 from pydantic_ome_ngff.v04.transform import (
     Scale,
     Translation,
@@ -197,7 +197,7 @@ class CellMapImage:
         try:
             return self._multiscale_attrs
         except AttributeError:
-            self._multiscale_attrs: MultiscaleMetadata = GroupAttrs(
+            self._multiscale_attrs: MultiscaleMetadata = MultiscaleGroupAttrs(
                 multiscales=self.group.attrs["multiscales"]
             ).multiscales[0]
             return self._multiscale_attrs
