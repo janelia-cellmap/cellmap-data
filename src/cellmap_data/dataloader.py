@@ -38,6 +38,7 @@ class CellMapDataLoader:
         sampler: Sampler | Callable | None = None,
         is_train: bool = True,
         rng: Optional[torch.Generator] = None,
+        device: Optional[str | torch.device] = None,
         **kwargs,
     ):
         """
@@ -52,6 +53,7 @@ class CellMapDataLoader:
             sampler (Sampler | Callable | None): The sampler to use.
             is_train (bool): Whether the data is for training and thus should be shuffled.
             rng (Optional[torch.Generator]): The random number generator to use.
+            device (Optional[str | torch.device]): The device to use. Defaults to "cuda" or "mps" if available, else "cpu".
             `**kwargs`: Additional arguments to pass to the DataLoader.
 
         """
@@ -63,13 +65,19 @@ class CellMapDataLoader:
         self.sampler = sampler
         self.is_train = is_train
         self.rng = rng
+        if device is None:
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif torch.backends.mps.is_available():
+                device = "mps"
+            else:
+                device = "cpu"
+        self.dataset.to(device)
         if self.sampler is None and self.weighted_sampler:
             assert isinstance(
                 self.dataset, CellMapMultiDataset
             ), "Weighted sampler only relevant for CellMapMultiDataset"
             self.sampler = self.dataset.get_weighted_sampler(self.batch_size, self.rng)
-        if torch.cuda.is_available():
-            self.dataset.to("cuda")
         self.default_kwargs = kwargs.copy()
         kwargs.update(
             {

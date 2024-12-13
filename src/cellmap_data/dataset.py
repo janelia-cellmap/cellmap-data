@@ -113,6 +113,7 @@ class CellMapDataset(Dataset):
         force_has_data: bool = False,
         empty_value: float | int = torch.nan,
         pad: bool = False,
+        device: Optional[str | torch.device] = None,
     ) -> None:
         """Initializes the CellMapDataset class.
 
@@ -144,6 +145,7 @@ class CellMapDataset(Dataset):
             force_has_data (bool, optional): Whether to force the dataset to report that it has data. Defaults to False.
             empty_value (float | int, optional): The value to fill in for empty data. Defaults to torch.nan.
             pad (bool, optional): Whether to pad the image data to match requested arrays. Defaults to False.
+            device (Optional[str | torch.device], optional): The device for the dataset. Defaults to None. If None, the device will be set to "cuda" if available, "mps" if available, or "cpu" if neither are available.
 
         """
         self.raw_path = raw_path
@@ -166,6 +168,8 @@ class CellMapDataset(Dataset):
         self._current_center = None
         self._current_spatial_transforms = None
         self.input_sources: dict[str, CellMapImage] = {}
+        if device is not None:
+            self._device = torch.device(device)
         for array_name, array_info in self.input_arrays.items():
             self.input_sources[array_name] = CellMapImage(
                 self.raw_path,
@@ -184,6 +188,7 @@ class CellMapDataset(Dataset):
         self.has_data = False
         for array_name, array_info in self.target_arrays.items():
             self.target_sources[array_name] = self.get_target_array(array_info)
+        self.to(self.device)
 
     @property
     def center(self) -> Mapping[str, float] | None:
