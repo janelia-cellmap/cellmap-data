@@ -255,7 +255,7 @@
 <span class="kn">import</span> <span class="nn">xarray_tensorstore</span> <span class="k">as</span> <span class="nn">xt</span>
 <span class="kn">import</span> <span class="nn">zarr</span>
 <span class="kn">from</span> <span class="nn">pydantic_ome_ngff.v04.axis</span> <span class="kn">import</span> <span class="n">Axis</span>
-<span class="kn">from</span> <span class="nn">pydantic_ome_ngff.v04.multiscale</span> <span class="kn">import</span> <span class="n">GroupAttrs</span><span class="p">,</span> <span class="n">MultiscaleMetadata</span>
+<span class="kn">from</span> <span class="nn">pydantic_ome_ngff.v04.multiscale</span> <span class="kn">import</span> <span class="n">MultiscaleGroupAttrs</span><span class="p">,</span> <span class="n">MultiscaleMetadata</span>
 <span class="kn">from</span> <span class="nn">pydantic_ome_ngff.v04.transform</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Scale</span><span class="p">,</span>
     <span class="n">Translation</span><span class="p">,</span>
@@ -452,7 +452,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span>
         <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span><span class="p">:</span> <span class="n">MultiscaleMetadata</span> <span class="o">=</span> <span class="n">GroupAttrs</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span><span class="p">:</span> <span class="n">MultiscaleMetadata</span> <span class="o">=</span> <span class="n">MultiscaleGroupAttrs</span><span class="p">(</span>
                 <span class="n">multiscales</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;multiscales&quot;</span><span class="p">]</span>
             <span class="p">)</span><span class="o">.</span><span class="n">multiscales</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multiscale_attrs</span>
