@@ -367,6 +367,7 @@
         <span class="n">force_has_data</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">empty_value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
         <span class="n">pad</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initializes the CellMapDataset class.</span>
 
@@ -398,6 +399,7 @@
 <span class="sd">            force_has_data (bool, optional): Whether to force the dataset to report that it has data. Defaults to False.</span>
 <span class="sd">            empty_value (float | int, optional): The value to fill in for empty data. Defaults to torch.nan.</span>
 <span class="sd">            pad (bool, optional): Whether to pad the image data to match requested arrays. Defaults to False.</span>
+<span class="sd">            device (Optional[str | torch.device], optional): The device for the dataset. Defaults to None. If None, the device will be set to &quot;cuda&quot; if available, &quot;mps&quot; if available, or &quot;cpu&quot; if neither are available.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">raw_path</span> <span class="o">=</span> <span class="n">raw_path</span>
@@ -420,6 +422,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_current_center</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_current_spatial_transforms</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">input_sources</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CellMapImage</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">array_name</span><span class="p">,</span> <span class="n">array_info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">input_sources</span><span class="p">[</span><span class="n">array_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">CellMapImage</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">raw_path</span><span class="p">,</span>
@@ -437,7 +441,8 @@
         <span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">has_data</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">for</span> <span class="n">array_name</span><span class="p">,</span> <span class="n">array_info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">target_sources</span><span class="p">[</span><span class="n">array_name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_target_array</span><span class="p">(</span><span class="n">array_info</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_sources</span><span class="p">[</span><span class="n">array_name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_target_array</span><span class="p">(</span><span class="n">array_info</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span></div>
 
 
     <span class="nd">@property</span>

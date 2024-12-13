@@ -20,6 +20,7 @@
       ~CellMapDataSplit.set_raw_value_transforms
       ~CellMapDataSplit.set_spatial_transforms
       ~CellMapDataSplit.set_target_value_transforms
+      ~CellMapDataSplit.to
       ~CellMapDataSplit.verify_datasets
    
    
