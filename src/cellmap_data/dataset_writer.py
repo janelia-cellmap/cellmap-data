@@ -46,6 +46,7 @@ class CellMapDatasetWriter(Dataset):
         rng: Optional[torch.Generator] = None,
         empty_value: float | int = 0,
         overwrite: bool = False,
+        device: Optional[str | torch.device] = None,
     ) -> None:
         """Initializes the CellMapDatasetWriter.
 
@@ -76,6 +77,7 @@ class CellMapDatasetWriter(Dataset):
             rng (Optional[torch.Generator]): The random number generator to use.
             empty_value (float | int): The value to use for empty data in an array.
             overwrite (bool): Whether to overwrite existing data.
+            device (Optional[str | torch.device]): The device to use for the dataset. If None, will default to "cuda" if available, then "mps", otherwise "cpu".
         """
         self.raw_path = raw_path
         self.target_path = target_path
@@ -109,6 +111,9 @@ class CellMapDatasetWriter(Dataset):
             self.target_array_writers[array_name] = self.get_target_array_writer(
                 array_name, array_info
             )
+        if device is not None:
+            self._device = device
+        self.to(device)
 
     @property
     def center(self) -> Mapping[str, float] | None:
@@ -496,6 +501,8 @@ class CellMapDatasetWriter(Dataset):
 
     def to(self, device: str | torch.device) -> "CellMapDatasetWriter":
         """Sets the device for the dataset."""
+        if device is None:
+            device = self.device
         self._device = torch.device(device)
         for source in self.input_sources.values():
             if isinstance(source, dict):

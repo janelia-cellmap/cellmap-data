@@ -62,6 +62,7 @@ class CellMapDataSplit:
 
         force_has_data (bool): Whether to force the datasets to have data even if no ground truth data is found. Defaults to False. Useful for training with only raw data.
         context (Optional[tensorstore.Context]): The TensorStore context for the image data. Defaults to None.
+        device (Optional[str | torch.device]): Device to use for the dataloaders. Defaults to None.
 
     Note:
         The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.
@@ -103,6 +104,7 @@ class CellMapDataSplit:
         class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
         force_has_data: bool = False,
         context: Optional[tensorstore.Context] = None,  # type: ignore
+        device: Optional[str | torch.device] = None,
     ) -> None:
         """Initializes the CellMapDatasets class.
 
@@ -158,6 +160,7 @@ class CellMapDataSplit:
 
             force_has_data (bool): Whether to force the datasets to have data even if no ground truth data is found. Defaults to False. Useful for training with only raw data.
             context (Optional[tensorstore.Context]): The TensorStore context for the image data. Defaults to None.
+            device (Optional[str | torch.device]): Device to use for the dataloaders. Defaults to None.
 
         Note:
             The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.
@@ -170,6 +173,7 @@ class CellMapDataSplit:
         self.classes = classes
         self.empty_value = empty_value
         self.pad = pad
+        self.device = device
         if isinstance(pad, str):
             self.pad_training = pad.lower() == "train"
             self.pad_validation = pad.lower() == "validate"
@@ -309,6 +313,7 @@ class CellMapDataSplit:
                         empty_value=self.empty_value,
                         class_relation_dict=self.class_relation_dict,
                         pad=self.pad_training,
+                        device=self.device,
                     )
                 )
             except ValueError as e:
@@ -336,6 +341,7 @@ class CellMapDataSplit:
                             empty_value=self.empty_value,
                             class_relation_dict=self.class_relation_dict,
                             pad=self.pad_validation,
+                            device=self.device,
                         )
                     )
                 except ValueError as e:
@@ -437,3 +443,17 @@ class CellMapDataSplit:
         for attr in reset_attrs:
             if hasattr(self, attr):
                 delattr(self, attr)
+
+    def to(self, device: str | torch.device) -> None:
+        """Sets the device for the dataloaders."""
+        self.device = device
+        for dataset in self.train_datasets:
+            dataset.to(device)
+        for dataset in self.validation_datasets:
+            dataset.to(device)
+        if hasattr(self, "_train_datasets_combined"):
+            self._train_datasets_combined.to(device)
+        if hasattr(self, "_validation_datasets_combined"):
+            self._validation_datasets_combined.to(device)
+        if hasattr(self, "_validation_blocks"):
+            self._validation_blocks.to(device)

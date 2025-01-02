@@ -8,7 +8,7 @@ import xarray
 import xarray_tensorstore as xt
 import zarr
 from pydantic_ome_ngff.v04.axis import Axis
-from pydantic_ome_ngff.v04.multiscale import GroupAttrs, MultiscaleMetadata
+from pydantic_ome_ngff.v04.multiscale import MultiscaleGroupAttrs, MultiscaleMetadata
 from pydantic_ome_ngff.v04.transform import (
     Scale,
     Translation,
@@ -76,6 +76,7 @@ class CellMapImage:
         axis_order: str | Sequence[str] = "zyx",
         value_transform: Optional[Callable] = None,
         context: Optional[tensorstore.Context] = None,  # type: ignore
+        device: Optional[str | torch.device] = None,
     ) -> None:
         """Initializes a CellMapImage object.
 
@@ -87,6 +88,7 @@ class CellMapImage:
             axis_order (str, optional): The order of the axes in the image. Defaults to "zyx".
             value_transform (Optional[callable], optional): A function to transform the image pixel data. Defaults to None.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
+            device (Optional[str | torch.device], optional): The device to load the image data onto. Defaults to "cuda" if available, then "mps", then "cpu".
         """
 
         self.path = path
@@ -114,7 +116,9 @@ class CellMapImage:
         self._current_spatial_transforms = None
         self._current_coords = None
         self._current_center = None
-        if torch.cuda.is_available():
+        if device is not None:
+            self.device = device
+        elif torch.cuda.is_available():
             self.device = "cuda"
         elif torch.backends.mps.is_available():
             self.device = "mps"
@@ -193,7 +197,7 @@ class CellMapImage:
         try:
             return self._multiscale_attrs
         except AttributeError:
-            self._multiscale_attrs: MultiscaleMetadata = GroupAttrs(
+            self._multiscale_attrs: MultiscaleMetadata = MultiscaleGroupAttrs(
                 multiscales=self.group.attrs["multiscales"]
             ).multiscales[0]
             return self._multiscale_attrs
