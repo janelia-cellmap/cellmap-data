@@ -66,8 +66,8 @@ all = [
 ]
 
 [project.urls]
-homepage = "https://github.com/rhoadesScholar/cellmap-data"
-repository = "https://github.com/rhoadesScholar/cellmap-data"
+homepage = "https://github.com/janelia-cellmap/cellmap-data"
+repository = "https://github.com/janelia-cellmap/cellmap-data"
 
 # same as console_scripts entry point
 # [project.scripts]
@@ -78,9 +78,9 @@ repository = "https://github.com/rhoadesScholar/cellmap-data"
 # [project.entry-points."spam.magical"]
 # tomatoes = "spam:main_tomatoes"
 
-[tool.hatch.metadata]
+# [tool.hatch.metadata]
 # allow-direct-references = true
-dynamic = ["version"]
+# dynamic = ["version"]
 
 # https://hatch.pypa.io/latest/config/metadata/
 [tool.hatch.version]
@@ -88,12 +88,18 @@ source = "code"
 path = "version.py"
 
 # https://hatch.pypa.io/latest/config/build/#file-selection
-# [tool.hatch.build.targets.sdist]
+[tool.hatch.build.targets.sdist]
 # include = ["/src", "/tests"]
+exclude = [
+  "/.github",
+  "/docs",
+  "/tests",
+]
 
 [tool.hatch.build.targets.wheel]
-only-include = ["src"]
-sources = ["src"]
+# only-include = ["src"]
+# sources = ["src"]
+package = "src/cellmap_data"
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
