@@ -19,10 +19,10 @@ classifiers = [
     "Natural Language :: English",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
 dynamic = ["version"]
-# version = "0.1.0"
 dependencies = [
     "torch",
     "torchvision",
@@ -79,7 +79,8 @@ repository = "https://github.com/rhoadesScholar/cellmap-data"
 # tomatoes = "spam:main_tomatoes"
 
 [tool.hatch.metadata]
-allow-direct-references = true
+# allow-direct-references = true
+dynamic = ["version"]
 
 # https://hatch.pypa.io/latest/config/metadata/
 [tool.hatch.version]

@@ -105,3 +105,8 @@ ENV/
 .vscode/
 
 scratch/
+
+# PyPi builds
+dist/
+build/
+clean/
