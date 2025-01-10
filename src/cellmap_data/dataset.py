@@ -9,6 +9,7 @@ from .image import CellMapImage, EmptyImage
 import logging
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def split_target_path(path: str) -> tuple[str, list[str]]:
