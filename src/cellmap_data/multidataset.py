@@ -82,7 +82,7 @@ class CellMapMultiDataset(ConcatDataset):
             class_counts.update({c + "_bg": 0.0 for c in self.classes})
             for ds in self.datasets:
                 for c in self.classes:
-                    if c in ds.class_counts:
+                    if c in ds.class_counts["totals"]:
                         class_counts[c] += ds.class_counts["totals"][c]
                         class_counts[c + "_bg"] += ds.class_counts["totals"][c + "_bg"]
             self._class_counts = class_counts
