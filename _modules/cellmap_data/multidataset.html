@@ -29,7 +29,7 @@
   <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=a3416100" />
   
   <!-- So that users can add custom icons -->
@@ -250,17 +250,17 @@
                 <article class="bd-article">
                   
   <h1>Source code for cellmap_data.multidataset</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">ConcatDataset</span><span class="p">,</span> <span class="n">WeightedRandomSampler</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConcatDataset</span><span class="p">,</span> <span class="n">WeightedRandomSampler</span>
 
-<span class="kn">from</span> <span class="nn">.dataset</span> <span class="kn">import</span> <span class="n">CellMapDataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">CellMapDataset</span>
 
 
 <div class="viewcode-block" id="CellMapMultiDataset">
 <a class="viewcode-back" href="../../cellmap_data.multidataset.html#cellmap_data.CellMapMultiDataset">[docs]</a>
-<span class="k">class</span> <span class="nc">CellMapMultiDataset</span><span class="p">(</span><span class="n">ConcatDataset</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CellMapMultiDataset</span><span class="p">(</span><span class="n">ConcatDataset</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    This class is used to combine multiple datasets into a single dataset. It is a subclass of PyTorch&#39;s ConcatDataset. It maintains the same API as the ConcatDataset class. It retrieves raw and groundtruth data from multiple CellMapDataset objects. See the CellMapDataset class for more information on the dataset object.</span>
 
@@ -306,7 +306,7 @@
 
 <div class="viewcode-block" id="CellMapMultiDataset.__init__">
 <a class="viewcode-back" href="../../cellmap_data.CellMapMultiDataset.html#cellmap_data.CellMapMultiDataset.__init__">[docs]</a>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">classes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
         <span class="n">input_arrays</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]]],</span>
@@ -320,7 +320,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span> <span class="o">=</span> <span class="n">datasets</span></div>
 
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">out_string</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;CellMapMultiDataset([&quot;</span>
         <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">:</span>
             <span class="n">out_string</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n\t</span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">,&quot;</span>
@@ -328,7 +328,7 @@
         <span class="k">return</span> <span class="n">out_string</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">class_counts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">class_counts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the number of samples in each class for each dataset in the multi-dataset, as well as the total number of samples in each class.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -346,7 +346,7 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_class_counts</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">class_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">class_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the class weights for the multi-dataset based on the number of samples in each class.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -366,7 +366,7 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_class_weights</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">dataset_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">CellMapDataset</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dataset_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">CellMapDataset</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the weights for each dataset in the multi-dataset based on the number of samples in each dataset.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -386,7 +386,7 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dataset_weights</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">sample_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sample_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the weights for each sample in the multi-dataset based on the number of samples in each dataset.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -401,7 +401,7 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_weights</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">validation_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validation_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the indices of the validation set for each dataset in the multi-dataset.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -426,7 +426,7 @@
 
 <div class="viewcode-block" id="CellMapMultiDataset.to">
 <a class="viewcode-back" href="../../cellmap_data.multidataset.html#cellmap_data.CellMapMultiDataset.to">[docs]</a>
-    <span class="k">def</span> <span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CellMapMultiDataset&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CellMapMultiDataset&quot;</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">:</span>
             <span class="n">dataset</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
@@ -434,7 +434,7 @@
 
 <div class="viewcode-block" id="CellMapMultiDataset.get_weighted_sampler">
 <a class="viewcode-back" href="../../cellmap_data.multidataset.html#cellmap_data.CellMapMultiDataset.get_weighted_sampler">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_weighted_sampler</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_weighted_sampler</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">rng</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WeightedRandomSampler</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">WeightedRandomSampler</span><span class="p">(</span>
@@ -444,7 +444,7 @@
 
 <div class="viewcode-block" id="CellMapMultiDataset.get_subset_random_sampler">
 <a class="viewcode-back" href="../../cellmap_data.multidataset.html#cellmap_data.CellMapMultiDataset.get_subset_random_sampler">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_subset_random_sampler</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_subset_random_sampler</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">weighted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -489,7 +489,7 @@
 
 <div class="viewcode-block" id="CellMapMultiDataset.get_indices">
 <a class="viewcode-back" href="../../cellmap_data.multidataset.html#cellmap_data.CellMapMultiDataset.get_indices">[docs]</a>
-    <span class="k">def</span> <span class="nf">get_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chunk_size</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chunk_size</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the indices of the dataset that will tile all of the datasets according to the chunk_size.&quot;&quot;&quot;</span>
         <span class="n">indices</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">):</span>
@@ -504,7 +504,7 @@
 
 <div class="viewcode-block" id="CellMapMultiDataset.set_raw_value_transforms">
 <a class="viewcode-back" href="../../cellmap_data.multidataset.html#cellmap_data.CellMapMultiDataset.set_raw_value_transforms">[docs]</a>
-    <span class="k">def</span> <span class="nf">set_raw_value_transforms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transforms</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_raw_value_transforms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transforms</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the raw value transforms for each dataset in the multi-dataset.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">:</span>
             <span class="n">dataset</span><span class="o">.</span><span class="n">set_raw_value_transforms</span><span class="p">(</span><span class="n">transforms</span><span class="p">)</span></div>
@@ -512,7 +512,7 @@
 
 <div class="viewcode-block" id="CellMapMultiDataset.set_target_value_transforms">
 <a class="viewcode-back" href="../../cellmap_data.multidataset.html#cellmap_data.CellMapMultiDataset.set_target_value_transforms">[docs]</a>
-    <span class="k">def</span> <span class="nf">set_target_value_transforms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transforms</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_target_value_transforms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transforms</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the target value transforms for each dataset in the multi-dataset.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">:</span>
             <span class="n">dataset</span><span class="o">.</span><span class="n">set_target_value_transforms</span><span class="p">(</span><span class="n">transforms</span><span class="p">)</span></div>
@@ -520,7 +520,7 @@
 
 <div class="viewcode-block" id="CellMapMultiDataset.set_spatial_transforms">
 <a class="viewcode-back" href="../../cellmap_data.multidataset.html#cellmap_data.CellMapMultiDataset.set_spatial_transforms">[docs]</a>
-    <span class="k">def</span> <span class="nf">set_spatial_transforms</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_spatial_transforms</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">spatial_transforms</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the raw value transforms for each dataset in the training multi-dataset.&quot;&quot;&quot;</span>
@@ -531,7 +531,7 @@
 <div class="viewcode-block" id="CellMapMultiDataset.empty">
 <a class="viewcode-back" href="../../cellmap_data.multidataset.html#cellmap_data.CellMapMultiDataset.empty">[docs]</a>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">empty</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="s2">&quot;CellMapMultiDataset&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="s2">&quot;CellMapMultiDataset&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates an empty dataset.&quot;&quot;&quot;</span>
         <span class="n">empty_dataset</span> <span class="o">=</span> <span class="n">CellMapMultiDataset</span><span class="p">([],</span> <span class="p">{},</span> <span class="p">{},</span> <span class="p">[</span><span class="n">CellMapDataset</span><span class="o">.</span><span class="n">empty</span><span class="p">()])</span>
         <span class="n">empty_dataset</span><span class="o">.</span><span class="n">classes</span> <span class="o">=</span> <span class="p">[]</span>
