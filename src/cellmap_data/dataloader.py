@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader, Sampler, Subset
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .dataset_writer import CellMapDatasetWriter
-from typing import Callable, Iterable, Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 
 class CellMapDataLoader:
@@ -31,7 +31,7 @@ class CellMapDataLoader:
     def __init__(
         self,
         dataset: CellMapMultiDataset | CellMapDataset | Subset | CellMapDatasetWriter,
-        classes: Iterable[str],
+        classes: Sequence[str],
         batch_size: int = 1,
         num_workers: int = 0,
         weighted_sampler: bool = False,
