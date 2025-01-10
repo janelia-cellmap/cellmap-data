@@ -101,6 +101,8 @@ class CellMapDataLoader:
 
     def __getitem__(self, indices: Sequence[int]) -> dict:
         """Get an item from the DataLoader."""
+        if isinstance(indices, int):
+            indices = [indices]
         return self.collate_fn([self.loader.dataset[index] for index in indices])
 
     def refresh(self):
