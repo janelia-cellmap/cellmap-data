@@ -226,7 +226,7 @@ class CellMapDatasetWriter(Dataset):
             self._sampling_box_shape = self._get_box_shape(self.sampling_box)
             for c, size in self._sampling_box_shape.items():
                 if size <= 0:
-                    logger.warning(
+                    logger.debug(
                         f"Sampling box shape is <= 0 for axis {c} with size {size}. Setting to 1 and padding"
                     )
                     self._sampling_box_shape[c] = 1
