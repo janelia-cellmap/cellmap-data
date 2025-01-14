@@ -1,5 +1,3 @@
-from cellpose.dynamics import masks_to_flows_gpu_3d, masks_to_flows
-from cellpose.dynamics import masks_to_flows_gpu as masks_to_flows_gpu_2d
 import torch
 
 
@@ -15,6 +13,9 @@ class CellposeFlow:
 
     def __init__(self, ndim: int, device: str | None = None) -> None:
         UserWarning("This is still in development and may not work as expected")
+        from cellpose.dynamics import masks_to_flows_gpu_3d, masks_to_flows
+        from cellpose.dynamics import masks_to_flows_gpu as masks_to_flows_gpu_2d
+
         self.ndim = ndim
         if device is None:
             if torch.cuda.is_available():

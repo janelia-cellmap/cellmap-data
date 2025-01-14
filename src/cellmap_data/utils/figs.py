@@ -82,6 +82,17 @@ def get_image_grid(
     return fig
 
 
+def fig_to_image(fig: plt.Figure) -> np.ndarray:  # type: ignore
+    with io.BytesIO() as buff:
+        fig.savefig(buff, format="raw", dpi=fig.dpi)
+        buff.seek(0)
+        data = np.frombuffer(buff.getvalue(), dtype=np.uint8)
+    w, h = fig.canvas.get_width_height()
+    im = data.reshape((int(h), int(w), -1))
+    plt.close("all")
+    return im
+
+
 def get_image_grid_numpy(
     input_data: torch.Tensor,
     target_data: torch.Tensor,
@@ -117,22 +128,10 @@ def get_image_grid_numpy(
         clim=clim,
         cmap=cmap,
     )
-    # fig.tight_layout(pad=0)
-    # fig.canvas.draw()
-    # im = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
-    # im = im.reshape(fig.canvas.get_width_height()[::-1] + (4,))
-    # plt.close(fig)
-    with io.BytesIO() as buff:
-        fig.savefig(buff, format="raw", dpi=fig.dpi)
-        buff.seek(0)
-        data = np.frombuffer(buff.getvalue(), dtype=np.uint8)
-    w, h = fig.canvas.get_width_height()
-    im = data.reshape((int(h), int(w), -1))
-    plt.close("all")
-    return im
+    return fig_to_image(fig)
 
 
-def get_image_dict(
+def get_fig_dict(
     input_data: torch.Tensor,
     target_data: torch.Tensor,
     outputs: torch.Tensor,
@@ -143,7 +142,7 @@ def get_image_dict(
     colorbar: bool = True,
 ) -> dict:
     """
-    Create a dictionary of images for input, target, and output data.
+    Create a dictionary of figures for input, target, and output data.
     Args:
         input_data (torch.Tensor): Input data.
         target_data (torch.Tensor): Target data.
@@ -161,10 +160,15 @@ def get_image_dict(
         batch_size = input_data.shape[0]
     image_dict = {}
     for c, label in enumerate(classes):
+        if colorbar:
+            grid_spec_kw = {"width_ratios": [1, 1, 1, 1, 0.2]}
+        else:
+            grid_spec_kw = {}
         fig, ax = plt.subplots(
             batch_size,
             4 + colorbar,
-            figsize=(fig_size * (4 + colorbar), fig_size * batch_size),
+            figsize=(fig_size * (4 + colorbar * 0.2), fig_size * batch_size),
+            gridspec_kw=grid_spec_kw,
         )
         if len(ax.shape) == 1:
             ax = ax[None, :]
@@ -181,13 +185,14 @@ def get_image_dict(
             im = ax[b, 3].imshow(output, clim=clim)
             ax[b, 3].axis("off")
             ax[b, 3].set_title(f"Pred. {label}")
-            if colorbar and clim is None:
+            if colorbar:
                 orientation = "vertical"
                 location = "right"
-                fig.colorbar(
+                cbar = fig.colorbar(
                     im, orientation=orientation, location=location, cax=ax[b, 4]
                 )
-                ax[b, 4].aspect = 10
+                cbar.ax.set_aspect(40)
+                ax[b, 4].set_title("Intensity")
             input_img = input_data[b][0].squeeze().cpu().detach().numpy()
             if len(input_img.shape) == 3:
                 input_mid = input_img.shape[0] // 2
@@ -217,3 +222,42 @@ def get_image_dict(
         fig.tight_layout()
         image_dict[label] = fig
     return image_dict
+
+
+def get_image_dict(
+    input_data: torch.Tensor,
+    target_data: torch.Tensor,
+    outputs: torch.Tensor,
+    classes: Sequence[str],
+    batch_size: Optional[int] = None,
+    fig_size: int = 3,
+    clim: Optional[Sequence] = None,
+    colorbar: bool = True,
+) -> dict:
+    """
+    Create a dictionary of images for input, target, and output data.
+    Args:
+        input_data (torch.Tensor): Input data.
+        target_data (torch.Tensor): Target data.
+        outputs (torch.Tensor): Model outputs.
+        classes (list): List of class labels.
+        batch_size (int, optional): Number of images to display. Defaults to the length of the first axis of 'input_data'.
+        fig_size (int, optional): Size of the figure. Defaults to 3.
+        clim (tuple, optional): Color limits for the images. Defaults to be scaled by the image's intensity.
+        colorbar (bool, optional): Whether to display a colorbar for the model outputs. Defaults to True.
+
+    Returns:
+        image_dict (dict): Dictionary of image data.
+    """
+    # TODO: Get list of figs for the batches, instead of one fig per class
+    fig_dict = get_fig_dict(
+        input_data=input_data,
+        target_data=target_data,
+        outputs=outputs,
+        classes=classes,
+        batch_size=batch_size,
+        fig_size=fig_size,
+        clim=clim,
+        colorbar=colorbar,
+    )
+    return {k: fig_to_image(v) for k, v in fig_dict.items()}

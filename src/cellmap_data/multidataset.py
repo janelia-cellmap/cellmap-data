@@ -81,7 +81,7 @@ class CellMapMultiDataset(ConcatDataset):
         except AttributeError:
             class_counts = {c: 0.0 for c in self.classes}
             class_counts.update({c + "_bg": 0.0 for c in self.classes})
-            print("Gathering class counts")
+            print("Gathering class counts...")
             for ds in tqdm(self.datasets):
                 for c in self.classes:
                     if c in ds.class_counts["totals"]:
