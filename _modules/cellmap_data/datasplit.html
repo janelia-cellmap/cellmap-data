@@ -255,6 +255,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tensorstore</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">CellMapDataset</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.multidataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">CellMapMultiDataset</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.subdataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">CellMapSubset</span>
@@ -537,6 +538,7 @@
         <span class="n">dataset_dict</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">csv_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">reader</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Reading csv file...&quot;</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">reader</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dataset_dict</span><span class="p">:</span>
                     <span class="n">dataset_dict</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -557,7 +559,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">data_paths</span> <span class="ow">in</span> <span class="n">dataset_dict</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Constructing datasets...&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">data_paths</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">dataset_dict</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">],</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Training datasets&quot;</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">CellMapDataset</span><span class="p">(</span>
@@ -586,7 +589,9 @@
         <span class="c1"># TODO: probably want larger arrays for validation</span>
 
         <span class="k">if</span> <span class="s2">&quot;validate&quot;</span> <span class="ow">in</span> <span class="n">dataset_dict</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">data_paths</span> <span class="ow">in</span> <span class="n">dataset_dict</span><span class="p">[</span><span class="s2">&quot;validate&quot;</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">data_paths</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span>
+                <span class="n">dataset_dict</span><span class="p">[</span><span class="s2">&quot;validate&quot;</span><span class="p">],</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Validation datasets&quot;</span>
+            <span class="p">):</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                         <span class="n">CellMapDataset</span><span class="p">(</span>
@@ -618,14 +623,15 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verifies that the datasets have data, and removes ones that don&#39;t from ``self.train_datasets`` and ``self.validation_datasets``.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_has_data</span><span class="p">:</span>
             <span class="k">return</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Verifying datasets...&quot;</span><span class="p">)</span>
         <span class="n">verified_datasets</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Training datasets&quot;</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">verify</span><span class="p">():</span>
                 <span class="n">verified_datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">train_datasets</span> <span class="o">=</span> <span class="n">verified_datasets</span>
 
         <span class="n">verified_datasets</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Validation datasets&quot;</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">verify</span><span class="p">():</span>
                 <span class="n">verified_datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">validation_datasets</span> <span class="o">=</span> <span class="n">verified_datasets</span></div>
