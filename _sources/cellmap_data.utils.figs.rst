@@ -8,6 +8,8 @@ cellmap\_data.utils.figs
 
    .. autosummary::
    
+      fig_to_image
+      get_fig_dict
       get_image_dict
       get_image_grid
       get_image_grid_numpy

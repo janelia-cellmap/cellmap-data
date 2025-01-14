@@ -250,9 +250,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for cellmap_data.transforms.targets.cellpose</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">cellpose.dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">masks_to_flows_gpu_3d</span><span class="p">,</span> <span class="n">masks_to_flows</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">cellpose.dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">masks_to_flows_gpu</span> <span class="k">as</span> <span class="n">masks_to_flows_gpu_2d</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 
 <div class="viewcode-block" id="CellposeFlow">
@@ -269,6 +267,9 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ndim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="ne">UserWarning</span><span class="p">(</span><span class="s2">&quot;This is still in development and may not work as expected&quot;</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">cellpose.dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">masks_to_flows_gpu_3d</span><span class="p">,</span> <span class="n">masks_to_flows</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">cellpose.dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">masks_to_flows_gpu</span> <span class="k">as</span> <span class="n">masks_to_flows_gpu_2d</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">=</span> <span class="n">ndim</span>
         <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
