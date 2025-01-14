@@ -2,6 +2,7 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 import numpy as np
 import torch
 from torch.utils.data import ConcatDataset, WeightedRandomSampler
+from tqdm import tqdm
 
 from .dataset import CellMapDataset
 
@@ -80,7 +81,8 @@ class CellMapMultiDataset(ConcatDataset):
         except AttributeError:
             class_counts = {c: 0.0 for c in self.classes}
             class_counts.update({c + "_bg": 0.0 for c in self.classes})
-            for ds in self.datasets:
+            print("Gathering class counts")
+            for ds in tqdm(self.datasets):
                 for c in self.classes:
                     if c in ds.class_counts["totals"]:
                         class_counts[c] += ds.class_counts["totals"][c]

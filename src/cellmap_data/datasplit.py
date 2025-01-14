@@ -3,6 +3,7 @@ import os
 from typing import Any, Callable, Mapping, Optional, Sequence
 import tensorstore
 import torch
+from tqdm import tqdm
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .subdataset import CellMapSubset
@@ -278,6 +279,7 @@ class CellMapDataSplit:
         dataset_dict = {}
         with open(csv_path, "r") as f:
             reader = csv.reader(f)
+            print("Reading csv file...")
             for row in reader:
                 if row[0] not in dataset_dict:
                     dataset_dict[row[0]] = []
@@ -295,7 +297,8 @@ class CellMapDataSplit:
         self.train_datasets = []
         self.validation_datasets = []
         self.datasets = {}
-        for data_paths in dataset_dict["train"]:
+        print("Constructing datasets...")
+        for data_paths in tqdm(dataset_dict["train"], desc="Training datasets"):
             try:
                 self.train_datasets.append(
                     CellMapDataset(
@@ -324,7 +327,9 @@ class CellMapDataSplit:
         # TODO: probably want larger arrays for validation
 
         if "validate" in dataset_dict:
-            for data_paths in dataset_dict["validate"]:
+            for data_paths in tqdm(
+                dataset_dict["validate"], desc="Validation datasets"
+            ):
                 try:
                     self.validation_datasets.append(
                         CellMapDataset(
@@ -353,14 +358,15 @@ class CellMapDataSplit:
         """Verifies that the datasets have data, and removes ones that don't from ``self.train_datasets`` and ``self.validation_datasets``."""
         if self.force_has_data:
             return
+        print("Verifying datasets...")
         verified_datasets = []
-        for ds in self.train_datasets:
+        for ds in tqdm(self.train_datasets, desc="Training datasets"):
             if ds.verify():
                 verified_datasets.append(ds)
         self.train_datasets = verified_datasets
 
         verified_datasets = []
-        for ds in self.validation_datasets:
+        for ds in tqdm(self.validation_datasets, desc="Validation datasets"):
             if ds.verify():
                 verified_datasets.append(ds)
         self.validation_datasets = verified_datasets
