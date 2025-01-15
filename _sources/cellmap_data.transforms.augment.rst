@@ -1,4 +1,4 @@
-cellmap\_data.transforms.augment
+﻿cellmap\_data.transforms.augment
 ================================
 
 .. automodule:: cellmap_data.transforms.augment
@@ -10,6 +10,7 @@ cellmap\_data.transforms.augment
    :toctree:
    :recursive:
 
+   binarize
    gaussian_noise
    nan_to_num
    normalize
