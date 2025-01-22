@@ -250,9 +250,11 @@ class CellMapImage:
             return self._group
         except AttributeError:
             if self.path[:5] == "s3://":
-                self._group = zarr.open_group(zarr.N5FSStore(self.path, anon=True))
+                self._group = zarr.open_group(
+                    zarr.N5FSStore(self.path, anon=True), mode="r"
+                )
             else:
-                self._group = zarr.open_group(self.path)
+                self._group = zarr.open_group(self.path, mode="r")
             return self._group
 
     @property
@@ -514,7 +516,8 @@ class CellMapImage:
                 **coords,
                 method="nearest",
                 tolerance=np.ones(coords[self.axes[0]].shape)
-                * np.max(list(self.scale.values())),
+                * np.max(list(self.scale.values()))
+                * 2,
                 fill_value=self.pad_value,
             )
         else:
