@@ -18,6 +18,7 @@ Contents
    :recursive:
    :toctree:
 
+   data_loader
    cellmap_data
    cellmap_data.CellMapImage
    cellmap_data.CellMapDataset
