@@ -113,7 +113,7 @@ class CellMapDataset(Dataset):
         rng: Optional[torch.Generator] = None,
         force_has_data: bool = False,
         empty_value: float | int = torch.nan,
-        pad: bool = False,
+        pad: bool = True,
         device: Optional[str | torch.device] = None,
     ) -> None:
         """Initializes the CellMapDataset class.
