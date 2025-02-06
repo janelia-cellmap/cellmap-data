@@ -10,6 +10,7 @@ cellmap\_data.utils.metadata
    
       add_multiscale_metadata_levels
       create_multiscale_metadata
+      find_level
       generate_base_multiscales_metadata
       write_metadata
    

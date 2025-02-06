@@ -298,6 +298,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.metadata.add_multiscale_metadata_levels"><code class="docutils literal notranslate"><span class="pre">add_multiscale_metadata_levels()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.metadata.create_multiscale_metadata"><code class="docutils literal notranslate"><span class="pre">create_multiscale_metadata()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.metadata.write_metadata"><code class="docutils literal notranslate"><span class="pre">write_metadata()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.metadata.find_level"><code class="docutils literal notranslate"><span class="pre">find_level()</span></code></a></li>
 </ul>
             </nav>
         </div>
@@ -320,10 +321,13 @@
 <tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.utils.metadata.create_multiscale_metadata" title="cellmap_data.utils.metadata.create_multiscale_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_multiscale_metadata</span></code></a>(ds_name, ...[, ...])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.utils.metadata.generate_base_multiscales_metadata" title="cellmap_data.utils.metadata.generate_base_multiscales_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">generate_base_multiscales_metadata</span></code></a>(ds_name, ...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.utils.metadata.find_level" title="cellmap_data.utils.metadata.find_level"><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_level</span></code></a>(path, target_scale)</p></td>
+<td><p>Finds the multiscale level that is closest to the target scale.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.utils.metadata.generate_base_multiscales_metadata" title="cellmap_data.utils.metadata.generate_base_multiscales_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">generate_base_multiscales_metadata</span></code></a>(ds_name, ...)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.utils.metadata.write_metadata" title="cellmap_data.utils.metadata.write_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_metadata</span></code></a>(z_attrs, out_path)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.utils.metadata.write_metadata" title="cellmap_data.utils.metadata.write_metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_metadata</span></code></a>(z_attrs, out_path)</p></td>
 <td><p></p></td>
 </tr>
 </tbody>
@@ -375,6 +379,23 @@
 <span class="sig-prename descclassname"><span class="pre">cellmap_data.utils.metadata.</span></span><span class="sig-name descname"><span class="pre">write_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z_attrs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/utils/metadata.html#write_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.utils.metadata.write_metadata" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="cellmap_data.utils.metadata.find_level">
+<span class="sig-prename descclassname"><span class="pre">cellmap_data.utils.metadata.</span></span><span class="sig-name descname"><span class="pre">find_level</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/cellmap_data/utils/metadata.html#find_level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.utils.metadata.find_level" title="Link to this definition">#</a></dt>
+<dd><p>Finds the multiscale level that is closest to the target scale.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<em>str</em>)</p></li>
+<li><p><strong>target_scale</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>float</em><em>]</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 
 
@@ -409,6 +430,7 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.metadata.add_multiscale_metadata_levels"><code class="docutils literal notranslate"><span class="pre">add_multiscale_metadata_levels()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.metadata.create_multiscale_metadata"><code class="docutils literal notranslate"><span class="pre">create_multiscale_metadata()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.metadata.write_metadata"><code class="docutils literal notranslate"><span class="pre">write_metadata()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.utils.metadata.find_level"><code class="docutils literal notranslate"><span class="pre">find_level()</span></code></a></li>
 </ul>
   </nav></div>
 
