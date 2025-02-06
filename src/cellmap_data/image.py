@@ -516,8 +516,7 @@ class CellMapImage:
                 **coords,
                 method="nearest",
                 tolerance=np.ones(coords[self.axes[0]].shape)
-                * np.max(list(self.scale.values()))
-                * 2,
+                * np.max(list(self.scale.values())) ** 2,
                 fill_value=self.pad_value,
             )
         else:
