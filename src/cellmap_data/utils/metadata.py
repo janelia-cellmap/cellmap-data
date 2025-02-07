@@ -1,6 +1,8 @@
 import json
 from typing import Optional
 
+import zarr
+
 
 def generate_base_multiscales_metadata(
     ds_name: str,
@@ -95,3 +97,29 @@ def create_multiscale_metadata(
 def write_metadata(z_attrs, out_path):
     with open(out_path, "w") as f:
         f.write(json.dumps(z_attrs, indent=4))
+
+
+def find_level(path: str, target_scale: dict[str, float]) -> str:
+    """Finds the multiscale level that is closest to the target scale."""
+    group = zarr.open(path, mode="r")
+    # Get the order of axes in the image
+    axes = []
+    for axis in group.attrs["multiscales"][0]["axes"]:
+        if axis["type"] == "space":
+            axes.append(axis["name"])
+
+    last_path: str | None = None
+    scale = {}
+    for level in group.attrs["multiscales"][0]["datasets"]:
+        for transform in level["coordinateTransformations"]:
+            if "scale" in transform:
+                scale = {c: s for c, s in zip(axes, transform["scale"])}
+                break
+        for c in axes:
+            if scale[c] > target_scale[c]:
+                if last_path is None:
+                    return level["path"]
+                else:
+                    return last_path
+        last_path = level["path"]
+    return last_path  # type: ignore

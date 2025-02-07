@@ -11,4 +11,5 @@ from .metadata import (
     add_multiscale_metadata_levels,
     generate_base_multiscales_metadata,
     write_metadata,
+    find_level,
 )
