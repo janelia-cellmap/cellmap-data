@@ -294,7 +294,10 @@
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.augment.normalize.Normalize"><code class="docutils literal notranslate"><span class="pre">Normalize</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.augment.normalize.Normalize"><code class="docutils literal notranslate"><span class="pre">Normalize</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.augment.normalize.Normalize.transform"><code class="docutils literal notranslate"><span class="pre">Normalize.transform()</span></code></a></li>
+</ul>
+</li>
 </ul>
             </nav>
         </div>
@@ -311,7 +314,7 @@
 <p class="rubric">Classes</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.transforms.augment.normalize.Normalize" title="cellmap_data.transforms.augment.normalize.Normalize"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Normalize</span></code></a>()</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.transforms.augment.normalize.Normalize" title="cellmap_data.transforms.augment.normalize.Normalize"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Normalize</span></code></a>([shift, scale])</p></td>
 <td><p>Initialize the normalization transformation.</p></td>
 </tr>
 </tbody>
@@ -319,10 +322,41 @@
 </div>
 <dl class="py class">
 <dt class="sig sig-object py" id="cellmap_data.transforms.augment.normalize.Normalize">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cellmap_data.transforms.augment.normalize.</span></span><span class="sig-name descname"><span class="pre">Normalize</span></span><a class="reference internal" href="_modules/cellmap_data/transforms/augment/normalize.html#Normalize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.transforms.augment.normalize.Normalize" title="Link to this definition">#</a></dt>
-<dd><p>Initialize the normalization transformation.</p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">cellmap_data.transforms.augment.normalize.</span></span><span class="sig-name descname"><span class="pre">Normalize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shift</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.00392156862745098</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/transforms/augment/normalize.html#Normalize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.transforms.augment.normalize.Normalize" title="Link to this definition">#</a></dt>
+<dd><p>Initialize the normalization transformation.
+:param shift: Shift values, before scaling. Defaults to 0.
+:type shift: float, optional
+:param scale: Scale values after shifting. Defaults to 1/255.
+:type scale: float, optional</p>
+<p>This is helpful in normalizing the input to the range [0, 1], especially for data saved as uint8 which is scaled to [0, 255].</p>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">cellmap_data.transforms.augment</span><span class="w"> </span><span class="kn">import</span> <span class="n">Normalize</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Normalize</span><span class="p">(</span><span class="n">shift</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="mi">255</span><span class="p">)</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">{})</span>
+<span class="go">tensor([[0.0000, 1],</span>
+<span class="go">        [0.0078, 0.0118]])</span>
+</pre></div>
+</div>
 <dl class="field-list simple">
 </dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.transforms.augment.normalize.Normalize.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="_modules/cellmap_data/transforms/augment/normalize.html#Normalize.transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.transforms.augment.normalize.Normalize.transform" title="Link to this definition">#</a></dt>
+<dd><p>Transform the input.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Any</em>)</p></li>
+<li><p><strong>params</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>] </em><em>| </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Any</em></p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -355,7 +389,10 @@
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.augment.normalize.Normalize"><code class="docutils literal notranslate"><span class="pre">Normalize</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.augment.normalize.Normalize"><code class="docutils literal notranslate"><span class="pre">Normalize</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.augment.normalize.Normalize.transform"><code class="docutils literal notranslate"><span class="pre">Normalize.transform()</span></code></a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 

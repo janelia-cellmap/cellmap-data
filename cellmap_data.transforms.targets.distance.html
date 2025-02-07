@@ -297,10 +297,12 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.transform"><code class="docutils literal notranslate"><span class="pre">transform()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.DistanceTransform"><code class="docutils literal notranslate"><span class="pre">DistanceTransform</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.DistanceTransform.forward"><code class="docutils literal notranslate"><span class="pre">DistanceTransform.forward()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.DistanceTransform.transform"><code class="docutils literal notranslate"><span class="pre">DistanceTransform.transform()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform"><code class="docutils literal notranslate"><span class="pre">SignedDistanceTransform</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform.forward"><code class="docutils literal notranslate"><span class="pre">SignedDistanceTransform.forward()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform.transform"><code class="docutils literal notranslate"><span class="pre">SignedDistanceTransform.transform()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -379,6 +381,23 @@
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.transforms.targets.distance.DistanceTransform.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="_modules/cellmap_data/transforms/targets/distance.html#DistanceTransform.transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.transforms.targets.distance.DistanceTransform.transform" title="Link to this definition">#</a></dt>
+<dd><p>Transform the input.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Any</em>)</p></li>
+<li><p><strong>params</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>] </em><em>| </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Any</em></p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
@@ -406,6 +425,23 @@
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><em>Tensor</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.transforms.targets.distance.SignedDistanceTransform.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="reference internal" href="_modules/cellmap_data/transforms/targets/distance.html#SignedDistanceTransform.transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform.transform" title="Link to this definition">#</a></dt>
+<dd><p>Transform the input.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Any</em>)</p></li>
+<li><p><strong>params</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>] </em><em>| </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Any</em></p>
 </dd>
 </dl>
 </dd></dl>
@@ -445,10 +481,12 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.transform"><code class="docutils literal notranslate"><span class="pre">transform()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.DistanceTransform"><code class="docutils literal notranslate"><span class="pre">DistanceTransform</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.DistanceTransform.forward"><code class="docutils literal notranslate"><span class="pre">DistanceTransform.forward()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.DistanceTransform.transform"><code class="docutils literal notranslate"><span class="pre">DistanceTransform.transform()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform"><code class="docutils literal notranslate"><span class="pre">SignedDistanceTransform</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform.forward"><code class="docutils literal notranslate"><span class="pre">SignedDistanceTransform.forward()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.transforms.targets.distance.SignedDistanceTransform.transform"><code class="docutils literal notranslate"><span class="pre">SignedDistanceTransform.transform()</span></code></a></li>
 </ul>
 </li>
 </ul>
