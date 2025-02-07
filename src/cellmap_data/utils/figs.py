@@ -140,6 +140,7 @@ def get_fig_dict(
     fig_size: int = 3,
     clim: Optional[Sequence] = None,
     colorbar: bool = True,
+    gt_clim: Optional[Sequence] = (0, 1),
 ) -> dict:
     """
     Create a dictionary of figures for input, target, and output data.
@@ -152,6 +153,7 @@ def get_fig_dict(
         fig_size (int, optional): Size of the figure. Defaults to 3.
         clim (tuple, optional): Color limits for the images. Defaults to be scaled by the image's intensity.
         colorbar (bool, optional): Whether to display a colorbar for the model outputs. Defaults to True.
+        gt_clim (tuple, optional): Color limits for the ground truth images. Defaults to (0, 1).
 
     Returns:
         image_dict (dict): Dictionary of figure objects.
@@ -179,7 +181,7 @@ def get_fig_dict(
                 output_mid = output.shape[0] // 2
                 output = output[output_mid]
                 target = target[output_mid]
-            ax[b, 2].imshow(target, clim=clim)
+            ax[b, 2].imshow(target, clim=gt_clim)
             ax[b, 2].axis("off")
             ax[b, 2].set_title(f"GT {label}")
             im = ax[b, 3].imshow(output, clim=clim)
