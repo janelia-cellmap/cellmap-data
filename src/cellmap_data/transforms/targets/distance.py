@@ -1,4 +1,5 @@
 # from py_distance_transforms import transform_cuda, transform
+from typing import Any, Dict
 import torch
 
 from scipy.ndimage import distance_transform_edt as edt
@@ -41,7 +42,7 @@ class DistanceTransform(torch.nn.Module):
                 "CUDA is not supported yet because testing did not return expected results."
             )
 
-    def _transform(self, x: torch.Tensor) -> torch.Tensor:
+    def _transform(self, x: torch.Tensor, params: Any | None = None) -> torch.Tensor:
         """Transform the input."""
         if self.use_cuda and x.device.type == "cuda":
             raise NotImplementedError(
@@ -59,6 +60,10 @@ class DistanceTransform(torch.nn.Module):
         distance[x.isnan()] = torch.nan
         x = distance
         return x
+
+    def transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
+        """Transform the input."""
+        return self._transform(x, params)
 
 
 class SignedDistanceTransform(torch.nn.Module):
@@ -94,7 +99,9 @@ class SignedDistanceTransform(torch.nn.Module):
                 "CUDA is not supported yet because testing did not return expected results."
             )
 
-    def _transform(self, x: torch.Tensor) -> torch.Tensor:
+    def _transform(
+        self, x: torch.Tensor, params: Dict[str, Any] | None = None
+    ) -> torch.Tensor:
         """Transform the input."""
         if self.use_cuda and x.device.type == "cuda":
             raise NotImplementedError(
@@ -116,3 +123,7 @@ class SignedDistanceTransform(torch.nn.Module):
         distance[x.isnan()] = torch.nan
         x = distance
         return x
+
+    def transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
+        """Transform the input."""
+        return self._transform(x, params)
