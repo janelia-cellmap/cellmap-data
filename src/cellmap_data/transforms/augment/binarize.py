@@ -14,6 +14,14 @@ class Binarize(T.Transform):
         super().__init__()
         self.threshold = threshold
 
-    def _transform(self, x: Any, params: Dict[str, Any]) -> Any:
+    def _transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
         """Transform the input."""
         return (x > self.threshold).to(x.dtype)
+
+    def __repr__(self) -> str:
+        """Return a string representation of the transformation."""
+        return f"{self.__class__.__name__}(threshold={self.threshold})"
+
+    def transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
+        """Transform the input."""
+        return self._transform(x, params)

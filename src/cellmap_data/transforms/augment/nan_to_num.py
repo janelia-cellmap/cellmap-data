@@ -21,6 +21,14 @@ class NaNtoNum(T.Transform):
         super().__init__()
         self.params = params
 
-    def _transform(self, x: Any, params: Dict[str, Any]) -> Any:
+    def _transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
         """Transform the input."""
         return x.nan_to_num(**self.params)
+
+    def __repr__(self) -> str:
+        """Return a string representation of the transformation."""
+        return f"{self.__class__.__name__}(params={self.params})"
+
+    def transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
+        """Transform the input."""
+        return self._transform(x, params)

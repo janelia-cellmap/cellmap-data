@@ -9,15 +9,35 @@ class Normalize(T.Transform):
         _transform: Transform the input.
     """
 
-    def __init__(self) -> None:
-        """Initialize the normalization transformation."""
-        super().__init__()
+    def __init__(self, shift=0, scale=1 / 255) -> None:
+        """Initialize the normalization transformation.
+        Args:
+            shift (float, optional): Shift values, before scaling. Defaults to 0.
+            scale (float, optional): Scale values after shifting. Defaults to 1/255.
 
-    def _transform(self, x: Any, params: Dict[str, Any]) -> Any:
+        This is helpful in normalizing the input to the range [0, 1], especially for data saved as uint8 which is scaled to [0, 255].
+
+        Example:
+            >>> import torch
+            >>> from cellmap_data.transforms.augment import Normalize
+            >>> x = torch.tensor([[0, 255], [2, 3]], dtype=torch.uint8)
+            >>> Normalize(shift=0, scale=1/255).transform(x, {})
+            tensor([[0.0000, 1],
+                    [0.0078, 0.0118]])
+
+        """
+        super().__init__()
+        self.shift = shift
+        self.scale = scale
+
+    def _transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
         """Transform the input."""
-        min_val = x.nan_to_num().min()
-        diff = x.nan_to_num().max() - min_val
-        if diff == 0:
-            return x
-        else:
-            return (x - min_val) / diff
+        return (x + self.shift) * self.scale
+
+    def __repr__(self) -> str:
+        """Return a string representation of the transformation."""
+        return self.__class__.__name__
+
+    def transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
+        """Transform the input."""
+        return self._transform(x, params)
