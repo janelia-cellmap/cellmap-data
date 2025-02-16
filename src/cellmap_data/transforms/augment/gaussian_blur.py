@@ -3,7 +3,7 @@ import torch.nn.functional as F
 
 
 class GaussianBlur(torch.nn.Module):
-    def __init__(self, kernel_size: int, sigma: float, dim: int = 2):
+    def __init__(self, kernel_size: int = 3, sigma: float = 0.1, dim: int = 2):
         """
         Initialize a Gaussian Blur module.
 

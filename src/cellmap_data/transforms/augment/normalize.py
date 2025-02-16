@@ -1,9 +1,10 @@
 from typing import Any, Dict
+import torch
 import torchvision.transforms.v2 as T
 
 
 class Normalize(T.Transform):
-    """Normalize the input tensor. Subclasses torchvision.transforms.Transform.
+    """Normalize the input tensor by given shift and scale, and convert to float32. Subclasses torchvision.transforms.Transform.
 
     Methods:
         _transform: Transform the input.
@@ -40,4 +41,4 @@ class Normalize(T.Transform):
 
     def transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
         """Transform the input."""
-        return self._transform(x, params)
+        return self._transform(x.to(torch.float), params)
