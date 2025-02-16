@@ -296,6 +296,7 @@
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.dataloader.CellMapDataLoader"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.dataloader.CellMapDataLoader.__getitem__"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader.__getitem__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.dataloader.CellMapDataLoader.to"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader.to()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.dataloader.CellMapDataLoader.refresh"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader.refresh()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.dataloader.CellMapDataLoader.collate_fn"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader.collate_fn()</span></code></a></li>
 </ul>
@@ -357,6 +358,17 @@
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="cellmap_data.dataloader.CellMapDataLoader.to">
+<span class="sig-name descname"><span class="pre">to</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/dataloader.html#CellMapDataLoader.to"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.dataloader.CellMapDataLoader.to" title="Link to this definition">#</a></dt>
+<dd><p>Move the dataset to the specified device.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>device</strong> (<em>str</em><em> | </em><em>device</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="cellmap_data.dataloader.CellMapDataLoader.refresh">
 <span class="sig-name descname"><span class="pre">refresh</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/cellmap_data/dataloader.html#CellMapDataLoader.refresh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.dataloader.CellMapDataLoader.refresh" title="Link to this definition">#</a></dt>
 <dd><p>If the sampler is a Callable, refresh the DataLoader with the current sampler.</p>
@@ -410,6 +422,7 @@
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.dataloader.CellMapDataLoader"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.dataloader.CellMapDataLoader.__getitem__"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader.__getitem__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.dataloader.CellMapDataLoader.to"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader.to()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.dataloader.CellMapDataLoader.refresh"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader.refresh()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.dataloader.CellMapDataLoader.collate_fn"><code class="docutils literal notranslate"><span class="pre">CellMapDataLoader.collate_fn()</span></code></a></li>
 </ul>

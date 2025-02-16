@@ -11,6 +11,7 @@
    :recursive:
 
    binarize
+   gaussian_blur
    gaussian_noise
    nan_to_num
    normalize

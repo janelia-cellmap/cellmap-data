@@ -16,6 +16,7 @@
       ~CellMapDataLoader.__init__
       ~CellMapDataLoader.collate_fn
       ~CellMapDataLoader.refresh
+      ~CellMapDataLoader.to
    
    
 
