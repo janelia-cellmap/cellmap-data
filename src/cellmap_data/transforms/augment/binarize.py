@@ -1,5 +1,6 @@
 from typing import Any, Dict
 import torchvision.transforms.v2 as T
+import torch
 
 
 class Binarize(T.Transform):

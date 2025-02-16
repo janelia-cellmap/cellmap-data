@@ -214,9 +214,12 @@ class CellMapMultiDataset(ConcatDataset):
                 count = (datasets_sampled == i).sum().item()
                 if count == 0:
                     continue
-                dataset_indices = torch.randint(
-                    0, len(dataset) - 1, [count], generator=rng
-                )
+                if len(dataset) == 1:
+                    dataset_indices = torch.tensor([0] * count)
+                else:
+                    dataset_indices = torch.randint(
+                        0, len(dataset) - 1, [count], generator=rng
+                    )
                 indices.append(dataset_indices + index_offset)
                 index_offset += len(dataset)
             indices = torch.cat(indices).flatten()
