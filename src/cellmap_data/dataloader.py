@@ -72,7 +72,9 @@ class CellMapDataLoader:
                 device = "mps"
             else:
                 device = "cpu"
-        self.dataset.to(device)
+        self.device = device
+        if num_workers == 0:
+            self.dataset.to(device)
         if self.sampler is None and self.weighted_sampler:
             assert isinstance(
                 self.dataset, CellMapMultiDataset
@@ -105,6 +107,11 @@ class CellMapDataLoader:
             indices = [indices]
         return self.collate_fn([self.loader.dataset[index] for index in indices])
 
+    def to(self, device: str | torch.device):
+        """Move the dataset to the specified device."""
+        self.dataset.to(device)
+        self.device = device
+
     def refresh(self):
         """If the sampler is a Callable, refresh the DataLoader with the current sampler."""
         kwargs = self.default_kwargs.copy()
@@ -136,5 +143,5 @@ class CellMapDataLoader:
                     outputs[key] = []
                 outputs[key].append(value)
         for key, value in outputs.items():
-            outputs[key] = torch.stack(value)
+            outputs[key] = torch.stack(value).to(self.device)
         return outputs
