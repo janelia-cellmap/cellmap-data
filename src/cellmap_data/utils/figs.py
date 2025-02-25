@@ -140,6 +140,7 @@ def get_fig_dict(
     fig_size: int = 3,
     clim: Optional[Sequence] = None,
     colorbar: bool = True,
+    colorbar_size: float = 0.1,
     gt_clim: Optional[Sequence] = (0, 1),
 ) -> dict:
     """
@@ -153,6 +154,7 @@ def get_fig_dict(
         fig_size (int, optional): Size of the figure. Defaults to 3.
         clim (tuple, optional): Color limits for the images. Defaults to be scaled by the image's intensity.
         colorbar (bool, optional): Whether to display a colorbar for the model outputs. Defaults to True.
+        colorbar_size (float, optional): Size of the colorbar. Defaults to 0.2.
         gt_clim (tuple, optional): Color limits for the ground truth images. Defaults to (0, 1).
 
     Returns:
@@ -163,13 +165,13 @@ def get_fig_dict(
     image_dict = {}
     for c, label in enumerate(classes):
         if colorbar:
-            grid_spec_kw = {"width_ratios": [1, 1, 1, 1, 0.2]}
+            grid_spec_kw = {"width_ratios": [1, 1, 1, 1, colorbar_size]}
         else:
             grid_spec_kw = {}
         fig, ax = plt.subplots(
             batch_size,
             4 + colorbar,
-            figsize=(fig_size * (4 + colorbar * 0.2), fig_size * batch_size),
+            figsize=(fig_size * (4 + colorbar * colorbar_size), fig_size * batch_size),
             gridspec_kw=grid_spec_kw,
         )
         if len(ax.shape) == 1:
@@ -193,7 +195,6 @@ def get_fig_dict(
                 cbar = fig.colorbar(
                     im, orientation=orientation, location=location, cax=ax[b, 4]
                 )
-                cbar.ax.set_aspect(40)
                 ax[b, 4].set_title("Intensity")
             input_img = input_data[b][0].squeeze().cpu().detach().numpy()
             if len(input_img.shape) == 3:
