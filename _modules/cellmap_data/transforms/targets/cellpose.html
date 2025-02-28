@@ -318,7 +318,7 @@ document.write(`
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">flows</span> <span class="o">=</span> <span class="n">flows</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 
-        <span class="k">return</span> <span class="n">flows</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">masks</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>  <span class="c1"># type: ignore</span></div>
+        <span class="k">return</span> <span class="n">flows</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">masks</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># type: ignore</span></div>
 
 </pre></div>
 

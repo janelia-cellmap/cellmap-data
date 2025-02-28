@@ -508,7 +508,7 @@ document.write(`
 <tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataSplit.set_target_value_transforms" title="cellmap_data.CellMapDataSplit.set_target_value_transforms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_target_value_transforms</span></code></a>(transforms)</p></td>
 <td><p>Sets the target value transforms for each dataset in the multi-datasets.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataSplit.to" title="cellmap_data.CellMapDataSplit.to"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to</span></code></a>(device)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataSplit.to" title="cellmap_data.CellMapDataSplit.to"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to</span></code></a>(device[, non_blocking])</p></td>
 <td><p>Sets the device for the dataloaders.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapDataSplit.verify_datasets" title="cellmap_data.CellMapDataSplit.verify_datasets"><code class="xref py py-obj docutils literal notranslate"><span class="pre">verify_datasets</span></code></a>()</p></td>
@@ -660,11 +660,14 @@ document.write(`
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cellmap_data.CellMapDataSplit.to">
-<span class="sig-name descname"><span class="pre">to</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/cellmap_data/datasplit.html#CellMapDataSplit.to"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapDataSplit.to" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">to</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">device</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">non_blocking</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/cellmap_data/datasplit.html#CellMapDataSplit.to"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapDataSplit.to" title="Link to this definition">#</a></dt>
 <dd><p>Sets the device for the dataloaders.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>device</strong> (<em>str</em><em> | </em><em>device</em>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>device</strong> (<em>str</em><em> | </em><em>device</em>)</p></li>
+<li><p><strong>non_blocking</strong> (<em>bool</em>)</p></li>
+</ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>

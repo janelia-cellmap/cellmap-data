@@ -434,7 +434,7 @@ document.write(`
         <span class="c1"># Apply any value transformations to the data</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_transform</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -658,7 +658,7 @@ document.write(`
 
 <div class="viewcode-block" id="CellMapImage.to">
 <a class="viewcode-back" href="../../cellmap_data.image.html#cellmap_data.CellMapImage.to">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets what device returned image data will be loaded onto.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span></div>
 
@@ -776,13 +776,11 @@ document.write(`
 
         <span class="c1"># Apply and spatial transformations that require the image array (e.g. transpose)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_spatial_transforms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">transform</span><span class="p">,</span> <span class="n">params</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_spatial_transforms</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="c1"># if transform in self.post_image_transforms:</span>
-                <span class="k">if</span> <span class="n">transform</span> <span class="o">==</span> <span class="s2">&quot;transpose&quot;</span><span class="p">:</span>
-                    <span class="n">new_order</span> <span class="o">=</span> <span class="p">[</span><span class="n">params</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">axes</span><span class="p">]</span>
-                    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">new_order</span><span class="p">)</span>
-                    <span class="c1"># else:</span>
-                    <span class="c1">#     raise ValueError(f&quot;Unknown spatial transform: {transform}&quot;)</span>
+            <span class="k">if</span> <span class="s2">&quot;transpose&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_spatial_transforms</span><span class="p">:</span>
+                <span class="n">new_order</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_current_spatial_transforms</span><span class="p">[</span><span class="s2">&quot;transpose&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">axes</span>
+                <span class="p">]</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">new_order</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
 
@@ -923,9 +921,9 @@ document.write(`
 
 <div class="viewcode-block" id="EmptyImage.to">
 <a class="viewcode-back" href="../../cellmap_data.image.html#cellmap_data.EmptyImage.to">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">non_blocking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Moves the image data to the given device.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">non_blocking</span><span class="o">=</span><span class="n">non_blocking</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="EmptyImage.set_spatial_transforms">
