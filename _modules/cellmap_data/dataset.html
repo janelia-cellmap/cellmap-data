@@ -711,7 +711,9 @@ document.write(`
         <span class="n">spatial_transforms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_spatial_transforms</span><span class="p">()</span>
 
         <span class="c1"># TODO: Should do as many coordinate transformations as possible at the dataset level (duplicate reference frame images should have the same coordinate transformations) --&gt; do this per array, perhaps with CellMapArray object</span>
-        <span class="k">def</span><span class="w"> </span><span class="nf">get_array</span><span class="p">(</span><span class="n">array_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+
+        <span class="c1"># For input arrays</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_input_array</span><span class="p">(</span><span class="n">array_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">input_sources</span><span class="p">[</span><span class="n">array_name</span><span class="p">]</span><span class="o">.</span><span class="n">set_spatial_transforms</span><span class="p">(</span><span class="n">spatial_transforms</span><span class="p">)</span>
             <span class="n">array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_sources</span><span class="p">[</span><span class="n">array_name</span><span class="p">][</span><span class="n">center</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
             <span class="c1"># TODO: Assumes 1 channel (i.e. grayscale)</span>
@@ -722,25 +724,12 @@ document.write(`
 
         <span class="n">executor</span> <span class="o">=</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span>
         <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">get_array</span><span class="p">,</span> <span class="n">array_name</span><span class="p">)</span>
+            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">get_input_array</span><span class="p">,</span> <span class="n">array_name</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">array_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
         <span class="p">]</span>
 
-        <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">):</span>
-            <span class="n">array_name</span><span class="p">,</span> <span class="n">array</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
-            <span class="n">outputs</span><span class="p">[</span><span class="n">array_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span>
-
-        <span class="c1"># for array_name in self.input_arrays.keys():</span>
-        <span class="c1">#     self.input_sources[array_name].set_spatial_transforms(spatial_transforms)</span>
-        <span class="c1">#     array = self.input_sources[array_name][center]  # type: ignore</span>
-        <span class="c1">#     # TODO: Assumes 1 channel (i.e. grayscale)</span>
-        <span class="c1">#     if array.shape[0] != 1:</span>
-        <span class="c1">#         outputs[array_name] = array[None, ...]</span>
-        <span class="c1">#     else:</span>
-        <span class="c1">#         outputs[array_name] = array</span>
-        <span class="c1"># TODO: Allow for distribution of array gathering to multiple threads, perhaps with CellMapArray object</span>
-        <span class="k">for</span> <span class="n">array_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="c1"># For target arrays</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_target_array</span><span class="p">(</span><span class="n">array_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
             <span class="n">class_arrays</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="n">inferred_arrays</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">:</span>
@@ -772,7 +761,62 @@ document.write(`
                         <span class="n">array</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="n">class_arrays</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span>
 
-            <span class="n">outputs</span><span class="p">[</span><span class="n">array_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">class_arrays</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+            <span class="k">return</span> <span class="n">array_name</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">class_arrays</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+
+        <span class="n">futures</span> <span class="o">+=</span> <span class="p">[</span>
+            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">get_target_array</span><span class="p">,</span> <span class="n">array_name</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">array_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="p">]</span>
+
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">):</span>
+            <span class="n">array_name</span><span class="p">,</span> <span class="n">array</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+            <span class="n">outputs</span><span class="p">[</span><span class="n">array_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span>
+
+        <span class="c1"># outputs = {}</span>
+        <span class="c1"># for array_name in self.input_arrays.keys():</span>
+        <span class="c1">#     self.input_sources[array_name].set_spatial_transforms(spatial_transforms)</span>
+        <span class="c1">#     array = self.input_sources[array_name][center]  # type: ignore</span>
+        <span class="c1">#     # TODO: Assumes 1 channel (i.e. grayscale)</span>
+        <span class="c1">#     if array.shape[0] != 1:</span>
+        <span class="c1">#         outputs[array_name] = array[None, ...]</span>
+        <span class="c1">#     else:</span>
+        <span class="c1">#         outputs[array_name] = array</span>
+
+        <span class="c1"># for array_name in self.target_arrays.keys():</span>
+        <span class="c1">#     class_arrays = {}</span>
+        <span class="c1">#     inferred_arrays = []</span>
+        <span class="c1">#     for label in self.classes:</span>
+        <span class="c1">#         if isinstance(</span>
+        <span class="c1">#             self.target_sources[array_name][label], (CellMapImage, EmptyImage)</span>
+        <span class="c1">#         ):</span>
+        <span class="c1">#             self.target_sources[array_name][</span>
+        <span class="c1">#                 label</span>
+        <span class="c1">#             ].set_spatial_transforms(  # type: ignore</span>
+        <span class="c1">#                 spatial_transforms</span>
+        <span class="c1">#             )</span>
+        <span class="c1">#             array = self.target_sources[array_name][label][</span>
+        <span class="c1">#                 center</span>
+        <span class="c1">#             ].squeeze()  # type: ignore</span>
+        <span class="c1">#         else:</span>
+        <span class="c1">#             # Add to list of arrays to infer</span>
+        <span class="c1">#             inferred_arrays.append(label)</span>
+        <span class="c1">#             array = None</span>
+        <span class="c1">#         class_arrays[label] = array</span>
+
+        <span class="c1">#     for label in inferred_arrays:</span>
+        <span class="c1">#         # Make array of true negatives</span>
+        <span class="c1">#         array = self.get_empty_store(</span>
+        <span class="c1">#             self.target_arrays[array_name], device=self.device</span>
+        <span class="c1">#         )  # type: ignore</span>
+        <span class="c1">#         for other_label in self.target_sources[array_name][label]:  # type: ignore</span>
+        <span class="c1">#             if class_arrays[other_label] is not None:</span>
+        <span class="c1">#                 mask = class_arrays[other_label] &gt; 0</span>
+        <span class="c1">#                 array[mask] = 0</span>
+        <span class="c1">#         class_arrays[label] = array</span>
+
+        <span class="c1">#     outputs[array_name] = torch.stack(list(class_arrays.values()))</span>
+
         <span class="k">return</span> <span class="n">outputs</span></div>
 
 
@@ -1066,6 +1110,9 @@ document.write(`
         <span class="k">return</span> <span class="n">empty_dataset</span></div>
 </div>
 
+
+
+<span class="c1"># %%</span>
 </pre></div>
 
                 </article>
