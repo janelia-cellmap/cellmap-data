@@ -1,4 +1,5 @@
 # %%
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 from typing import Any, Callable, Mapping, Sequence, Optional
 import numpy as np
@@ -429,16 +430,36 @@ class CellMapDataset(Dataset):
         self._current_idx = idx
         self._current_center = center
         spatial_transforms = self.generate_spatial_transforms()
+
         # TODO: Should do as many coordinate transformations as possible at the dataset level (duplicate reference frame images should have the same coordinate transformations) --> do this per array, perhaps with CellMapArray object
-        outputs = {}
-        for array_name in self.input_arrays.keys():
+        def get_array(array_name: str) -> tuple[str, torch.Tensor]:
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
             array = self.input_sources[array_name][center]  # type: ignore
             # TODO: Assumes 1 channel (i.e. grayscale)
             if array.shape[0] != 1:
-                outputs[array_name] = array[None, ...]
+                return array_name, array[None, ...]
             else:
-                outputs[array_name] = array
+                return array_name, array
+
+        executor = ThreadPoolExecutor()
+        futures = [
+            executor.submit(get_array, array_name)
+            for array_name in self.input_arrays.keys()
+        ]
+
+        outputs = {}
+        for future in as_completed(futures):
+            array_name, array = future.result()
+            outputs[array_name] = array
+
+        # for array_name in self.input_arrays.keys():
+        #     self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
+        #     array = self.input_sources[array_name][center]  # type: ignore
+        #     # TODO: Assumes 1 channel (i.e. grayscale)
+        #     if array.shape[0] != 1:
+        #         outputs[array_name] = array[None, ...]
+        #     else:
+        #         outputs[array_name] = array
         # TODO: Allow for distribution of array gathering to multiple threads, perhaps with CellMapArray object
         for array_name in self.target_arrays.keys():
             class_arrays = {}
