@@ -432,7 +432,9 @@ class CellMapDataset(Dataset):
         spatial_transforms = self.generate_spatial_transforms()
 
         # TODO: Should do as many coordinate transformations as possible at the dataset level (duplicate reference frame images should have the same coordinate transformations) --> do this per array, perhaps with CellMapArray object
-        def get_array(array_name: str) -> tuple[str, torch.Tensor]:
+
+        # For input arrays
+        def get_input_array(array_name: str) -> tuple[str, torch.Tensor]:
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
             array = self.input_sources[array_name][center]  # type: ignore
             # TODO: Assumes 1 channel (i.e. grayscale)
@@ -443,25 +445,12 @@ class CellMapDataset(Dataset):
 
         executor = ThreadPoolExecutor()
         futures = [
-            executor.submit(get_array, array_name)
+            executor.submit(get_input_array, array_name)
             for array_name in self.input_arrays.keys()
         ]
 
-        outputs = {}
-        for future in as_completed(futures):
-            array_name, array = future.result()
-            outputs[array_name] = array
-
-        # for array_name in self.input_arrays.keys():
-        #     self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
-        #     array = self.input_sources[array_name][center]  # type: ignore
-        #     # TODO: Assumes 1 channel (i.e. grayscale)
-        #     if array.shape[0] != 1:
-        #         outputs[array_name] = array[None, ...]
-        #     else:
-        #         outputs[array_name] = array
-        # TODO: Allow for distribution of array gathering to multiple threads, perhaps with CellMapArray object
-        for array_name in self.target_arrays.keys():
+        # For target arrays
+        def get_target_array(array_name: str) -> tuple[str, torch.Tensor]:
             class_arrays = {}
             inferred_arrays = []
             for label in self.classes:
@@ -493,7 +482,62 @@ class CellMapDataset(Dataset):
                         array[mask] = 0
                 class_arrays[label] = array
 
-            outputs[array_name] = torch.stack(list(class_arrays.values()))
+            return array_name, torch.stack(list(class_arrays.values()))
+
+        futures += [
+            executor.submit(get_target_array, array_name)
+            for array_name in self.target_arrays.keys()
+        ]
+
+        outputs = {}
+        for future in as_completed(futures):
+            array_name, array = future.result()
+            outputs[array_name] = array
+
+        # outputs = {}
+        # for array_name in self.input_arrays.keys():
+        #     self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
+        #     array = self.input_sources[array_name][center]  # type: ignore
+        #     # TODO: Assumes 1 channel (i.e. grayscale)
+        #     if array.shape[0] != 1:
+        #         outputs[array_name] = array[None, ...]
+        #     else:
+        #         outputs[array_name] = array
+
+        # for array_name in self.target_arrays.keys():
+        #     class_arrays = {}
+        #     inferred_arrays = []
+        #     for label in self.classes:
+        #         if isinstance(
+        #             self.target_sources[array_name][label], (CellMapImage, EmptyImage)
+        #         ):
+        #             self.target_sources[array_name][
+        #                 label
+        #             ].set_spatial_transforms(  # type: ignore
+        #                 spatial_transforms
+        #             )
+        #             array = self.target_sources[array_name][label][
+        #                 center
+        #             ].squeeze()  # type: ignore
+        #         else:
+        #             # Add to list of arrays to infer
+        #             inferred_arrays.append(label)
+        #             array = None
+        #         class_arrays[label] = array
+
+        #     for label in inferred_arrays:
+        #         # Make array of true negatives
+        #         array = self.get_empty_store(
+        #             self.target_arrays[array_name], device=self.device
+        #         )  # type: ignore
+        #         for other_label in self.target_sources[array_name][label]:  # type: ignore
+        #             if class_arrays[other_label] is not None:
+        #                 mask = class_arrays[other_label] > 0
+        #                 array[mask] = 0
+        #         class_arrays[label] = array
+
+        #     outputs[array_name] = torch.stack(list(class_arrays.values()))
+
         return outputs
 
     def __repr__(self) -> str:
@@ -752,3 +796,6 @@ class CellMapDataset(Dataset):
         empty_dataset._validation_indices = []
 
         return empty_dataset
+
+
+# %%
