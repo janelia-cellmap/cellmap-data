@@ -28,4 +28,4 @@ class GaussianNoise(torch.nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
         noise = torch.normal(mean=self.mean, std=self.std, size=x.size())
-        return x + noise.to(x.device)
+        return x + noise.to(x.device, non_blocking=True)

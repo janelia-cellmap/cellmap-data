@@ -161,7 +161,7 @@ class CellMapImage:
         # Apply any value transformations to the data
         if self.value_transform is not None:
             data = self.value_transform(data)
-        return data.to(self.device)
+        return data.to(self.device, non_blocking=True)
 
     def __repr__(self) -> str:
         """Returns a string representation of the CellMapImage object."""
@@ -488,13 +488,11 @@ class CellMapImage:
 
         # Apply and spatial transformations that require the image array (e.g. transpose)
         if self._current_spatial_transforms is not None:
-            for transform, params in self._current_spatial_transforms.items():
-                # if transform in self.post_image_transforms:
-                if transform == "transpose":
-                    new_order = [params[c] for c in self.axes]
-                    data = np.transpose(data, new_order)
-                    # else:
-                    #     raise ValueError(f"Unknown spatial transform: {transform}")
+            if "transpose" in self._current_spatial_transforms:
+                new_order = [
+                    self._current_spatial_transforms["transpose"][c] for c in self.axes
+                ]
+                data = np.transpose(data, new_order)
 
         return torch.tensor(data)
 
@@ -625,7 +623,7 @@ class EmptyImage:
 
     def to(self, device: str) -> None:
         """Moves the image data to the given device."""
-        self.store = self.store.to(device)
+        self.store = self.store.to(device, non_blocking=True)
 
     def set_spatial_transforms(self, transforms: Mapping[str, Any] | None) -> None:
         """Imitates the method in CellMapImage, but does nothing for an EmptyImage object."""

@@ -50,4 +50,4 @@ class CellposeFlow:
         if self.ndim == 2:
             flows = flows[None, ...]
 
-        return flows.to(masks.device)  # type: ignore
+        return flows.to(masks.device, non_blocking=True)  # type: ignore

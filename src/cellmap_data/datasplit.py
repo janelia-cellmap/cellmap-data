@@ -468,12 +468,12 @@ class CellMapDataSplit:
         """Sets the device for the dataloaders."""
         self.device = device
         for dataset in self.train_datasets:
-            dataset.to(device)
+            dataset.to(device, non_blocking=True)
         for dataset in self.validation_datasets:
-            dataset.to(device)
+            dataset.to(device, non_blocking=True)
         if hasattr(self, "_train_datasets_combined"):
-            self._train_datasets_combined.to(device)
+            self._train_datasets_combined.to(device, non_blocking=True)
         if hasattr(self, "_validation_datasets_combined"):
-            self._validation_datasets_combined.to(device)
+            self._validation_datasets_combined.to(device, non_blocking=True)
         if hasattr(self, "_validation_blocks"):
-            self._validation_blocks.to(device)
+            self._validation_blocks.to(device, non_blocking=True)

@@ -74,7 +74,7 @@ class CellMapDataLoader:
                 device = "cpu"
         self.device = device
         if num_workers == 0:
-            self.dataset.to(device)
+            self.datasetdevice)
         if self.sampler is None and self.weighted_sampler:
             assert isinstance(
                 self.dataset, CellMapMultiDataset
@@ -109,7 +109,7 @@ class CellMapDataLoader:
 
     def to(self, device: str | torch.device):
         """Move the dataset to the specified device."""
-        self.dataset.to(device)
+        self.datasetdevice)
         self.device = device
 
     def refresh(self):
@@ -143,5 +143,5 @@ class CellMapDataLoader:
                     outputs[key] = []
                 outputs[key].append(value)
         for key, value in outputs.items():
-            outputs[key] = torch.stack(value).to(self.device)
+            outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
         return outputs

@@ -46,7 +46,7 @@ class GaussianBlur(torch.nn.Module):
     def forward(self, x: torch.Tensor):
         """Apply Gaussian blur to the input tensor."""
         device = x.device
-        kernel = self.kernel.to(device)
+        kernel = self.kernel.to(device, non_blocking=True)
 
         # Add batch and channel dimensions
         kernel = kernel.view(1, 1, *self.kernel_shape)

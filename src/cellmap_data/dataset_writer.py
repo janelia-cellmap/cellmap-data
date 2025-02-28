@@ -114,7 +114,7 @@ class CellMapDatasetWriter(Dataset):
             )
         if device is not None:
             self._device = device
-        self.to(device)
+        self.to(device, non_blocking=True)
 
     @property
     def center(self) -> Mapping[str, float] | None:
@@ -304,7 +304,7 @@ class CellMapDatasetWriter(Dataset):
                 self._device = torch.device("mps")
             else:
                 self._device = torch.device("cpu")
-            self.to(self._device)
+            self.to(self._device, non_blocking=True)
             return self._device
 
     def __len__(self) -> int:
@@ -510,11 +510,11 @@ class CellMapDatasetWriter(Dataset):
                 for source in source.values():
                     if not hasattr(source, "to"):
                         continue
-                    source.to(device)
+                    source.to(device, non_blocking=True)
             else:
                 if not hasattr(source, "to"):
                     continue
-                source.to(device)
+                source.to(device, non_blocking=True)
         return self
 
     def set_raw_value_transforms(self, transforms: Callable) -> None:

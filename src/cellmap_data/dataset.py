@@ -189,7 +189,7 @@ class CellMapDataset(Dataset):
         self.has_data = False
         for array_name, array_info in self.target_arrays.items():
             self.target_sources[array_name] = self.get_target_array(array_info)
-        self.to(self.device)
+        self.to(self.device, non_blocking=True)
 
     @property
     def center(self) -> Mapping[str, float] | None:
@@ -393,7 +393,7 @@ class CellMapDataset(Dataset):
                 self._device = torch.device("mps")
             else:
                 self._device = torch.device("cpu")
-            self.to(self._device)
+            self.to(self._device, non_blocking=True)
             return self._device
 
     def __len__(self) -> int:
@@ -617,11 +617,11 @@ class CellMapDataset(Dataset):
                 for source in source.values():
                     if not hasattr(source, "to"):
                         continue
-                    source.to(device)
+                    source.to(device, non_blocking=True)
             else:
                 if not hasattr(source, "to"):
                     continue
-                source.to(device)
+                source.to(device, non_blocking=True)
         return self
 
     def generate_spatial_transforms(self) -> Optional[Mapping[str, Any]]:

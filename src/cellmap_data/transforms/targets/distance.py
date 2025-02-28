@@ -6,7 +6,7 @@ from scipy.ndimage import distance_transform_edt as edt
 
 
 def transform(x: torch.Tensor) -> torch.Tensor:
-    return torch.tensor(edt(x.cpu().numpy())).to(x.device)
+    return torch.tensor(edt(x.cpu().numpy())).to(x.device, non_blocking=True)
 
 
 class DistanceTransform(torch.nn.Module):

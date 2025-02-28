@@ -171,7 +171,7 @@ class CellMapMultiDataset(ConcatDataset):
 
     def to(self, device: str | torch.device) -> "CellMapMultiDataset":
         for dataset in self.datasets:
-            dataset.to(device)
+            dataset.to(device, non_blocking=True)
         return self
 
     def get_weighted_sampler(

@@ -46,7 +46,7 @@ class CellMapSubset(Subset):
 
     def to(self, device) -> "CellMapSubset":
         """Move the dataset to the specified device."""
-        self.dataset.to(device)
+        self.dataset.to(device, non_blocking=True)
         return self
 
     def set_raw_value_transforms(self, transforms: Callable) -> None:
