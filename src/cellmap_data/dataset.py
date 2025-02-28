@@ -451,9 +451,15 @@ class CellMapDataset(Dataset):
 
         # For target arrays
         def get_target_array(array_name: str) -> tuple[str, torch.Tensor]:
-            class_arrays = {}
+            class_arrays = {
+                label: None for label in self.classes
+            }  # Force order of classes
             inferred_arrays = []
-            for label in self.classes:
+
+            # 1) Get images with gt data
+            def get_label_array(
+                label: str,
+            ) -> tuple[str, torch.Tensor | None]:
                 if isinstance(
                     self.target_sources[array_name][label], (CellMapImage, EmptyImage)
                 ):
@@ -467,20 +473,50 @@ class CellMapDataset(Dataset):
                     ].squeeze()  # type: ignore
                 else:
                     # Add to list of arrays to infer
-                    inferred_arrays.append(label)
                     array = None
-                class_arrays[label] = array
+                return label, array
 
-            for label in inferred_arrays:
+            futures = [
+                executor.submit(get_label_array, label) for label in self.classes
+            ]
+            for future in as_completed(futures):
+                label, array = future.result()
+                if array is not None:
+                    class_arrays[label] = array
+                else:
+                    inferred_arrays.append(label)
+
+            # 2) Infer true negatives from mutually exclusive classes in gt
+            empty_array = self.get_empty_store(
+                self.target_arrays[array_name], device=self.device
+            )  # type: ignore
+
+            def infer_label_array(label: str) -> tuple[str, torch.Tensor]:
                 # Make array of true negatives
-                array = self.get_empty_store(
-                    self.target_arrays[array_name], device=self.device
-                )  # type: ignore
                 for other_label in self.target_sources[array_name][label]:  # type: ignore
+                    array = empty_array.clone()
                     if class_arrays[other_label] is not None:
                         mask = class_arrays[other_label] > 0
                         array[mask] = 0
+                return label, array
+
+            futures = [
+                executor.submit(infer_label_array, label) for label in inferred_arrays
+            ]
+            for future in as_completed(futures):
+                label, array = future.result()
                 class_arrays[label] = array
+
+            # for label in inferred_arrays:
+            #     # Make array of true negatives
+            #     array = self.get_empty_store(
+            #         self.target_arrays[array_name], device=self.device
+            #     )  # type: ignore
+            #     for other_label in self.target_sources[array_name][label]:  # type: ignore
+            #         if class_arrays[other_label] is not None:
+            #             mask = class_arrays[other_label] > 0
+            #             array[mask] = 0
+            #     class_arrays[label] = array
 
             return array_name, torch.stack(list(class_arrays.values()))
 
@@ -494,6 +530,7 @@ class CellMapDataset(Dataset):
             array_name, array = future.result()
             outputs[array_name] = array
 
+        # # Non parallel version
         # outputs = {}
         # for array_name in self.input_arrays.keys():
         #     self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
