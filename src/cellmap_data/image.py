@@ -382,7 +382,7 @@ class CellMapImage:
                 ) * np.prod(list(self.scale.values()))
             return self._class_counts  # type: ignore
 
-    def to(self, device: str) -> None:
+    def to(self, device: str, *args, **kwargs) -> None:
         """Sets what device returned image data will be loaded onto."""
         self.device = device
 
@@ -621,9 +621,9 @@ class EmptyImage:
         """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution. Returns zero for an EmptyImage object."""
         return self._class_counts
 
-    def to(self, device: str) -> None:
+    def to(self, device: str, non_blocking: bool = True) -> None:
         """Moves the image data to the given device."""
-        self.store = self.store.to(device, non_blocking=True)
+        self.store = self.store.to(device, non_blocking=non_blocking)
 
     def set_spatial_transforms(self, transforms: Mapping[str, Any] | None) -> None:
         """Imitates the method in CellMapImage, but does nothing for an EmptyImage object."""

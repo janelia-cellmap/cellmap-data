@@ -500,7 +500,9 @@ class CellMapDatasetWriter(Dataset):
             indices.append(index)
         return indices
 
-    def to(self, device: str | torch.device) -> "CellMapDatasetWriter":
+    def to(
+        self, device: str | torch.device, non_blocking: bool = True
+    ) -> "CellMapDatasetWriter":
         """Sets the device for the dataset."""
         if device is None:
             device = self.device
@@ -510,11 +512,11 @@ class CellMapDatasetWriter(Dataset):
                 for source in source.values():
                     if not hasattr(source, "to"):
                         continue
-                    source.to(device, non_blocking=True)
+                    source.to(device, non_blocking=non_blocking)
             else:
                 if not hasattr(source, "to"):
                     continue
-                source.to(device, non_blocking=True)
+                source.to(device, non_blocking=non_blocking)
         return self
 
     def set_raw_value_transforms(self, transforms: Callable) -> None:

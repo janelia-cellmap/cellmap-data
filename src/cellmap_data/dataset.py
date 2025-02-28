@@ -607,7 +607,9 @@ class CellMapDataset(Dataset):
             indices.append(index)
         return indices
 
-    def to(self, device: str | torch.device) -> "CellMapDataset":
+    def to(
+        self, device: str | torch.device, non_blocking: bool = True
+    ) -> "CellMapDataset":
         """Sets the device for the dataset."""
         self._device = torch.device(device)
         for source in list(self.input_sources.values()) + list(
@@ -617,11 +619,11 @@ class CellMapDataset(Dataset):
                 for source in source.values():
                     if not hasattr(source, "to"):
                         continue
-                    source.to(device, non_blocking=True)
+                    source.to(device, non_blocking=non_blocking)
             else:
                 if not hasattr(source, "to"):
                     continue
-                source.to(device, non_blocking=True)
+                source.to(device, non_blocking=non_blocking)
         return self
 
     def generate_spatial_transforms(self) -> Optional[Mapping[str, Any]]:

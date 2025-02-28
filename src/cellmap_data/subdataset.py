@@ -44,9 +44,9 @@ class CellMapSubset(Subset):
         """The indices of the validation set."""
         return self.dataset.validation_indices
 
-    def to(self, device) -> "CellMapSubset":
+    def to(self, device, non_blocking: bool = True) -> "CellMapSubset":
         """Move the dataset to the specified device."""
-        self.dataset.to(device, non_blocking=True)
+        self.dataset.to(device, non_blocking=non_blocking)
         return self
 
     def set_raw_value_transforms(self, transforms: Callable) -> None:

@@ -74,7 +74,7 @@ class CellMapDataLoader:
                 device = "cpu"
         self.device = device
         if num_workers == 0:
-            self.datasetdevice)
+            self.dataset.to(device, non_blocking=True)
         if self.sampler is None and self.weighted_sampler:
             assert isinstance(
                 self.dataset, CellMapMultiDataset
@@ -107,9 +107,9 @@ class CellMapDataLoader:
             indices = [indices]
         return self.collate_fn([self.loader.dataset[index] for index in indices])
 
-    def to(self, device: str | torch.device):
+    def to(self, device: str | torch.device, non_blocking: bool = True):
         """Move the dataset to the specified device."""
-        self.datasetdevice)
+        self.dataset.to(device, non_blocking=non_blocking)
         self.device = device
 
     def refresh(self):

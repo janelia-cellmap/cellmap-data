@@ -464,16 +464,16 @@ class CellMapDataSplit:
             if hasattr(self, attr):
                 delattr(self, attr)
 
-    def to(self, device: str | torch.device) -> None:
+    def to(self, device: str | torch.device, non_blocking: bool = True) -> None:
         """Sets the device for the dataloaders."""
         self.device = device
         for dataset in self.train_datasets:
-            dataset.to(device, non_blocking=True)
+            dataset.to(device, non_blocking=non_blocking)
         for dataset in self.validation_datasets:
-            dataset.to(device, non_blocking=True)
+            dataset.to(device, non_blocking=non_blocking)
         if hasattr(self, "_train_datasets_combined"):
-            self._train_datasets_combined.to(device, non_blocking=True)
+            self._train_datasets_combined.to(device, non_blocking=non_blocking)
         if hasattr(self, "_validation_datasets_combined"):
-            self._validation_datasets_combined.to(device, non_blocking=True)
+            self._validation_datasets_combined.to(device, non_blocking=non_blocking)
         if hasattr(self, "_validation_blocks"):
-            self._validation_blocks.to(device, non_blocking=True)
+            self._validation_blocks.to(device, non_blocking=non_blocking)

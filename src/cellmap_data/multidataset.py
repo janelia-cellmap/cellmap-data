@@ -169,9 +169,11 @@ class CellMapMultiDataset(ConcatDataset):
             self._validation_indices = indices
             return self._validation_indices
 
-    def to(self, device: str | torch.device) -> "CellMapMultiDataset":
+    def to(
+        self, device: str | torch.device, non_blocking: bool = True
+    ) -> "CellMapMultiDataset":
         for dataset in self.datasets:
-            dataset.to(device, non_blocking=True)
+            dataset.to(device, non_blocking=non_blocking)
         return self
 
     def get_weighted_sampler(
