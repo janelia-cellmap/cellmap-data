@@ -289,7 +289,7 @@ class CellMapDataSplit:
                 "validate": self.validation_datasets_combined.class_counts,
             }
             return self._class_counts
-        
+
     def from_csv(self, csv_path) -> dict[str, Sequence[dict[str, str]]]:
         """Loads the dataset_dict data from a csv file."""
         dataset_dict = {}
@@ -307,28 +307,37 @@ class CellMapDataSplit:
                 )
 
         filtered_dataset_dict = self.filter_by_target_scale(dataset_dict)
-        
-        return filtered_dataset_dict        
-    
-    
+
+        return filtered_dataset_dict
+
     def filter_by_target_scale(self, dataset_dict_init):
         """Filters dataset_dict data from a csv file, so that only the gt that matches input_arrays['arr_name']['scale'] parameter was included in dataset_dict."""
 
-        target_scale = self.input_arrays['input']['scale']
+        target_scale = self.input_arrays["input"]["scale"]
         filtered_dataset_dict = {}
-        for category in dataset_dict_init: #category : train, validate
+        for category in dataset_dict_init:  # category : train, validate
             filtered_dataset_dict[category] = []
             category_dict = dataset_dict_init[category]
             for _ in category_dict:
-                gt_path_arr = _['gt']
+                gt_path_arr = _["gt"]
                 match = re.match(r"(.*)/\[(.*)\]", gt_path_arr)
                 path_to_gt_classes = match.group(1).strip()
                 classes = match.group(2).strip()
-                gt_classes = classes.split(",") if classes else [] 
-                if (gt_classes):
-                    zg = open(os.path.join(path_to_gt_classes, gt_classes[0].strip()),mode = 'r')
-                    gt_scale = zg.attrs['multiscales'][0]['datasets'][0]['coordinateTransformations'][0]['scale']
-                    if all([gt_sc <= tgt_sc for gt_sc, tgt_sc in zip(gt_scale, target_scale)]):
+                gt_classes = classes.split(",") if classes else []
+                if gt_classes:
+                    zg = open(
+                        os.path.join(path_to_gt_classes, gt_classes[0].strip()),
+                        mode="r",
+                    )
+                    gt_scale = zg.attrs["multiscales"][0]["datasets"][0][
+                        "coordinateTransformations"
+                    ][0]["scale"]
+                    if all(
+                        [
+                            gt_sc <= tgt_sc
+                            for gt_sc, tgt_sc in zip(gt_scale, target_scale)
+                        ]
+                    ):
                         filtered_dataset_dict[category].append(_)
         return filtered_dataset_dict
 
