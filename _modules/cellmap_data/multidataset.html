@@ -323,15 +323,15 @@ document.write(`
 <a class="viewcode-back" href="../../cellmap_data.CellMapMultiDataset.html#cellmap_data.CellMapMultiDataset.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">classes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">classes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">input_arrays</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]]],</span>
-        <span class="n">target_arrays</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">target_arrays</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">datasets</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">CellMapDataset</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">datasets</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">input_arrays</span> <span class="o">=</span> <span class="n">input_arrays</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span> <span class="o">=</span> <span class="n">target_arrays</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">classes</span> <span class="o">=</span> <span class="n">classes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_arrays</span> <span class="o">=</span> <span class="n">target_arrays</span> <span class="k">if</span> <span class="n">target_arrays</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">classes</span> <span class="o">=</span> <span class="n">classes</span> <span class="k">if</span> <span class="n">classes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span> <span class="o">=</span> <span class="n">datasets</span></div>
 
 
@@ -391,12 +391,15 @@ document.write(`
         <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
             <span class="n">dataset_weights</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">:</span>
-                <span class="n">dataset_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
-                    <span class="p">[</span>
-                        <span class="n">dataset</span><span class="o">.</span><span class="n">class_counts</span><span class="p">[</span><span class="s2">&quot;totals&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">class_weights</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
-                        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span>
-                    <span class="p">]</span>
-                <span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">dataset_weight</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">dataset_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+                        <span class="p">[</span>
+                            <span class="n">dataset</span><span class="o">.</span><span class="n">class_counts</span><span class="p">[</span><span class="s2">&quot;totals&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">class_weights</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
+                            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span>
+                        <span class="p">]</span>
+                    <span class="p">)</span>
                 <span class="n">dataset_weights</span><span class="p">[</span><span class="n">dataset</span><span class="p">]</span> <span class="o">=</span> <span class="n">dataset_weight</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_dataset_weights</span> <span class="o">=</span> <span class="n">dataset_weights</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dataset_weights</span>
@@ -484,7 +487,9 @@ document.write(`
             <span class="n">dataset_weights</span><span class="p">[</span><span class="n">dataset_weights</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.1</span>
 
             <span class="n">datasets_sampled</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">multinomial</span><span class="p">(</span>
-                <span class="n">dataset_weights</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">,</span> <span class="n">replacement</span><span class="o">=</span><span class="kc">True</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">dataset_weights</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+                <span class="n">num_samples</span><span class="p">,</span>
+                <span class="n">replacement</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">indices</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">index_offset</span> <span class="o">=</span> <span class="mi">0</span>
