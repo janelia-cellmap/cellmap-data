@@ -53,15 +53,15 @@ class CellMapMultiDataset(ConcatDataset):
 
     def __init__(
         self,
-        classes: Sequence[str],
+        classes: Sequence[str] | None,
         input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
-        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
+        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]] | None,
         datasets: Sequence[CellMapDataset],
     ) -> None:
         super().__init__(datasets)
         self.input_arrays = input_arrays
-        self.target_arrays = target_arrays
-        self.classes = classes
+        self.target_arrays = target_arrays if target_arrays is not None else {}
+        self.classes = classes if classes is not None else []
         self.datasets = datasets
 
     def __repr__(self) -> str:
@@ -120,12 +120,15 @@ class CellMapMultiDataset(ConcatDataset):
         except AttributeError:
             dataset_weights = {}
             for dataset in self.datasets:
-                dataset_weight = np.sum(
-                    [
-                        dataset.class_counts["totals"][c] * self.class_weights[c]
-                        for c in self.classes
-                    ]
-                )
+                if len(self.classes) == 0:
+                    dataset_weight = len(dataset)
+                else:
+                    dataset_weight = np.sum(
+                        [
+                            dataset.class_counts["totals"][c] * self.class_weights[c]
+                            for c in self.classes
+                        ]
+                    )
                 dataset_weights[dataset] = dataset_weight
             self._dataset_weights = dataset_weights
             return self._dataset_weights
@@ -205,7 +208,9 @@ class CellMapMultiDataset(ConcatDataset):
             dataset_weights[dataset_weights < 0.1] = 0.1
 
             datasets_sampled = torch.multinomial(
-                dataset_weights, num_samples, replacement=True
+                torch.as_tensor(dataset_weights, dtype=float),
+                num_samples,
+                replacement=True,
             )
             indices = []
             index_offset = 0

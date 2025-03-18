@@ -31,7 +31,7 @@ class CellMapDataLoader:
     def __init__(
         self,
         dataset: CellMapMultiDataset | CellMapDataset | Subset | CellMapDatasetWriter,
-        classes: Sequence[str],
+        classes: Sequence[str] | None = None,
         batch_size: int = 1,
         num_workers: int = 0,
         weighted_sampler: bool = False,
@@ -58,7 +58,7 @@ class CellMapDataLoader:
 
         """
         self.dataset = dataset
-        self.classes = classes
+        self.classes = classes if classes is not None else dataset.classes
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.weighted_sampler = weighted_sampler

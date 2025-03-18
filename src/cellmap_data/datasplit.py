@@ -91,8 +91,10 @@ class CellMapDataSplit:
     def __init__(
         self,
         input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
-        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
-        classes: Sequence[str],
+        target_arrays: Optional[
+            Mapping[str, Mapping[str, Sequence[int | float]]]
+        ] = None,
+        classes: Sequence[str] | None = None,
         empty_value: int | float = torch.nan,
         pad: bool | str = False,
         datasets: Optional[Mapping[str, Sequence[CellMapDataset]]] = None,
