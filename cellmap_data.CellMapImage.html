@@ -332,6 +332,7 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.rotate_coords"><code class="docutils literal notranslate"><span class="pre">CellMapImage.rotate_coords()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapImage.set_spatial_transforms()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.apply_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapImage.apply_spatial_transforms()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.tolerance"><code class="docutils literal notranslate"><span class="pre">CellMapImage.tolerance</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.return_data"><code class="docutils literal notranslate"><span class="pre">CellMapImage.return_data()</span></code></a></li>
 </ul>
 </li>
@@ -464,7 +465,10 @@ document.write(`
 <tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.shape" title="cellmap_data.CellMapImage.shape"><code class="xref py py-obj docutils literal notranslate"><span class="pre">shape</span></code></a></p></td>
 <td><p>Returns the shape of the image.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.translation" title="cellmap_data.CellMapImage.translation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">translation</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.tolerance" title="cellmap_data.CellMapImage.tolerance"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tolerance</span></code></a></p></td>
+<td><p>Returns the tolerance for nearest neighbor interpolation.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#cellmap_data.CellMapImage.translation" title="cellmap_data.CellMapImage.translation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">translation</span></code></a></p></td>
 <td><p>Returns the translation of the image.</p></td>
 </tr>
 </tbody>
@@ -638,6 +642,12 @@ document.write(`
 </dl>
 </dd></dl>
 
+<dl class="py property">
+<dt class="sig sig-object py" id="cellmap_data.CellMapImage.tolerance">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">tolerance</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#cellmap_data.CellMapImage.tolerance" title="Link to this definition">#</a></dt>
+<dd><p>Returns the tolerance for nearest neighbor interpolation.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="cellmap_data.CellMapImage.return_data">
 <span class="sig-name descname"><span class="pre">return_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataArray</span></span></span><a class="reference internal" href="_modules/cellmap_data/image.html#CellMapImage.return_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#cellmap_data.CellMapImage.return_data" title="Link to this definition">#</a></dt>
@@ -705,6 +715,7 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.rotate_coords"><code class="docutils literal notranslate"><span class="pre">CellMapImage.rotate_coords()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.set_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapImage.set_spatial_transforms()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.apply_spatial_transforms"><code class="docutils literal notranslate"><span class="pre">CellMapImage.apply_spatial_transforms()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.tolerance"><code class="docutils literal notranslate"><span class="pre">CellMapImage.tolerance</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellmap_data.CellMapImage.return_data"><code class="docutils literal notranslate"><span class="pre">CellMapImage.return_data()</span></code></a></li>
 </ul>
 </li>

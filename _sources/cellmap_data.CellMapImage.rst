@@ -42,6 +42,7 @@
       ~CellMapImage.sampling_box
       ~CellMapImage.scale_level
       ~CellMapImage.shape
+      ~CellMapImage.tolerance
       ~CellMapImage.translation
    
    
