@@ -496,6 +496,21 @@ class CellMapImage:
 
         return torch.tensor(data)
 
+    @property
+    def tolerance(self) -> float:
+        """Returns the tolerance for nearest neighbor interpolation."""
+        try:
+            return self._tolerance
+        except AttributeError:
+            # Calculate the tolerance as half the norm of the original image scale (i.e. traversing half a pixel diagonally)
+            actual_scale = [
+                ct
+                for ct in self.coordinateTransformations
+                if isinstance(ct, VectorScale)
+            ][0].scale
+            self._tolerance = np.linalg.norm(actual_scale) / 2
+            return self._tolerance
+
     def return_data(
         self,
         coords: (
@@ -513,8 +528,7 @@ class CellMapImage:
             data = self.array.reindex(
                 **coords,
                 method="nearest",
-                tolerance=np.ones(coords[self.axes[0]].shape)
-                * np.max(list(self.scale.values())) ** 2,
+                tolerance=self.tolerance,
                 fill_value=self.pad_value,
             )
         else:
