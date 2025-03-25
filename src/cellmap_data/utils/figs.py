@@ -198,17 +198,16 @@ def get_fig_dict(
                 ax[b, 4].set_title("Intensity")
             input_img = input_data[b][0].squeeze().cpu().detach().numpy()
             if len(input_img.shape) == 3:
-                input_mid = input_img.shape[0] // 2
-                input_img = input_img[input_mid]
-            x_pad, y_pad = (input_img.shape[1] - output.shape[1]) // 2, (
-                input_img.shape[0] - output.shape[0]
+                input_img = input_img[input_img.shape[0] // 2]
+            x_pad, y_pad = (input_img.shape[0] - output.shape[0]) // 2, (
+                input_img.shape[1] - output.shape[1]
             ) // 2
             if x_pad <= 0:
-                x_slice = slice(0, input_img.shape[1])
+                x_slice = slice(0, input_img.shape[0])
             else:
                 x_slice = slice(x_pad, -x_pad)
             if y_pad <= 0:
-                y_slice = slice(0, input_img.shape[0])
+                y_slice = slice(0, input_img.shape[1])
             else:
                 y_slice = slice(y_pad, -y_pad)
             ax[b, 1].imshow(input_img[x_slice, y_slice], cmap="gray", clim=clim)
