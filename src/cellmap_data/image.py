@@ -508,7 +508,7 @@ class CellMapImage:
                 for ct in self.coordinateTransformations
                 if isinstance(ct, VectorScale)
             ][0].scale
-            self._tolerance = np.linalg.norm(actual_scale) / 2
+            self._tolerance = np.linalg.norm(actual_scale) * len(actual_scale)
             return self._tolerance
 
     def return_data(
