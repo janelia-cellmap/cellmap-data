@@ -98,7 +98,6 @@ class CellMapDataLoader:
             kwargs["shuffle"] = True
         else:
             kwargs["shuffle"] = False
-        # TODO: Try persistent workers
         self.loader = DataLoader(**kwargs)
 
     def __getitem__(self, indices: Sequence[int]) -> dict:
