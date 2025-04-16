@@ -4,7 +4,7 @@ import torchvision.transforms.v2 as T
 
 
 class Normalize(T.Transform):
-    """Normalize the input tensor by given shift and scale, and convert to float32. Subclasses torchvision.transforms.Transform.
+    """Normalize the input tensor by given shift and scale, and convert to float. Subclasses torchvision.transforms.Transform.
 
     Methods:
         _transform: Transform the input.

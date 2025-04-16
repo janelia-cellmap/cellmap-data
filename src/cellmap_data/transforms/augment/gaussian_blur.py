@@ -24,7 +24,6 @@ class GaussianBlur(torch.nn.Module):
         self.sigma = sigma
         self.dim = dim
         self.kernel = self._create_gaussian_kernel()
-        # padding = int(self.kernel_size // 2)
         self.conv = {2: torch.nn.Conv2d, 3: torch.nn.Conv3d}[dim](
             in_channels=channels,
             out_channels=channels,
@@ -54,8 +53,15 @@ class GaussianBlur(torch.nn.Module):
     def forward(self, x: torch.Tensor):
         """Apply Gaussian blur to the input tensor."""
         self.conv.to(x.device, non_blocking=True)
+        if len(x.shape) == self.dim:
+            # For 2D or 3D input without batch dimension
+            x = x.view(1, *x.shape)  # Add batch dimension
+            out = self.conv(x.view(1, *x.shape).to(torch.float))
+            out = out.view(*x.shape)  # Remove batch dimension
+        else:
+            out = self.conv(x.to(torch.float))
 
-        return self.conv(x.to(torch.float))
+        return out
 
 
 # # Example usage
