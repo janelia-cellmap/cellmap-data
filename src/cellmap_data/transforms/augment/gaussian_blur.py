@@ -3,7 +3,9 @@ import torch.nn.functional as F
 
 
 class GaussianBlur(torch.nn.Module):
-    def __init__(self, kernel_size: int = 3, sigma: float = 0.1, dim: int = 2):
+    def __init__(
+        self, kernel_size: int = 3, sigma: float = 0.1, dim: int = 2, channels: int = 1
+    ):
         """
         Initialize a Gaussian Blur module.
 
@@ -11,6 +13,7 @@ class GaussianBlur(torch.nn.Module):
             kernel_size (int): Size of the Gaussian kernel (should be odd).
             sigma (float): Standard deviation of the Gaussian distribution.
             dim (int): Dimensionality (2 or 3) for applying the blur.
+            channels (int): Number of input channels (default is 1).
         """
         super().__init__()
         assert dim in (2, 3), "Only 2D or 3D Gaussian blur is supported."
@@ -21,15 +24,20 @@ class GaussianBlur(torch.nn.Module):
         self.sigma = sigma
         self.dim = dim
         self.kernel = self._create_gaussian_kernel()
-        padding = self.kernel_size // 2
-        if dim == 2:
-            self.conv = lambda x, kernel: F.conv2d(
-                x, kernel, padding=padding, groups=x.shape[1]
-            )
-        else:
-            self.conv = lambda x, kernel: F.conv3d(
-                x, kernel, padding=padding, groups=x.shape[1]
-            )
+        # padding = int(self.kernel_size // 2)
+        self.conv = {2: torch.nn.Conv2d, 3: torch.nn.Conv3d}[dim](
+            in_channels=channels,
+            out_channels=channels,
+            kernel_size=self.kernel_shape,
+            bias=False,
+            padding="same",  # Automatically pads to keep output size same as input
+            groups=channels,  # Apply the same kernel to each channel independently
+            padding_mode="replicate",  # Use 'replicate' padding to avoid artifacts
+        )
+        kernel = self.kernel.view(1, 1, *self.kernel_shape)
+        kernel = kernel.repeat(channels, 1, *(1,) * self.dim)
+        self.conv.weight.data = kernel
+        self.conv.weight.requires_grad = False  # Freeze the kernel weights
 
     def _create_gaussian_kernel(self):
         """Create a Gaussian kernel for 2D or 3D convolution."""
@@ -45,23 +53,17 @@ class GaussianBlur(torch.nn.Module):
 
     def forward(self, x: torch.Tensor):
         """Apply Gaussian blur to the input tensor."""
-        device = x.device
-        kernel = self.kernel.to(device, non_blocking=True)
+        self.conv.to(x.device, non_blocking=True)
 
-        # Add batch and channel dimensions
-        kernel = kernel.view(1, 1, *self.kernel_shape)
-        # Repeat for all channels
-        kernel = kernel.repeat(x.shape[1], 1, *(1,) * self.dim)
-        return self.conv(x, kernel)
+        return self.conv(x.to(torch.float))
 
 
-if __name__ == "__main__":
-    # Example usage
-    image_2d = torch.rand(4, 3, 128, 128)  # Batch of 2D images with 3 channels
-    image_3d = torch.rand(2, 3, 32, 32, 32)  # Batch of 3D volumes with 3 channels
+# # Example usage
+# image_2d = torch.rand(4, 3, 128, 128)  # Batch of 2D images with 3 channels
+# image_3d = torch.rand(2, 3, 32, 32, 32)  # Batch of 3D volumes with 3 channels
 
-    blur_2d = GaussianBlur(kernel_size=5, sigma=1.0, dim=2)
-    blur_3d = GaussianBlur(kernel_size=5, sigma=1.0, dim=3)
+# blur_2d = GaussianBlur(kernel_size=5, sigma=1.0, dim=2)
+# blur_3d = GaussianBlur(kernel_size=5, sigma=1.0, dim=3)
 
-    blurred_2d = blur_2d(image_2d)
-    blurred_3d = blur_3d(image_3d)
+# blurred_2d = blur_2d(image_2d)
+# blurred_3d = blur_3d(image_3d)
