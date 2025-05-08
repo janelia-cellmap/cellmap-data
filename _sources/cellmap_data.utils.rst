@@ -10,6 +10,8 @@ cellmap\_data.utils
    :toctree:
    :recursive:
 
+   coordinate
    dtype
    figs
    metadata
+   roi
