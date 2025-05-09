@@ -1,14 +1,19 @@
-from .coordinate import Coordinate
-from .freezable import Freezable
+# Modified from funlib.geometry to allow float coordinates
+# @rhoadesScholar, HHMI Janelia Research Campus 2025
 
 import copy
-from typing import Iterable, Union, Optional, Tuple
 import logging
+import numbers
+from typing import Iterable, Optional, Tuple, Union
+
+import numpy as np
+
+from .coordinate import Coordinate
 
 logger = logging.getLogger(__file__)
 
 
-class Roi(Freezable):
+class Roi:
     """A rectangular region of interest, defined by an offset and a shape.
     Special Cases:
         An infinite/unbounded ROI:
@@ -26,10 +31,10 @@ class Roi(Freezable):
         dims of the other).
 
     Basic Operations:
-        Addition/subtraction (Coordinate or int) - shifts the offset
+        Addition/subtraction (Coordinate, int, or float) - shifts the offset
         elementwise (alias for shift)
 
-        Multiplication/division (Coordiante or int) - multiplies/divides the
+        Multiplication/division (Coordinate, int, or float) - multiplies/divides the
         offset and the shape, elementwise
 
     Roi Operations:
@@ -37,28 +42,31 @@ class Roi(Freezable):
 
     Similar to :class:`Coordinate`, supports simple arithmetics, e.g.::
 
-        roi = Roi((1, 1, 1), (10, 10, 10))
+        roi = Roi((1., 1., 1), (10., 10., 10))
         voxel_size = Coordinate((10, 5, 1))
         roi * voxel_size = Roi((10, 5, 1), (100, 50, 10))
         scale_shift = roi*voxel_size + 1 # == Roi((11, 6, 2), (101, 51, 11))
 
     Args:
 
-        offset (array-like of ``int``):
+        offset (array-like of ``int`` or ``float``):
 
             The offset of the ROI. Entries can be ``None`` to indicate
             there is no offset (either unbounded or empty).
 
-        shape (array-like of ``int``):
+        shape (array-like of ``int`` or ``float``):
 
             The shape of the ROI. Entries can be ``None`` to indicate
             unboundedness.
     """
 
-    def __init__(self, offset: Iterable[Optional[int]], shape: Iterable[Optional[int]]):
+    def __init__(
+        self,
+        offset: Iterable[Optional[int | float]],
+        shape: Iterable[Optional[int | float]],
+    ):
         self.__offset = Coordinate(offset)
         self.__shape = Coordinate(shape)
-        self.freeze()
 
         self.__consolidate_offset()
 
@@ -70,7 +78,7 @@ class Roi(Freezable):
         return self.__offset
 
     @offset.setter
-    def offset(self, offset: Iterable[Optional[int]]) -> None:
+    def offset(self, offset: Iterable[Optional[int | float]]) -> None:
         """Set the offset of this Roi.
 
         Args:
@@ -86,7 +94,7 @@ class Roi(Freezable):
     def get_offset(self) -> Coordinate:
         return self.offset
 
-    def set_offset(self, new_offset: Iterable[Optional[int]]) -> None:
+    def set_offset(self, new_offset: Iterable[Optional[int | float]]) -> None:
         self.offset = Coordinate(new_offset)
 
     @property
@@ -94,7 +102,7 @@ class Roi(Freezable):
         return self.__shape
 
     @shape.setter
-    def shape(self, shape: Iterable[Optional[int]]) -> None:
+    def shape(self, shape: Iterable[Optional[int | float]]) -> None:
         """Set the shape of this ROI.
 
         Args:
@@ -111,7 +119,7 @@ class Roi(Freezable):
     def get_shape(self) -> Coordinate:
         return self.shape
 
-    def set_shape(self, new_shape: Iterable[Optional[int]]) -> None:
+    def set_shape(self, new_shape: Iterable[Optional[int | float]]) -> None:
         self.shape = Coordinate(new_shape)
 
     def __consolidate_offset(self) -> None:
@@ -154,9 +162,31 @@ class Roi(Freezable):
     def get_center(self) -> Coordinate:
         return self.center
 
-    def to_slices(self) -> Tuple[slice, ...]:
-        """Get a ``tuple`` of ``slice`` that represent this ROI and can be used
-        to index arrays."""
+    def to_slices(
+        self, grid_size: Union[Coordinate, int, float, Iterable[int | float]] = 1
+    ) -> Tuple[slice, ...]:
+        """
+        Get a ``tuple`` of ``slice`` that represent this ROI and can be used
+        to index arrays.
+
+        Args:
+
+            grid_size (:class:`Coordinate` or ``int`` or ``float`` or ``None``, optional):
+
+            The size of the grid to divide coordinates by. If ``None``,
+            coordinates are simply rounded outward to ensure full ROI
+            coverage. If a number, it is used for all dimensions.
+        """
+        if grid_size is None:
+            grid_size = 1
+        if isinstance(grid_size, numbers.Number):
+            grid_size = Coordinate((grid_size,) * self.dims)
+        elif not isinstance(grid_size, Coordinate) and isinstance(grid_size, Iterable):
+            grid_size = Coordinate(grid_size)
+        assert isinstance(
+            grid_size, (Coordinate, int, float)
+        ), "grid_size must be a Coordinate or a number"
+
         slices = []
         for d in range(self.dims):
             if self.__shape[d] is None:
@@ -164,9 +194,9 @@ class Roi(Freezable):
             elif self.__shape[d] == 0:
                 s = slice(None, 0)
             else:
-                s = slice(
-                    int(self.__offset[d]), int(self.__offset[d] + self.__shape[d])
-                )
+                start = int(np.floor(self.__offset[d] / grid_size[d]))  # type: ignore
+                end = int(np.ceil((self.__offset[d] + self.__shape[d]) / grid_size[d]))  # type: ignore
+                s = slice(start, end)
             slices.append(s)
 
         return tuple(slices)
@@ -183,7 +213,7 @@ class Roi(Freezable):
         return self.__shape.dims
 
     @property
-    def size(self) -> Optional[int]:
+    def size(self) -> Optional[float]:
         """Get the volume of this ROI. Returns ``None`` if the ROI is
         unbounded."""
 
@@ -195,7 +225,7 @@ class Roi(Freezable):
             size *= d
         return size
 
-    def get_size(self) -> Optional[int]:
+    def get_size(self) -> Optional[float]:
         return self.size
 
     @property
@@ -210,7 +240,7 @@ class Roi(Freezable):
 
         return None in self.__shape
 
-    def contains(self, other: Union["Roi", Iterable[Optional[int]]]) -> bool:
+    def contains(self, other: Union["Roi", Iterable[Optional[int | float]]]) -> bool:
         """Test if this ROI contains ``other``, which can be another
         :class:`Roi`, :class:`Coordinate`, or ``tuple``."""
 
@@ -293,13 +323,13 @@ class Roi(Freezable):
 
         return Roi(begin, end - begin)
 
-    def shift(self, by: Union["Coordinate", int]) -> "Roi":
+    def shift(self, by: Union["Coordinate", int, float]) -> "Roi":
         """Shift this ROI."""
 
         return Roi(self.__offset + by, self.__shape)
 
     def snap_to_grid(
-        self, voxel_size: Iterable[Optional[int]], mode: str = "grow"
+        self, voxel_size: Iterable[Optional[int | float]], mode: str = "grow"
     ) -> "Roi":
         """Align a ROI with a given voxel size.
 
@@ -342,31 +372,31 @@ class Roi(Freezable):
 
     def grow(
         self,
-        amount_neg: Union[Iterable[Optional[int]], int] = 0,
-        amount_pos: Union[Iterable[Optional[int]], int] = 0,
+        amount_neg: Union[Iterable[Optional[int | float]], int | float] = 0,
+        amount_pos: Union[Iterable[Optional[int | float]], int | float] = 0,
     ) -> "Roi":
         """Grow a ROI by the given amounts in each direction:
 
         Args:
 
-            amount_neg (:class:`Coordinate` or ``int``):
+            amount_neg (:class:`Coordinate` or ``int`` or ``float``):
 
                 Amount (per dimension) to grow into the negative direction.
                 Passing in a single integer grows that amount in all
                 dimensions. Defaults to zero.
 
-            amount_pos (:class:`Coordinate` or ``int``):
+            amount_pos (:class:`Coordinate` or ``int`` or ``float``):
 
                 Amount (per dimension) to grow into the positive direction.
                 Passing in a single integer grows that amount in all
                 dimensions. Defaults to zero.
         """
         if isinstance(amount_neg, Iterable):
-            _amount_neg: Union[Coordinate, int] = Coordinate(amount_neg)
+            _amount_neg: Union[Coordinate, int, float] = Coordinate(amount_neg)
         else:
             _amount_neg = amount_neg
         if isinstance(amount_pos, Iterable):
-            _amount_pos: Union[Coordinate, int] = Coordinate(amount_pos)
+            _amount_pos: Union[Coordinate, int, float] = Coordinate(amount_pos)
         else:
             _amount_pos = amount_pos
 
@@ -411,46 +441,62 @@ class Roi(Freezable):
             return None
         return max(x, y)
 
-    def __add__(self, other: Union["Coordinate", int]) -> "Roi":
-        assert isinstance(other, Coordinate) or isinstance(
-            other, int
-        ), "can only add number or Coordinate to Roi"
+    def __add__(self, other: Union["Coordinate", int, float]) -> "Roi":
+        if not isinstance(other, numbers.Number):
+            other = Coordinate(other)
+        assert isinstance(
+            other, (Coordinate, int, float)
+        ), "can only add number or Coordinate-like to Roi"
         return self.shift(other)
 
-    def __sub__(self, other: Union["Coordinate", int]) -> "Roi":
-        assert isinstance(other, Coordinate) or isinstance(
-            other, int
-        ), "can only subtract number or Coordinate from Roi"
+    def __sub__(self, other: Union["Coordinate", int, float]) -> "Roi":
+        if not isinstance(other, numbers.Number):
+            other = Coordinate(other)
+        assert isinstance(
+            other, (Coordinate, int, float)
+        ), "can only subtract number or Coordinate-like from Roi"
         return self.shift(-other)
 
-    def __mul__(self, other: Union["Coordinate", int]) -> "Roi":
-        assert isinstance(other, Coordinate) or isinstance(
-            other, int
-        ), "can only multiply with a number or Coordinate"
+    def __mul__(self, other: Union["Coordinate", int, float]) -> "Roi":
+        if not isinstance(other, numbers.Number):
+            other = Coordinate(other)
+        assert isinstance(
+            other, (Coordinate, int, float)
+        ), "can only multiply with a number or Coordinate-like"
         return Roi(self.__offset * other, self.__shape * other)
 
-    def __div__(self, other: Union["Coordinate", int]) -> "Roi":
-        assert isinstance(other, Coordinate) or isinstance(
-            other, int
-        ), "can only divide by a number or Coordinate"
+    def __div__(self, other: Union["Coordinate", int, float]) -> "Roi":
+        if not isinstance(other, numbers.Number):
+            other = Coordinate(other)
+        assert isinstance(
+            other, (Coordinate, int, float)
+        ), "can only divide by a number or Coordinate-like"
         return Roi(self.__offset / other, self.__shape / other)
 
-    def __truediv__(self, other: Union["Coordinate", int]) -> "Roi":
-        assert isinstance(other, Coordinate) or isinstance(
-            other, int
-        ), "can only divide by a number or Coordinate"
+    def __truediv__(self, other: Union["Coordinate", int, float]) -> "Roi":
+        if not isinstance(other, numbers.Number):
+            other = Coordinate(other)
+        assert isinstance(
+            other, (Coordinate, int, float)
+        ), "can only divide by a number or Coordinate-like"
         return Roi(self.__offset / other, self.__shape / other)
 
-    def __floordiv__(self, other: Union["Coordinate", int]) -> "Roi":
-        assert isinstance(other, Coordinate) or isinstance(
-            other, int
-        ), "can only divide by a number or Coordinate"
+    def __floordiv__(self, other: Union["Coordinate", int, float]) -> "Roi":
+        if not isinstance(other, numbers.Number):
+            other = Coordinate(other)
+        assert isinstance(
+            other, (Coordinate, int, float)
+        ), "can only divide by a number or Coordinate-like"
         return Roi(self.__offset // other, self.__shape // other)
 
-    def __mod__(self, other: Union["Coordinate", int]) -> "Roi":  # pragma: py3 no cover
-        assert isinstance(other, Coordinate) or isinstance(
-            other, int
-        ), "can only mod by a number or Coordinate"
+    def __mod__(
+        self, other: Union["Coordinate", int, float]
+    ) -> "Roi":  # pragma: py3 no cover
+        if not isinstance(other, numbers.Number):
+            other = Coordinate(other)
+        assert isinstance(
+            other, (Coordinate, int, float)
+        ), "can only mod by a number or Coordinate-like"
         return Roi(self.__offset % other, self.__shape % other)
 
     def __eq__(self, other: object) -> bool:

@@ -1,5 +1,10 @@
-from typing import Iterable, Any, Union
+# Modified from funlib.geometry to allow float coordinates
+# @rhoadesScholar, HHMI Janelia Research Campus 2025
+
 import numbers
+from typing import Any, Iterable, Union
+
+import numpy as np
 
 
 class Coordinate(tuple):
@@ -15,11 +20,11 @@ class Coordinate(tuple):
         size = shape*voxel_size # == Coordinate(20, 15, 4)
         size * 2 + 1 # == Coordinate(41, 31, 9)
 
-    Coordinates can be initialized with any iterable of ints, e.g.::
+    Coordinates can be initialized with any iterable of ints or floats, e.g.::
 
         Coordinate((1,2,3))
-        Coordinate([1,2,3])
-        Coordinate(np.array([1,2,3]))
+        Coordinate([1.,2.5,3.])
+        Coordinate(np.array([1.,2.5,3]))
 
     Coordinates can also pack multiple args into an iterable, e.g.::
 
@@ -30,7 +35,7 @@ class Coordinate(tuple):
         if len(array_like) == 1 and isinstance(array_like[0], Iterable):
             array_like = array_like[0]
         return super(Coordinate, cls).__new__(
-            cls, [int(x) if x is not None else None for x in array_like]
+            cls, [float(x) if x is not None else None for x in array_like]
         )
 
     @property
@@ -43,7 +48,7 @@ class Coordinate(tuple):
     def is_multiple_of(self, coordinate: "Coordinate") -> bool:
         """Test if this coordinate is a multiple of the given coordinate."""
 
-        return all([a % b == 0 for a, b in zip(self, coordinate)])
+        return all([np.isclose(a % b, 0) for a, b in zip(self, coordinate)])
 
     def round_division(self, other: "Coordinate") -> "Coordinate":
         """
