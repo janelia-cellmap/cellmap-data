@@ -13,3 +13,5 @@ from .metadata import (
     write_metadata,
     find_level,
 )
+from .roi import ROI
+from .coordinate import Coordinate
