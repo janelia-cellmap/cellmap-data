@@ -1,7 +1,7 @@
-# This GitHub Actions workflow automatically tags each commit on the main branch with the current date and time (UTC).
-# The tag format is YYYY.MM.DD.HHMM. Tags are only created if one with the same name does not already exist.
+# This GitHub Actions workflow automatically tags each commit on the main branch with a PEP 440-compliant version: YYYY.M.D+HHMM (UTC).
+# Example: 2025.5.29+0930
 
-name: Auto Tag with Date
+name: Auto Tag with PEP440 Date Version
 
 on:
   push:
@@ -22,10 +22,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Get current date tag
+      - name: Get current PEP440 date tag
         id: date_tag
         run: |
-          echo "tag=$(date -u +'%Y.%m.%d.%H%M')" >> $GITHUB_OUTPUT
+          # Remove leading zeros from month and day
+          year=$(date -u +'%Y')
+          month=$(date -u +'%-m')
+          day=$(date -u +'%-d')
+          hour=$(date -u +'%H')
+          minute=$(date -u +'%M')
+          tag="$year.$month.$day+$hour$minute"
+          echo "tag=$tag" >> $GITHUB_OUTPUT
 
       - name: Check if tag exists
         id: check_tag
