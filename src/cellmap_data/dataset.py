@@ -31,68 +31,6 @@ class CellMapDataset(Dataset):
     """
     This subclasses PyTorch Dataset to load CellMap data for training. It maintains the same API as the Dataset class. Importantly, it maintains information about and handles for the sources for raw and groundtruth data. This information includes the path to the data, the classes for segmentation, and the arrays to input to the network and use as targets for the network predictions. The dataset constructs the sources for the raw and groundtruth data, and retrieves the data from the sources. The dataset also provides methods to get the number of pixels for each class in the ground truth data, normalized by the resolution. Additionally, random crops of the data can be generated for training, because the CellMapDataset maintains information about the extents of its source arrays. This object additionally combines images for different classes into a single output array, which is useful for training multiclass segmentation networks.
 
-    Attributes:
-
-        raw_path (str): The path to the raw image data.
-        target_path (str): The path to the ground truth data.
-        classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with the set 'empty_value' and, optionally, zeros for true-negaties inferred from mutually exclusive classes indicated by the 'class_relation_dict'.
-        input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::
-
-            {
-                "array_name": {
-                    "shape": tuple[int],
-                    "scale": Sequence[float],
-                },
-                ...
-            }
-
-        where 'array_name' is the name of the array, 'shape' is the shape of the array in voxels, and 'scale' is the scale of the array in world units.
-        target_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as 'input_arrays'.
-        spatial_transforms (Optional[Sequence[Mapping[str, any]]], optional): A sequence of dictionaries containing the spatial transformations to apply to the data. Defaults to None. The dictionary should have the following structure::
-
-            {transform_name: {transform_args}}
-
-        raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
-        target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order. If the function is a dictionary, the keys should correspond to the classes in the 'classes' list. The function should return a tensor of the same shape as the input tensor. Note that target transforms are applied to the ground truth data and should generally not be used with use of true-negative data inferred using the 'class_relations_dict' (see below).
-        class_relation_dict (Optional[Mapping[str, Sequence[str]]], optional): A dictionary of classes that are mutually exclusive. If a class is not present in the ground truth data, it will be inferred from the other classes in the dictionary. Defaults to None.
-        is_train (bool, optional): Whether the dataset is for training, and thus should generate random spatial transforms, based on 'spatial_transforms'. Defaults to False.
-        axis_order (str, optional): The order of the axes in the dataset. Defaults to "zyx".
-        context (Optional[tensorstore.Context], optional): The TensorStore context for the image data. Defaults to None.
-        rng (Optional[torch.Generator], optional): A random number generator. Defaults to None.
-        force_has_data (bool, optional): Whether to force the dataset to report that it has data, regardless of existence of ground truth data. Useful for unsupervised training. Defaults to False.
-        empty_value (float | int, optional): The value to fill in for empty data. Defaults to torch.nan.
-        pad (bool, optional): Whether to pad the image data to match requested arrays. Defaults to False.
-
-    Methods:
-
-        get_empty_store: Returns an empty store for the dataset based on the requested array.
-        get_target_array: Returns a target array source for the dataset, including the ability to infer true negatives from mutually exclusive classes.
-        get_label_array: Returns a target array source for a specific class in the dataset.
-        __len__: Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for an array request.
-        __getitem__: Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index.
-        __repr__: Returns a string representation of the dataset.
-        verify: Verifies that the dataset has data.
-        get_indices: Returns the indices of the dataset that will produce non-overlapping tiles based on the requested chunk size.
-        to: Moves the dataset to the specified device.
-        generate_spatial_transforms: Generates random spatial transforms for the dataset when training and sets the current spatial transforms for all members of the dataset accordingly.
-        set_raw_value_transforms: Sets the function for transforming raw data values in the dataset. For example, this can be used to normalize the raw data.
-        set_target_value_transforms: Sets the function for transforming target data values in the dataset. For example, this can be used to convert ground truth data to a signed distance transform.
-        reset_arrays: Sets the array specifications for the dataset to return on requests.
-
-    Properties:
-
-        center: Returns the center of the dataset in world units.
-        largest_voxel_sizes: Returns the largest voxel size requested of the dataset.
-        bounding_box: Returns the bounding box of the dataset.
-        bounding_box_shape: Returns the shape of the bounding box of the dataset in voxels of the largest voxel size requested.
-        sampling_box: Returns the sampling box of the dataset.
-        sampling_box_shape: Returns the shape of the sampling box of the dataset in voxels of the largest voxel size requested.
-        size: Returns the size of the dataset in voxels of the largest voxel size requested.
-        class_counts: Returns the number of pixels for each class in the ground truth data, normalized by the resolution.
-        class_weights: Returns the class weights for the dataset based on the number of samples in each class.
-        validation_indices: Returns the indices of the dataset that will produce non-overlapping tiles for use in validation, based on the largest requested image view.
-        device: Returns the device for the dataset.
-
     """
 
     def __init__(
@@ -559,51 +497,6 @@ class CellMapDataset(Dataset):
         for future in as_completed(futures):
             array_name, array = future.result()
             outputs[array_name] = array
-
-        # # Non parallel version
-        # outputs = {}
-        # for array_name in self.input_arrays.keys():
-        #     self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
-        #     array = self.input_sources[array_name][center]  # type: ignore
-        #     # TODO: Assumes 1 channel (i.e. grayscale)
-        #     if array.shape[0] != 1:
-        #         outputs[array_name] = array[None, ...]
-        #     else:
-        #         outputs[array_name] = array
-
-        # for array_name in self.target_arrays.keys():
-        #     class_arrays = {}
-        #     inferred_arrays = []
-        #     for label in self.classes:
-        #         if isinstance(
-        #             self.target_sources[array_name][label], (CellMapImage, EmptyImage)
-        #         ):
-        #             self.target_sources[array_name][
-        #                 label
-        #             ].set_spatial_transforms(  # type: ignore
-        #                 spatial_transforms
-        #             )
-        #             array = self.target_sources[array_name][label][
-        #                 center
-        #             ].squeeze()  # type: ignore
-        #         else:
-        #             # Add to list of arrays to infer
-        #             inferred_arrays.append(label)
-        #             array = None
-        #         class_arrays[label] = array
-
-        #     for label in inferred_arrays:
-        #         # Make array of true negatives
-        #         array = self.get_empty_store(
-        #             self.target_arrays[array_name], device=self.device
-        #         )  # type: ignore
-        #         for other_label in self.target_sources[array_name][label]:  # type: ignore
-        #             if class_arrays[other_label] is not None:
-        #                 mask = class_arrays[other_label] > 0
-        #                 array[mask] = 0
-        #         class_arrays[label] = array
-
-        #     outputs[array_name] = torch.stack(list(class_arrays.values()))
 
         return outputs
 
