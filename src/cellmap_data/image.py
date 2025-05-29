@@ -27,41 +27,6 @@ class CellMapImage:
     A class for handling image data from a CellMap dataset.
 
     This class is used to load image data from a CellMap dataset, and can apply spatial transformations to the data. It also handles the loading of the image data from the dataset, and can apply value transformations to the data. The image data is returned as a PyTorch tensor formatted for use in training, and can be loaded onto a specified device.
-
-    Attributes:
-        path (str): The path to the multiscale image file.
-        label_class (str): The label class of the image.
-        scale (Mapping[str, float]): The scale of the image in physical space.
-        output_shape (Mapping[str, int]): The shape of data returned from image queries in voxels.
-        axes (str): The order of the axes in the image.
-        value_transform (Optional[Callable]): A function to transform the image data, such as adding gaussian noise.
-        context (Optional[tensorstore.Context]): The context for the TensorStore.
-
-    Methods:
-        __getitem__(center: Mapping[str, float]) -> torch.Tensor: Returns image data centered around the given point.
-        __repr__() -> str: Returns a string representation of the CellMapImage object.
-        apply_spatial_transforms(coords: Mapping[str, Sequence[float]]) -> torch.Tensor: Applies spatial transformations to the given coordinates and returns the tensor of the resulting data.
-        return_data(coords: Mapping[str, Sequence[float]]) -> xarray.DataArray: Pulls data from the image based on the given coordinates and returns the data as an xarray DataArray.
-        set_spatial_transforms(transforms: Mapping[str, Any] | None): Sets spatial transformations for the image data, used for setting uniform transformations to all images within a dataset.
-        to(device: str): Sets what device returned image data will be loaded onto.
-
-    Properties:
-
-        shape (Mapping[str, int]): Returns the shape of the image in voxels.
-        center (Mapping[str, float]): Returns the center of the image in world units.
-        multiscale_attrs: Returns CellMap specified multiscale metadata of the image.
-        coordinateTransformations: Returns the coordinate transformations of the image specified in its metadata (e.g. scale and translation).
-        full_coords: Returns the full coordinates of the image in world units.
-        scale_level (str): Returns the path extension for the multiscale level of the image (e.g. 's0').
-        group (zarr.Group): Returns the multiscale zarr group object for the image.
-        array_path (str): Returns the path to the single-scale image array.
-        array (xarray.DataArray): Returns the image data as an xarray DataArray.
-        translation (Mapping[str, float]): Returns the translation of the image in world units.
-        bounding_box (Mapping[str, list[float]]): Returns the bounding box of the dataset in world units.
-        sampling_box (Mapping[str, list[float]]): Returns the sampling box of the dataset in world units.
-        bg_count (float): Returns the number of background pixels in the ground truth data, normalized by the resolution.
-        class_counts (float): Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution.
-        device (str): Returns the device that the image data will be loaded onto.
     """
 
     def __init__(
