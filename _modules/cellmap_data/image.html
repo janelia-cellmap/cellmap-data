@@ -295,41 +295,6 @@ document.write(`
 <span class="sd">    A class for handling image data from a CellMap dataset.</span>
 
 <span class="sd">    This class is used to load image data from a CellMap dataset, and can apply spatial transformations to the data. It also handles the loading of the image data from the dataset, and can apply value transformations to the data. The image data is returned as a PyTorch tensor formatted for use in training, and can be loaded onto a specified device.</span>
-
-<span class="sd">    Attributes:</span>
-<span class="sd">        path (str): The path to the multiscale image file.</span>
-<span class="sd">        label_class (str): The label class of the image.</span>
-<span class="sd">        scale (Mapping[str, float]): The scale of the image in physical space.</span>
-<span class="sd">        output_shape (Mapping[str, int]): The shape of data returned from image queries in voxels.</span>
-<span class="sd">        axes (str): The order of the axes in the image.</span>
-<span class="sd">        value_transform (Optional[Callable]): A function to transform the image data, such as adding gaussian noise.</span>
-<span class="sd">        context (Optional[tensorstore.Context]): The context for the TensorStore.</span>
-
-<span class="sd">    Methods:</span>
-<span class="sd">        __getitem__(center: Mapping[str, float]) -&gt; torch.Tensor: Returns image data centered around the given point.</span>
-<span class="sd">        __repr__() -&gt; str: Returns a string representation of the CellMapImage object.</span>
-<span class="sd">        apply_spatial_transforms(coords: Mapping[str, Sequence[float]]) -&gt; torch.Tensor: Applies spatial transformations to the given coordinates and returns the tensor of the resulting data.</span>
-<span class="sd">        return_data(coords: Mapping[str, Sequence[float]]) -&gt; xarray.DataArray: Pulls data from the image based on the given coordinates and returns the data as an xarray DataArray.</span>
-<span class="sd">        set_spatial_transforms(transforms: Mapping[str, Any] | None): Sets spatial transformations for the image data, used for setting uniform transformations to all images within a dataset.</span>
-<span class="sd">        to(device: str): Sets what device returned image data will be loaded onto.</span>
-
-<span class="sd">    Properties:</span>
-
-<span class="sd">        shape (Mapping[str, int]): Returns the shape of the image in voxels.</span>
-<span class="sd">        center (Mapping[str, float]): Returns the center of the image in world units.</span>
-<span class="sd">        multiscale_attrs: Returns CellMap specified multiscale metadata of the image.</span>
-<span class="sd">        coordinateTransformations: Returns the coordinate transformations of the image specified in its metadata (e.g. scale and translation).</span>
-<span class="sd">        full_coords: Returns the full coordinates of the image in world units.</span>
-<span class="sd">        scale_level (str): Returns the path extension for the multiscale level of the image (e.g. &#39;s0&#39;).</span>
-<span class="sd">        group (zarr.Group): Returns the multiscale zarr group object for the image.</span>
-<span class="sd">        array_path (str): Returns the path to the single-scale image array.</span>
-<span class="sd">        array (xarray.DataArray): Returns the image data as an xarray DataArray.</span>
-<span class="sd">        translation (Mapping[str, float]): Returns the translation of the image in world units.</span>
-<span class="sd">        bounding_box (Mapping[str, list[float]]): Returns the bounding box of the dataset in world units.</span>
-<span class="sd">        sampling_box (Mapping[str, list[float]]): Returns the sampling box of the dataset in world units.</span>
-<span class="sd">        bg_count (float): Returns the number of background pixels in the ground truth data, normalized by the resolution.</span>
-<span class="sd">        class_counts (float): Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution.</span>
-<span class="sd">        device (str): Returns the device that the image data will be loaded onto.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="CellMapImage.__init__">

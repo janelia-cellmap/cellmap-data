@@ -302,68 +302,6 @@ document.write(`
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    This subclasses PyTorch Dataset to load CellMap data for training. It maintains the same API as the Dataset class. Importantly, it maintains information about and handles for the sources for raw and groundtruth data. This information includes the path to the data, the classes for segmentation, and the arrays to input to the network and use as targets for the network predictions. The dataset constructs the sources for the raw and groundtruth data, and retrieves the data from the sources. The dataset also provides methods to get the number of pixels for each class in the ground truth data, normalized by the resolution. Additionally, random crops of the data can be generated for training, because the CellMapDataset maintains information about the extents of its source arrays. This object additionally combines images for different classes into a single output array, which is useful for training multiclass segmentation networks.</span>
 
-<span class="sd">    Attributes:</span>
-
-<span class="sd">        raw_path (str): The path to the raw image data.</span>
-<span class="sd">        target_path (str): The path to the ground truth data.</span>
-<span class="sd">        classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with the set &#39;empty_value&#39; and, optionally, zeros for true-negaties inferred from mutually exclusive classes indicated by the &#39;class_relation_dict&#39;.</span>
-<span class="sd">        input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::</span>
-
-<span class="sd">            {</span>
-<span class="sd">                &quot;array_name&quot;: {</span>
-<span class="sd">                    &quot;shape&quot;: tuple[int],</span>
-<span class="sd">                    &quot;scale&quot;: Sequence[float],</span>
-<span class="sd">                },</span>
-<span class="sd">                ...</span>
-<span class="sd">            }</span>
-
-<span class="sd">        where &#39;array_name&#39; is the name of the array, &#39;shape&#39; is the shape of the array in voxels, and &#39;scale&#39; is the scale of the array in world units.</span>
-<span class="sd">        target_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as &#39;input_arrays&#39;.</span>
-<span class="sd">        spatial_transforms (Optional[Sequence[Mapping[str, any]]], optional): A sequence of dictionaries containing the spatial transformations to apply to the data. Defaults to None. The dictionary should have the following structure::</span>
-
-<span class="sd">            {transform_name: {transform_args}}</span>
-
-<span class="sd">        raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.</span>
-<span class="sd">        target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order. If the function is a dictionary, the keys should correspond to the classes in the &#39;classes&#39; list. The function should return a tensor of the same shape as the input tensor. Note that target transforms are applied to the ground truth data and should generally not be used with use of true-negative data inferred using the &#39;class_relations_dict&#39; (see below).</span>
-<span class="sd">        class_relation_dict (Optional[Mapping[str, Sequence[str]]], optional): A dictionary of classes that are mutually exclusive. If a class is not present in the ground truth data, it will be inferred from the other classes in the dictionary. Defaults to None.</span>
-<span class="sd">        is_train (bool, optional): Whether the dataset is for training, and thus should generate random spatial transforms, based on &#39;spatial_transforms&#39;. Defaults to False.</span>
-<span class="sd">        axis_order (str, optional): The order of the axes in the dataset. Defaults to &quot;zyx&quot;.</span>
-<span class="sd">        context (Optional[tensorstore.Context], optional): The TensorStore context for the image data. Defaults to None.</span>
-<span class="sd">        rng (Optional[torch.Generator], optional): A random number generator. Defaults to None.</span>
-<span class="sd">        force_has_data (bool, optional): Whether to force the dataset to report that it has data, regardless of existence of ground truth data. Useful for unsupervised training. Defaults to False.</span>
-<span class="sd">        empty_value (float | int, optional): The value to fill in for empty data. Defaults to torch.nan.</span>
-<span class="sd">        pad (bool, optional): Whether to pad the image data to match requested arrays. Defaults to False.</span>
-
-<span class="sd">    Methods:</span>
-
-<span class="sd">        get_empty_store: Returns an empty store for the dataset based on the requested array.</span>
-<span class="sd">        get_target_array: Returns a target array source for the dataset, including the ability to infer true negatives from mutually exclusive classes.</span>
-<span class="sd">        get_label_array: Returns a target array source for a specific class in the dataset.</span>
-<span class="sd">        __len__: Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for an array request.</span>
-<span class="sd">        __getitem__: Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index.</span>
-<span class="sd">        __repr__: Returns a string representation of the dataset.</span>
-<span class="sd">        verify: Verifies that the dataset has data.</span>
-<span class="sd">        get_indices: Returns the indices of the dataset that will produce non-overlapping tiles based on the requested chunk size.</span>
-<span class="sd">        to: Moves the dataset to the specified device.</span>
-<span class="sd">        generate_spatial_transforms: Generates random spatial transforms for the dataset when training and sets the current spatial transforms for all members of the dataset accordingly.</span>
-<span class="sd">        set_raw_value_transforms: Sets the function for transforming raw data values in the dataset. For example, this can be used to normalize the raw data.</span>
-<span class="sd">        set_target_value_transforms: Sets the function for transforming target data values in the dataset. For example, this can be used to convert ground truth data to a signed distance transform.</span>
-<span class="sd">        reset_arrays: Sets the array specifications for the dataset to return on requests.</span>
-
-<span class="sd">    Properties:</span>
-
-<span class="sd">        center: Returns the center of the dataset in world units.</span>
-<span class="sd">        largest_voxel_sizes: Returns the largest voxel size requested of the dataset.</span>
-<span class="sd">        bounding_box: Returns the bounding box of the dataset.</span>
-<span class="sd">        bounding_box_shape: Returns the shape of the bounding box of the dataset in voxels of the largest voxel size requested.</span>
-<span class="sd">        sampling_box: Returns the sampling box of the dataset.</span>
-<span class="sd">        sampling_box_shape: Returns the shape of the sampling box of the dataset in voxels of the largest voxel size requested.</span>
-<span class="sd">        size: Returns the size of the dataset in voxels of the largest voxel size requested.</span>
-<span class="sd">        class_counts: Returns the number of pixels for each class in the ground truth data, normalized by the resolution.</span>
-<span class="sd">        class_weights: Returns the class weights for the dataset based on the number of samples in each class.</span>
-<span class="sd">        validation_indices: Returns the indices of the dataset that will produce non-overlapping tiles for use in validation, based on the largest requested image view.</span>
-<span class="sd">        device: Returns the device for the dataset.</span>
-
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="CellMapDataset.__init__">
@@ -838,51 +776,6 @@ document.write(`
         <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">):</span>
             <span class="n">array_name</span><span class="p">,</span> <span class="n">array</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
             <span class="n">outputs</span><span class="p">[</span><span class="n">array_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span>
-
-        <span class="c1"># # Non parallel version</span>
-        <span class="c1"># outputs = {}</span>
-        <span class="c1"># for array_name in self.input_arrays.keys():</span>
-        <span class="c1">#     self.input_sources[array_name].set_spatial_transforms(spatial_transforms)</span>
-        <span class="c1">#     array = self.input_sources[array_name][center]  # type: ignore</span>
-        <span class="c1">#     # TODO: Assumes 1 channel (i.e. grayscale)</span>
-        <span class="c1">#     if array.shape[0] != 1:</span>
-        <span class="c1">#         outputs[array_name] = array[None, ...]</span>
-        <span class="c1">#     else:</span>
-        <span class="c1">#         outputs[array_name] = array</span>
-
-        <span class="c1"># for array_name in self.target_arrays.keys():</span>
-        <span class="c1">#     class_arrays = {}</span>
-        <span class="c1">#     inferred_arrays = []</span>
-        <span class="c1">#     for label in self.classes:</span>
-        <span class="c1">#         if isinstance(</span>
-        <span class="c1">#             self.target_sources[array_name][label], (CellMapImage, EmptyImage)</span>
-        <span class="c1">#         ):</span>
-        <span class="c1">#             self.target_sources[array_name][</span>
-        <span class="c1">#                 label</span>
-        <span class="c1">#             ].set_spatial_transforms(  # type: ignore</span>
-        <span class="c1">#                 spatial_transforms</span>
-        <span class="c1">#             )</span>
-        <span class="c1">#             array = self.target_sources[array_name][label][</span>
-        <span class="c1">#                 center</span>
-        <span class="c1">#             ].squeeze()  # type: ignore</span>
-        <span class="c1">#         else:</span>
-        <span class="c1">#             # Add to list of arrays to infer</span>
-        <span class="c1">#             inferred_arrays.append(label)</span>
-        <span class="c1">#             array = None</span>
-        <span class="c1">#         class_arrays[label] = array</span>
-
-        <span class="c1">#     for label in inferred_arrays:</span>
-        <span class="c1">#         # Make array of true negatives</span>
-        <span class="c1">#         array = self.get_empty_store(</span>
-        <span class="c1">#             self.target_arrays[array_name], device=self.device</span>
-        <span class="c1">#         )  # type: ignore</span>
-        <span class="c1">#         for other_label in self.target_sources[array_name][label]:  # type: ignore</span>
-        <span class="c1">#             if class_arrays[other_label] is not None:</span>
-        <span class="c1">#                 mask = class_arrays[other_label] &gt; 0</span>
-        <span class="c1">#                 array[mask] = 0</span>
-        <span class="c1">#         class_arrays[label] = array</span>
-
-        <span class="c1">#     outputs[array_name] = torch.stack(list(class_arrays.values()))</span>
 
         <span class="k">return</span> <span class="n">outputs</span></div>
 
