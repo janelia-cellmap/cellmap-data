@@ -1,6 +1,6 @@
 # https://peps.python.org/pep-0517/
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 # https://peps.python.org/pep-0621/
@@ -84,8 +84,7 @@ repository = "https://github.com/janelia-cellmap/cellmap-data"
 
 # https://hatch.pypa.io/latest/config/metadata/
 [tool.hatch.version]
-source = "code"
-path = "version.py"
+source = "vcs"
 
 # https://hatch.pypa.io/latest/config/build/#file-selection
 [tool.hatch.build.targets.sdist]

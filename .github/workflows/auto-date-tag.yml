@@ -1,0 +1,43 @@
+# This GitHub Actions workflow automatically tags each commit on the main branch with the current date and time (UTC).
+# The tag format is YYYY.MM.DD.HHMM. Tags are only created if one with the same name does not already exist.
+
+name: Auto Tag with Date
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # fetch all history for tags
+
+      - name: Set up git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get current date tag
+        id: date_tag
+        run: |
+          echo "tag=$(date -u +'%Y.%m.%d.%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "${{ steps.date_tag.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git tag ${{ steps.date_tag.outputs.tag }}
+          git push origin ${{ steps.date_tag.outputs.tag }}
