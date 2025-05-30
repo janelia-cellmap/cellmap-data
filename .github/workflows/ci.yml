@@ -13,7 +13,6 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 * * 0" # every week (for --pre release tests)
 
 jobs:
   test:
@@ -64,7 +63,7 @@ jobs:
   deploy:
     name: Deploy
     needs: test
-    if: success() && startsWith(github.ref, 'refs/tags/') && github.event_name != 'schedule'
+    if: success() && github.event_name != 'schedule'
     runs-on: ubuntu-latest
 
     steps:
