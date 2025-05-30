@@ -34,7 +34,7 @@ jobs:
     - name: Clean old packages
       run: rm -rf dist/* && rm -rf clean/*
     - name: Build package
-      run: hatch build clean && hatch build
+      run: hatch build clean && hatch build -t sdist -t wheel
     - name: Publish package
       uses: pypa/gh-action-pypi-publish
       with:
