@@ -25,13 +25,12 @@ jobs:
       - name: Get current PEP440 date tag
         id: date_tag
         run: |
-          # Remove leading zeros from month and day
           year=$(date -u +'%Y')
           month=$(date -u +'%-m')
           day=$(date -u +'%-d')
-          hour=$(date -u +'%H')
-          minute=$(date -u +'%M')
-          tag="$year.$month.$day+$hour$minute"
+          hour=$(date -u +'%-H')
+          minute=$(date -u +'%-M')
+          tag="$year.$month.$day.$hour$minute"
           echo "tag=$tag" >> $GITHUB_OUTPUT
 
       - name: Check if tag exists
