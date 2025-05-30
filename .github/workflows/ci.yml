@@ -83,13 +83,17 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: install
+      - name: Install build tools
         run: |
-          pip install -U pip build twine
-          python -m build
-          twine check dist/*
+          pip install -U pip hatch twine
 
-      - name: Build and publish
+      - name: Build sdist and wheel
+        run: hatch build -t sdist -t wheel
+
+      - name: Check distributions
+        run: twine check dist/*
+
+      - name: Publish to PyPI
         run: twine upload dist/*
         env:
           TWINE_USERNAME: __token__
