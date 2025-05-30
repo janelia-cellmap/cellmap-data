@@ -1,0 +1,8 @@
+# MANIFEST.in for including documentation and static files in sdist
+recursive-include docs *.bat
+recursive-include docs *.ico
+recursive-include docs *.png
+recursive-include docs *.py
+recursive-include docs *.rst
+recursive-include docs *.sh
+recursive-include docs Makefile
