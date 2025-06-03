@@ -207,6 +207,7 @@ class CellMapMultiDataset(ConcatDataset):
             )
             dataset_weights[dataset_weights < 0.1] = 0.1
 
+            # Dataset weights already incorporate size of each dataset
             datasets_sampled = torch.multinomial(
                 torch.as_tensor(dataset_weights, dtype=float),
                 num_samples,

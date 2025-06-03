@@ -78,27 +78,10 @@ class CellMapDataLoader:
         if self.sampler is None and self.weighted_sampler:
             assert isinstance(
                 self.dataset, CellMapMultiDataset
-            ), "Weighted sampler only relevant for CellMapMultiDataset"
+            ), "Weighted sampler only implemented for CellMapMultiDataset"
             self.sampler = self.dataset.get_weighted_sampler(self.batch_size, self.rng)
         self.default_kwargs = kwargs.copy()
-        kwargs.update(
-            {
-                "dataset": self.dataset,
-                "batch_size": self.batch_size,
-                "num_workers": self.num_workers,
-                "collate_fn": self.collate_fn,
-            }
-        )
-        if self.sampler is not None:
-            if isinstance(self.sampler, Callable):
-                kwargs["sampler"] = self.sampler()
-            else:
-                kwargs["sampler"] = self.sampler
-        elif self.is_train:
-            kwargs["shuffle"] = True
-        else:
-            kwargs["shuffle"] = False
-        self.loader = DataLoader(**kwargs)
+        self.refresh()
 
     def __getitem__(self, indices: Sequence[int]) -> dict:
         """Get an item from the DataLoader."""
