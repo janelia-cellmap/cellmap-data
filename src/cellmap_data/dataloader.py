@@ -1,5 +1,8 @@
+import functools
 import torch
-from torch.utils.data import DataLoader, Sampler, Subset
+from torch.utils.data import DataLoader, Sampler
+
+from .subdataset import CellMapSubset
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .dataset_writer import CellMapDatasetWriter
@@ -30,7 +33,9 @@ class CellMapDataLoader:
 
     def __init__(
         self,
-        dataset: CellMapMultiDataset | CellMapDataset | Subset | CellMapDatasetWriter,
+        dataset: (
+            CellMapMultiDataset | CellMapDataset | CellMapSubset | CellMapDatasetWriter
+        ),
         classes: Sequence[str] | None = None,
         batch_size: int = 1,
         num_workers: int = 0,
@@ -39,6 +44,7 @@ class CellMapDataLoader:
         is_train: bool = True,
         rng: Optional[torch.Generator] = None,
         device: Optional[str | torch.device] = None,
+        iterations_per_epoch: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -54,6 +60,7 @@ class CellMapDataLoader:
             is_train (bool): Whether the data is for training and thus should be shuffled.
             rng (Optional[torch.Generator]): The random number generator to use.
             device (Optional[str | torch.device]): The device to use. Defaults to "cuda" or "mps" if available, else "cpu".
+            iterations_per_epoch (Optional[int]): Number of iterations per epoch, only necessary when a subset is used with a weighted sampler (i.e. if total samples in the dataset are > 2^24).
             `**kwargs`: Additional arguments to pass to the DataLoader.
 
         """
@@ -73,13 +80,28 @@ class CellMapDataLoader:
             else:
                 device = "cpu"
         self.device = device
+        self.iterations_per_epoch = iterations_per_epoch
         if num_workers == 0:
             self.dataset.to(device, non_blocking=True)
-        if self.sampler is None and self.weighted_sampler:
-            assert isinstance(
-                self.dataset, CellMapMultiDataset
-            ), "Weighted sampler only implemented for CellMapMultiDataset"
-            self.sampler = self.dataset.get_weighted_sampler(self.batch_size, self.rng)
+        if self.sampler is None:
+            if iterations_per_epoch is not None or (
+                weighted_sampler and len(self.dataset) > 2**24
+            ):
+                assert (
+                    iterations_per_epoch is not None
+                ), "If the dataset has more than 2^24 samples, iterations_per_epoch must be specified to allow for subset selection. In between epochs, run `refresh()` to update the sampler."
+                assert not isinstance(
+                    self.dataset, CellMapDatasetWriter
+                ), "CellMapDatasetWriter does not support random sampling."
+                self.sampler = functools.partial(
+                    self.dataset.get_subset_random_sampler,
+                    num_samples=iterations_per_epoch * batch_size,
+                    weighted=weighted_sampler,
+                )
+            elif weighted_sampler and isinstance(self.dataset, CellMapMultiDataset):
+                self.sampler = self.dataset.get_weighted_sampler(
+                    self.batch_size, self.rng
+                )
         self.default_kwargs = kwargs.copy()
         self.refresh()
 

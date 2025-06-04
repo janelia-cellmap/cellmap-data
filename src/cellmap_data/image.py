@@ -467,13 +467,14 @@ class CellMapImage:
         try:
             return self._tolerance
         except AttributeError:
-            # Calculate the tolerance as half the norm of the original image scale (i.e. traversing half a pixel diagonally)
+            # Calculate the tolerance as half the norm of the original image scale (i.e. traversing half a pixel diagonally) +  epsilon (1e-6)
             actual_scale = [
                 ct
                 for ct in self.coordinateTransformations
                 if isinstance(ct, VectorScale)
             ][0].scale
-            self._tolerance = np.linalg.norm(actual_scale) * len(actual_scale)
+            half_diagonal = np.linalg.norm(actual_scale) / 2
+            self._tolerance = float(half_diagonal + 1e-6)
             return self._tolerance
 
     def return_data(

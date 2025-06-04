@@ -1,4 +1,5 @@
-from typing import Callable, Sequence
+from typing import Any, Callable, Optional, Sequence
+import torch
 from torch.utils.data import Subset
 from .dataset import CellMapDataset
 
@@ -56,3 +57,21 @@ class CellMapSubset(Subset):
     def set_target_value_transforms(self, transforms: Callable) -> None:
         """Sets the target value transforms for the subset dataset."""
         self.dataset.set_target_value_transforms(transforms)
+
+    def get_subset_random_sampler(
+        self,
+        num_samples: int,
+        rng: Optional[torch.Generator] = None,
+        **kwargs: Any,
+    ) -> torch.utils.data.SubsetRandomSampler:
+        """
+        Returns a random sampler that samples num_samples from the dataset.
+        """
+        assert num_samples <= len(
+            self
+        ), "num_samples must be less than or equal to the total number of samples in the dataset."
+        inds = torch.randperm(len(self.indices), generator=rng)[:num_samples]
+        return torch.utils.data.SubsetRandomSampler(
+            torch.tensor(self.indices, dtype=torch.long)[inds].tolist(),
+            generator=rng,
+        )

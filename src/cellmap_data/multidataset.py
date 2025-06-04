@@ -192,47 +192,119 @@ class CellMapMultiDataset(ConcatDataset):
         weighted: bool = True,
         rng: Optional[torch.Generator] = None,
     ) -> torch.utils.data.SubsetRandomSampler:
-        """
-        Returns a random sampler that samples num_samples from the dataset.
-        """
+        assert num_samples <= len(
+            self
+        ), "num_samples must be less than or equal to the total number of samples in the dataset."
         if not weighted:
             return torch.utils.data.SubsetRandomSampler(
-                torch.randint(0, len(self) - 1, [num_samples], generator=rng),
+                torch.randperm(len(self), generator=rng).tolist()[:num_samples],
                 generator=rng,
             )
-        else:
-            # TODO: Add cacpacity for curriculum learning
-            dataset_weights = torch.tensor(
-                [self.dataset_weights[ds] for ds in self.datasets]
-            )
-            dataset_weights[dataset_weights < 0.1] = 0.1
 
-            # Dataset weights already incorporate size of each dataset
-            datasets_sampled = torch.multinomial(
-                torch.as_tensor(dataset_weights, dtype=float),
-                num_samples,
-                replacement=True,
-            )
-            indices = []
-            index_offset = 0
-            for i, dataset in enumerate(self.datasets):
-                if len(dataset) == 0:
-                    RuntimeWarning(f"Dataset {dataset} has no samples, skipping")
-                    continue
-                count = (datasets_sampled == i).sum().item()
-                if count == 0:
-                    continue
-                if len(dataset) == 1:
-                    dataset_indices = torch.tensor([0] * count)
+        # 1) Draw raw counts per dataset
+        dataset_weights = torch.tensor(
+            [self.dataset_weights[ds] for ds in self.datasets], dtype=torch.double
+        )
+        dataset_weights[dataset_weights < 0.1] = 0.1  # same as before
+
+        raw_choice = torch.multinomial(
+            dataset_weights,
+            num_samples,
+            replacement=True,
+            generator=rng,
+        )
+        raw_counts = [(raw_choice == i).sum().item() for i in range(len(self.datasets))]
+
+        # 2) Clamp counts at each dataset's size and accumulate overflow
+        final_counts = []
+        overflow = 0
+        for i, ds in enumerate(self.datasets):
+            size_i = len(ds)
+            c = raw_counts[i]
+            if c > size_i:
+                overflow += c - size_i
+                c = size_i
+            final_counts.append(c)
+
+        # 3) Distribute overflow via recursion, using dataset_weights
+        capacity = [len(ds) - final_counts[i] for i, ds in enumerate(self.datasets)]
+        weights = dataset_weights.clone()
+
+        def redistribute(counts, caps, free_weights, over):
+            """
+            Recursively assign `over` extra samples to datasets in proportion to `free_weights`,
+            but never exceed capacities in `caps`.
+
+            Args:
+                counts       (List[int]): current final_counts per dataset
+                caps         (List[int]): remaining capacity per dataset
+                free_weights (torch.Tensor): clone of dataset_weights
+                over         (int): number of overflow samples to distribute
+
+            Returns:
+                (new_counts, new_caps) after assigning as many as possible;
+                any leftover overflow will be handled by deeper recursion.
+            """
+            if over <= 0:
+                return counts, caps
+
+            # Zero out weights where capacity == 0
+            prob = free_weights.clone()
+            for idx, cap_i in enumerate(caps):
+                if cap_i <= 0:
+                    prob[idx] = 0.0
+
+            total = prob.sum().item()
+            if total <= 0:
+                # no capacity left to assign any overflow
+                return counts, caps
+
+            prob = prob / total
+
+            # Draw all `over` picks at once
+            picks = torch.multinomial(prob, over, replacement=True, generator=rng)
+            freq = torch.bincount(picks, minlength=len(self.datasets)).tolist()
+
+            new_counts = []
+            new_caps = []
+            leftover = 0
+            for j, f_j in enumerate(freq):
+                cap_j = caps[j]
+                if f_j <= cap_j:
+                    assigned = f_j
+                    rem = 0
                 else:
-                    dataset_indices = torch.randint(
-                        0, len(dataset) - 1, [count], generator=rng
-                    )
-                indices.append(dataset_indices + index_offset)
-                index_offset += len(dataset)
-            indices = torch.cat(indices).flatten()
-            indices = indices[torch.randperm(len(indices), generator=rng)]
-            return torch.utils.data.SubsetRandomSampler(indices, generator=rng)
+                    assigned = cap_j
+                    rem = f_j - cap_j
+
+                new_counts.append(counts[j] + assigned)
+                new_caps.append(cap_j - assigned)
+                leftover += rem
+
+            # Recurse only if there’s leftover overflow
+            return redistribute(new_counts, new_caps, free_weights, leftover)
+
+        # Call the recursive allocator once
+        final_counts, capacity = redistribute(final_counts, capacity, weights, overflow)
+
+        # 4) Now that final_counts sums to num_samples (and each ≤ its dataset size),
+        #    draw without replacement from each dataset:
+        indices = []
+        index_offset = 0
+        for i, ds in enumerate(self.datasets):
+            c = final_counts[i]
+            size_i = len(ds)
+            if c == 0:
+                index_offset += size_i
+                continue
+
+            ds_indices = torch.randperm(size_i, generator=rng)[:c]
+            indices.append(ds_indices + index_offset)
+            index_offset += size_i
+
+        all_indices = torch.cat(indices).flatten()
+        all_indices = all_indices[torch.randperm(len(all_indices), generator=rng)]
+        return torch.utils.data.SubsetRandomSampler(all_indices.tolist(), generator=rng)
 
     def get_indices(self, chunk_size: Mapping[str, int]) -> Sequence[int]:
         """Returns the indices of the dataset that will tile all of the datasets according to the chunk_size."""

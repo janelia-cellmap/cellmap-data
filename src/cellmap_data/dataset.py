@@ -746,6 +746,23 @@ class CellMapDataset(Dataset):
         else:
             raise ValueError(f"Unknown dataset array type: {type}")
 
+    def get_subset_random_sampler(
+        self,
+        num_samples: int,
+        rng: Optional[torch.Generator] = None,
+        **kwargs: Any,
+    ) -> torch.utils.data.SubsetRandomSampler:
+        """
+        Returns a random sampler that samples num_samples from the dataset.
+        """
+        assert num_samples <= len(
+            self
+        ), "num_samples must be less than or equal to the total number of samples in the dataset."
+        return torch.utils.data.SubsetRandomSampler(
+            torch.randperm(len(self), generator=rng).tolist()[:num_samples],
+            generator=rng,
+        )
+
     @staticmethod
     def empty() -> "CellMapDataset":
         """Creates an empty dataset."""
