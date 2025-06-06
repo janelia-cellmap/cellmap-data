@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import ConcatDataset, WeightedRandomSampler
 from tqdm import tqdm
 
+from .utils.sampling import min_redundant_inds
 from .dataset import CellMapDataset
 
 
@@ -192,12 +193,9 @@ class CellMapMultiDataset(ConcatDataset):
         weighted: bool = True,
         rng: Optional[torch.Generator] = None,
     ) -> torch.utils.data.SubsetRandomSampler:
-        assert num_samples <= len(
-            self
-        ), "num_samples must be less than or equal to the total number of samples in the dataset."
         if not weighted:
             return torch.utils.data.SubsetRandomSampler(
-                torch.randperm(len(self), generator=rng).tolist()[:num_samples],
+                min_redundant_inds(len(self), num_samples, rng=rng).tolist(),
                 generator=rng,
             )
 
@@ -210,7 +208,7 @@ class CellMapMultiDataset(ConcatDataset):
         raw_choice = torch.multinomial(
             dataset_weights,
             num_samples,
-            replacement=True,
+            replacement=num_samples > len(dataset_weights),
             generator=rng,
         )
         raw_counts = [(raw_choice == i).sum().item() for i in range(len(self.datasets))]
@@ -262,7 +260,9 @@ class CellMapMultiDataset(ConcatDataset):
             prob = prob / total
 
             # Draw all `over` picks at once
-            picks = torch.multinomial(prob, over, replacement=True, generator=rng)
+            picks = torch.multinomial(
+                prob, over, replacement=over > len(prob), generator=rng
+            )
             freq = torch.bincount(picks, minlength=len(self.datasets)).tolist()
 
             new_counts = []
@@ -297,13 +297,14 @@ class CellMapMultiDataset(ConcatDataset):
             if c == 0:
                 index_offset += size_i
                 continue
-
-            ds_indices = torch.randperm(size_i, generator=rng)[:c]
+            ds_indices = min_redundant_inds(size_i, c, rng=rng)
             indices.append(ds_indices + index_offset)
             index_offset += size_i
 
         all_indices = torch.cat(indices).flatten()
-        all_indices = all_indices[torch.randperm(len(all_indices), generator=rng)]
+        all_indices = all_indices[
+            min_redundant_inds(len(all_indices), num_samples, rng)
+        ]
         return torch.utils.data.SubsetRandomSampler(all_indices.tolist(), generator=rng)
 
     def get_indices(self, chunk_size: Mapping[str, int]) -> Sequence[int]:
@@ -313,7 +314,7 @@ class CellMapMultiDataset(ConcatDataset):
             if i == 0:
                 offset = 0
             else:
-                offset = self.cummulative_sizes[i - 1]
+                offset = self.cumulative_sizes[i - 1]
             sample_indices = np.array(dataset.get_indices(chunk_size)) + offset
             indices.extend(list(sample_indices))
         return indices

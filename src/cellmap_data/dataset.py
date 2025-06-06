@@ -6,6 +6,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 import tensorstore
+
+from .utils.sampling import min_redundant_inds
 from .image import CellMapImage, EmptyImage
 import logging
 
@@ -753,13 +755,12 @@ class CellMapDataset(Dataset):
         **kwargs: Any,
     ) -> torch.utils.data.SubsetRandomSampler:
         """
-        Returns a random sampler that samples num_samples from the dataset.
+        Returns a random sampler that yields exactly `num_samples` indices from this subset.
+        - If `num_samples` ≤ total number of available indices, samples without replacement.
+        - If `num_samples` > total number of available indices, samples with replacement using repeated shuffles to minimize duplicates.
         """
-        assert num_samples <= len(
-            self
-        ), "num_samples must be less than or equal to the total number of samples in the dataset."
         return torch.utils.data.SubsetRandomSampler(
-            torch.randperm(len(self), generator=rng).tolist()[:num_samples],
+            min_redundant_inds(len(self), num_samples, rng=rng).tolist(),
             generator=rng,
         )
 

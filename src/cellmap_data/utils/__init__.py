@@ -15,3 +15,4 @@ from .metadata import (
 )
 from .roi import Roi
 from .coordinate import Coordinate
+from .sampling import min_redundant_inds
