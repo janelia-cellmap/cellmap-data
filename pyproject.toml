@@ -38,6 +38,7 @@ dependencies = [
     "cellpose",
     "neuroglancer",
     "cellmap-flow",
+    "ipython",
     # "py_distance_transforms",
 ]
 
