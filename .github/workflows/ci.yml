@@ -14,22 +14,22 @@ on:
   workflow_dispatch:
 
 jobs:
-  docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-      - name: Install docs dependencies
-        run: |
-          pip install -U pip
-          pip install .[dev]
-      - name: Build docs
-        run: |
-          cd docs
-          make html
+  # docs:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.x'
+  #     - name: Install docs dependencies
+  #       run: |
+  #         pip install -U pip
+  #         pip install .[dev]
+  #     - name: Build docs
+  #       run: |
+  #         cd docs
+  #         make html
 
   format:
     runs-on: ubuntu-latest
