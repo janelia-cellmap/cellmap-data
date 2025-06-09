@@ -7,11 +7,12 @@ import numpy as np
 from upath import UPath
 import zarr
 from multiprocessing.pool import ThreadPool
-from cellmap_flow.utils.scale_pyramid import ScalePyramid
-from cellmap_flow.utils.ds import open_ds_tensorstore
 
 
 def open_neuroglancer(metadata):
+    from cellmap_flow.utils.scale_pyramid import ScalePyramid
+    from cellmap_flow.utils.ds import open_ds_tensorstore
+
     """
     Launch a Neuroglancer viewer showing raw data and labels,
     centered on the point in metadata['current_center'].
