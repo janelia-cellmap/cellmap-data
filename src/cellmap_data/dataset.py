@@ -477,17 +477,6 @@ class CellMapDataset(Dataset):
                     label, array = future.result()
                     class_arrays[label] = array
 
-                # for label in inferred_arrays:
-                #     # Make array of true negatives
-                #     array = self.get_empty_store(
-                #         self.target_arrays[array_name], device=self.device
-                #     )  # type: ignore
-                #     for other_label in self.target_sources[array_name][label]:  # type: ignore
-                #         if class_arrays[other_label] is not None:
-                #             mask = class_arrays[other_label] > 0
-                #             array[mask] = 0
-                #     class_arrays[label] = array
-
                 return array_name, torch.stack(list(class_arrays.values()))
 
         futures += [
@@ -495,12 +484,30 @@ class CellMapDataset(Dataset):
             for array_name in self.target_arrays.keys()
         ]
 
-        outputs = {}
+        outputs = {
+            "__metadata__": self.metadata,
+        }
         for future in as_completed(futures):
             array_name, array = future.result()
             outputs[array_name] = array
 
         return outputs
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Returns metadata about the dataset."""
+        metadata = {
+            "raw_path": self.raw_path,
+            "current_center": self._current_center,
+            "current_idx": self._current_idx,
+        }
+
+        if self._current_spatial_transforms is not None:
+            metadata["current_spatial_transforms"] = self._current_spatial_transforms
+        if not self.raw_only:
+            metadata["target_path_str"] = self.target_path_str
+            metadata["class_weights"] = self.class_weights
+        return metadata
 
     def __repr__(self) -> str:
         """Returns a string representation of the dataset."""
@@ -510,9 +517,6 @@ class CellMapDataset(Dataset):
         self, array_info: Mapping[str, Sequence[int]], device: torch.device
     ) -> torch.Tensor:
         """Returns an empty store, based on the requested array."""
-        # assert isinstance(
-        #     self.empty_value, (float, int)
-        # ), "Empty value must be a number or NaN."
         empty_store = torch.ones(array_info["shape"], device=device) * self.empty_value
         return empty_store.squeeze()
 

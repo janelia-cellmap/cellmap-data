@@ -36,6 +36,7 @@ dependencies = [
     "universal_pathlib>=0.2.0",
     "fsspec[s3,http]",
     "cellpose",
+    "cellmap-flow@git+https://github.com/janelia-cellmap/cellmap-flow@1ece404",
     # "py_distance_transforms",
 ]
 

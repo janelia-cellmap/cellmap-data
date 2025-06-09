@@ -147,5 +147,6 @@ class CellMapDataLoader:
                     outputs[key] = []
                 outputs[key].append(value)
         for key, value in outputs.items():
-            outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
+            if key != "__metadata__":
+                outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
         return outputs
