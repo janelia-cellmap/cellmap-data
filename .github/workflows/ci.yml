@@ -47,7 +47,8 @@ jobs:
   test:
     name: ${{ matrix.platform }} (${{ matrix.python-version }})
     runs-on: ${{ matrix.platform }}
-    needs: [docs, format]
+    # needs: [docs, format]
+    needs: [format]
     strategy:
       fail-fast: false
       matrix:
