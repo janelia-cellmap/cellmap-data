@@ -8,6 +8,8 @@ import neuroglancer
 import numpy as np
 import zarr
 from cellmap_flow.utils.ds import open_ds_tensorstore
+
+# from cellmap_flow.utils.scale_pyramid import ScalePyramid
 from IPython import get_ipython
 from IPython.display import IFrame, display
 from upath import UPath

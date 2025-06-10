@@ -37,6 +37,7 @@ dependencies = [
     "fsspec[s3,http]",
     "cellpose",
     "neuroglancer",
+    "h5py", # Only needed until the new cellmap-flow is released
     "cellmap-flow",
     "ipython",
     # "py_distance_transforms",
