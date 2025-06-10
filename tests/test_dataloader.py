@@ -1,4 +1,3 @@
-import pytest
 import torch
 from cellmap_data.dataloader import CellMapDataLoader
 from cellmap_data.subdataset import CellMapSubset
