@@ -80,7 +80,7 @@ class CellMapDataset(Dataset):
                 {transform_name: {transform_args}}
 
             raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
-            target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order. If the function is a dictionary, the keys should correspond to the classes in the 'classes' list. The function should return a tensor of the same shape as the input tensor. Note that target transforms are applied to the ground truth data and should generally not be used with use of true-negative data inferred using the 'class_relations_dict'.
+            target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order. If the function is a dictionary, the keys should correspond to the classes in the 'classes' list. The function should return a tensor of the same shape as the input tensor. Note that target transforms are applied to the ground truth data and should generally not be used with use of true-negative data inferred using the 'class_relation_dict'.
             is_train (bool, optional): Whether the dataset is for training. Defaults to False.
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
             rng (Optional[torch.Generator], optional): A random number generator. Defaults to None.
@@ -462,8 +462,8 @@ class CellMapDataset(Dataset):
 
                 def infer_label_array(label: str) -> tuple[str, torch.Tensor]:
                     # Make array of true negatives
+                    array = empty_array.clone()
                     for other_label in self.target_sources[array_name][label]:  # type: ignore
-                        array = empty_array.clone()
                         if class_arrays[other_label] is not None:
                             mask = class_arrays[other_label] > 0
                             array[mask] = 0
@@ -476,8 +476,11 @@ class CellMapDataset(Dataset):
                 for future in as_completed(futures):
                     label, array = future.result()
                     class_arrays[label] = array
-
-                return array_name, torch.stack(list(class_arrays.values()))
+                array = torch.stack(list(class_arrays.values()))
+                assert array.shape[0] == len(
+                    self.classes
+                ), f"Number of classes in target array {array_name} does not match number of classes in dataset: {len(self.classes)} != {array.shape[0]}"
+                return array_name, array
 
         futures += [
             executor.submit(get_target_array, array_name)
