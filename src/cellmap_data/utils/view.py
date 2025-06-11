@@ -91,9 +91,9 @@ def get_neuroglancer_link(metadata):
     ).tolist()
     # navigation pose (x, y, z)
     position = [
-        metadata["current_center"]["z"] / voxel_size[2],
+        metadata["current_center"]["z"] / voxel_size[0],
         metadata["current_center"]["y"] / voxel_size[1],
-        metadata["current_center"]["x"] / voxel_size[0],
+        metadata["current_center"]["x"] / voxel_size[2],
     ]
     state = {
         "layers": layers,
