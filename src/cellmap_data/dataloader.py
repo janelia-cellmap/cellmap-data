@@ -86,6 +86,20 @@ class CellMapDataLoader:
         self.iterations_per_epoch = iterations_per_epoch
         if num_workers == 0:
             self.dataset.to(device, non_blocking=True)
+            mp_kwargs = {}
+        else:
+            if (
+                sys.platform.startswith("win")
+                or "forkserver" not in mp.get_all_start_methods()
+            ):
+                ctx = "spawn"
+            else:
+                ctx = "forkserver"
+            mp_kwargs = {
+                "multiprocessing_context": ctx,
+                "persistent_workers": True,
+                "pin_memory": True,
+            }
         if self.sampler is None:
             if iterations_per_epoch is not None or (
                 weighted_sampler and len(self.dataset) > 2**24
@@ -105,17 +119,8 @@ class CellMapDataLoader:
                 self.sampler = self.dataset.get_weighted_sampler(
                     self.batch_size, self.rng
                 )
-        if (
-            sys.platform.startswith("win")
-            or "forkserver" not in mp.get_all_start_methods()
-        ):
-            ctx = "spawn"
-        else:
-            ctx = "forkserver"
-        self.default_kwargs = {
-            "multiprocessing_context": ctx,
-            "persistent_workers": True,
-        }
+
+        self.default_kwargs = mp_kwargs
         self.default_kwargs.update(kwargs)
         self.refresh()
 

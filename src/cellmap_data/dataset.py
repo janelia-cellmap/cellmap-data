@@ -144,7 +144,6 @@ class CellMapDataset(Dataset):
                 )
             else:
                 self.target_sources[array_name] = self.get_target_array(array_info)
-        self.to(self.device, non_blocking=True)
 
     @property
     def center(self) -> Mapping[str, float] | None:
