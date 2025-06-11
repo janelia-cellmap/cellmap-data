@@ -102,7 +102,11 @@ class CellMapDataLoader:
                 self.sampler = self.dataset.get_weighted_sampler(
                     self.batch_size, self.rng
                 )
-        self.default_kwargs = kwargs.copy()
+        self.default_kwargs = {
+            "multiprocessing_context": "forkserver",  # "fork" does not work with CUDA, and "spawn" requires the dataset to be picklable
+            "persistent_workers": True,
+        }
+        self.default_kwargs.update(kwargs)
         self.refresh()
 
     def __getitem__(self, indices: Sequence[int]) -> dict:
