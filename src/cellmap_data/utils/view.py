@@ -1,11 +1,15 @@
+import json
 import logging
 import operator
+import re
 import time
 import webbrowser
 from multiprocessing.pool import ThreadPool
 
 import neuroglancer
 import numpy as np
+import urllib
+import s3fs
 import zarr
 from cellmap_flow.utils.ds import open_ds_tensorstore
 
@@ -15,6 +19,88 @@ from IPython.display import IFrame, display
 from upath import UPath
 
 logger = logging.getLogger(__name__)
+
+# S3 bucket names and paths for Janelia COSEM datasets
+GT_S3_BUCKET = "janelia-cosem-datasets"
+RAW_S3_BUCKET = "janelia-cosem-datasets"
+S3_SEARCH_PATH = "{dataset}/{dataset}.zarr/recon-1/{name}"
+S3_CROP_NAME = "labels/groundtruth/{crop}/{label}"
+S3_RAW_NAME = "em/fibsem-uint8"
+
+
+def get_multiscale_voxel_sizes(path: str):
+    if "s3://" in path:
+        # Use s3fs to read the zarr metadata
+        fs = s3fs.S3FileSystem(anon=True)
+        store = s3fs.S3Map(
+            root=path.removeprefix("zarr://s3://"),
+            s3=fs,
+            check=False,  # skip consistency checks for speed
+        )
+        ds = zarr.open(store, mode="r")
+    else:
+        # Use local zarr store
+        ds = zarr.open(path, mode="r")
+    voxel_sizes = {}
+    for scale_ds in ds.attrs["multiscales"][0]["datasets"]:
+        for transform in scale_ds["coordinateTransformations"]:
+            if transform["type"] == "scale":
+                voxel_sizes[scale_ds["path"]] = transform["scale"]
+                break
+    if not voxel_sizes:
+        raise ValueError(
+            f"No scale transformations found in the zarr metadata at {path}"
+        )
+    return voxel_sizes
+
+
+def get_neuroglancer_link(metadata):
+    # extract dataset name from raw_path
+    m = re.search(r"/([^/]+)/\\1\\.zarr", metadata["raw_path"])
+    if m:
+        dataset = m.group(1)
+    else:
+        # fallback: take parent folder name before .zarr
+        import os
+
+        dataset = os.path.basename(metadata["raw_path"].split(".zarr")[0])
+    # build raw EM layer source
+    raw_key = S3_SEARCH_PATH.format(dataset=dataset, name=S3_RAW_NAME)
+    raw_source = f"zarr://s3://{RAW_S3_BUCKET}/{raw_key}"
+    voxel_sizes = [get_multiscale_voxel_sizes(raw_source)]
+    layers = {"raw": {"type": "image", "source": raw_source}}
+    # segmentation layers
+    # extract crop identifier from target_path_str
+    m2 = re.search(r"labels/groundtruth/([^/]+)/", metadata["target_path_str"])
+    crop = m2.group(1) if m2 else ""
+    for class_name in metadata["class_weights"].keys():
+        seg_path = S3_CROP_NAME.format(crop=crop, label=class_name)
+        seg_key = S3_SEARCH_PATH.format(dataset=dataset, name=seg_path)
+        seg_source = f"zarr://s3://{GT_S3_BUCKET}/{seg_key}"
+        # get voxel size for this segmentation layer
+        voxel_sizes.append(get_multiscale_voxel_sizes(seg_source))
+        layers[class_name] = {"type": "segmentation", "source": seg_source}
+
+    # find the minimum voxel size across all layers
+    voxel_size = np.min(
+        [
+            np.min([np.array(vs) for vs in ds_vs.values()], axis=0)
+            for ds_vs in voxel_sizes
+        ],
+        axis=0,
+    ).tolist()
+    # navigation pose (x, y, z)
+    position = [
+        metadata["current_center"]["z"] / voxel_size[2],
+        metadata["current_center"]["y"] / voxel_size[1],
+        metadata["current_center"]["x"] / voxel_size[0],
+    ]
+    state = {
+        "layers": layers,
+        "navigation": {"pose": {"position": {"voxelCoordinates": position}}},
+    }
+    fragment = urllib.parse.quote(json.dumps(state), safe='/:,"{}[]')
+    return f"https://neuroglancer-demo.appspot.com/#!{fragment}"
 
 
 def open_neuroglancer(metadata):
