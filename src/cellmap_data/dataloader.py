@@ -103,7 +103,7 @@ class CellMapDataLoader:
                     self.batch_size, self.rng
                 )
         self.default_kwargs = {
-            "multiprocessing_context": "forkserver",  # "fork" does not work with CUDA, and "spawn" requires the dataset to be picklable
+            "multiprocessing_context": "forkserver",  # "fork" does not work with CUDA, and "spawn" is slower
             "persistent_workers": True,
         }
         self.default_kwargs.update(kwargs)
