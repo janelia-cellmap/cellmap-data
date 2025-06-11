@@ -2,6 +2,9 @@ import functools
 import torch
 from torch.utils.data import DataLoader, Sampler
 
+import multiprocessing as mp
+import sys
+
 from .subdataset import CellMapSubset
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
@@ -102,8 +105,15 @@ class CellMapDataLoader:
                 self.sampler = self.dataset.get_weighted_sampler(
                     self.batch_size, self.rng
                 )
+        if (
+            sys.platform.startswith("win")
+            or "forkserver" not in mp.get_all_start_methods()
+        ):
+            ctx = "spawn"
+        else:
+            ctx = "forkserver"
         self.default_kwargs = {
-            "multiprocessing_context": "forkserver",  # "fork" does not work with CUDA, and "spawn" is slower
+            "multiprocessing_context": ctx,
             "persistent_workers": True,
         }
         self.default_kwargs.update(kwargs)
