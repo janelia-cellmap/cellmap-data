@@ -5,7 +5,7 @@ from .figs import (
     fig_to_image,
     get_fig_dict,
 )
-from .dtype import torch_max_value
+from .misc import torch_max_value, longest_common_substring
 from .metadata import (
     create_multiscale_metadata,
     add_multiscale_metadata_levels,

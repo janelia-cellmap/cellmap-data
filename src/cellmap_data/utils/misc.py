@@ -1,3 +1,5 @@
+from difflib import SequenceMatcher
+
 import torch
 
 
@@ -25,3 +27,9 @@ def torch_max_value(dtype: torch.dtype) -> int:
         # This is only here for completeness. This value is implicitly assumed in a lot of places so changing it is not
         # easy.
         return 1
+
+
+def longest_common_substring(a: str, b: str) -> str:
+    m = SequenceMatcher(None, a, b)
+    match = m.find_longest_match(0, len(a), 0, len(b))
+    return a[match.a : match.a + match.size]
