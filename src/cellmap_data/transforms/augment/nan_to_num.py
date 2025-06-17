@@ -29,6 +29,6 @@ class NaNtoNum(T.Transform):
         """Return a string representation of the transformation."""
         return f"{self.__class__.__name__}(params={self.params})"
 
-    def transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
+    def transform(self, inpt: Any, params: Dict[str, Any] | None = None) -> Any:
         """Transform the input."""
-        return self._transform(x, params)
+        return self._transform(inpt, params)
