@@ -99,3 +99,30 @@ jobs:
         run: |
           git tag ${{ steps.date_tag.outputs.tag }}
           git push origin ${{ steps.date_tag.outputs.tag }}
+
+  publish:
+    name: Publish
+    needs: tag-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install build tools
+        run: pip install -U pip hatch twine
+      - name: Build sdist and wheel
+        run: hatch build -t sdist -t wheel
+      - name: Check distributions
+        run: twine check dist/*
+      - name: Publish to PyPI
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
