@@ -99,6 +99,11 @@ jobs:
         run: |
           git tag ${{ steps.date_tag.outputs.tag }}
           git push origin ${{ steps.date_tag.outputs.tag }}
+      - name: Create GitHub Release with Notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ steps.date_tag.outputs.tag }} --generate-notes --title "${{ steps.date_tag.outputs.tag }}"
 
   publish:
     name: Publish
