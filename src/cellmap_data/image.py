@@ -1,5 +1,8 @@
 import os
+import logging
 from typing import Any, Callable, Mapping, Optional, Sequence
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 import tensorstore
@@ -58,15 +61,20 @@ class CellMapImage:
 
         self.path = path
         self.label_class = target_class
-        # TODO: Below makes assumptions about image scale, and also locks which axis is sliced to 2D
+        # Below makes assumptions about image scale, and also locks which axis is sliced to 2D (this should only be encountered if bypassing dataset)
         if len(axis_order) > len(target_scale):
+            logger.warning(
+                f"Axis order {axis_order} has more axes than target scale {target_scale}. Padding target scale with first given scale ({target_scale[0]})."
+            )
             target_scale = [target_scale[0]] * (
                 len(axis_order) - len(target_scale)
             ) + list(target_scale)
         if len(axis_order) > len(target_voxel_shape):
-            target_voxel_shape = [1] * (
-                len(axis_order) - len(target_voxel_shape)
-            ) + list(target_voxel_shape)
+            ndim_fix = len(axis_order) - len(target_voxel_shape)
+            logger.warning(
+                f"Axis order {axis_order} has more axes than target voxel shape {target_voxel_shape}. Padding first {ndim_fix} target voxel shapes with 1s."
+            )
+            target_voxel_shape = [1] * ndim_fix + list(target_voxel_shape)
         self.pad = pad
         self.pad_value = pad_value
         self.interpolation = interpolation
@@ -338,9 +346,9 @@ class CellMapImage:
                 ) * np.prod(s0_scale)
                 self._bg_count = bg_count * np.prod(s0_scale)
             except Exception as e:
-                print(f"Error: {e}")
-                print(f"Unable to get class counts for {self.path}")
-                # print("from metadata, falling back to giving foreground 1 pixel, and the rest to background.")
+                logger.warning(f"Error: {e}")
+                logger.warning(f"Unable to get class counts for {self.path}")
+                # logger.warning("from metadata, falling back to giving foreground 1 pixel, and the rest to background.")
                 self._class_counts = np.prod(list(self.scale.values()))
                 self._bg_count = (
                     np.prod(self.group[self.scale_level].shape) - 1

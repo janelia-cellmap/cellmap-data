@@ -295,7 +295,7 @@ class CellMapDataSplit:
         dataset_dict = {}
         with open(csv_path, "r") as f:
             reader = csv.reader(f)
-            print("Reading csv file...")
+            logger.info("Reading csv file...")
             for row in reader:
                 if row[0] not in dataset_dict:
                     dataset_dict[row[0]] = []
@@ -313,7 +313,7 @@ class CellMapDataSplit:
         self.train_datasets = []
         self.validation_datasets = []
         self.datasets = {}
-        print("Constructing datasets...")
+        logger.info("Constructing datasets...")
         for data_paths in tqdm(dataset_dict["train"], desc="Training datasets"):
             try:
                 self.train_datasets.append(
@@ -336,7 +336,7 @@ class CellMapDataSplit:
                     )
                 )
             except ValueError as e:
-                print(f"Error loading dataset: {e}")
+                logger.warning(f"Error loading dataset: {e}")
 
         self.datasets["train"] = self.train_datasets
 
@@ -366,7 +366,7 @@ class CellMapDataSplit:
                         )
                     )
                 except ValueError as e:
-                    print(f"Error loading dataset: {e}")
+                    logger.warning(f"Error loading dataset: {e}")
 
             self.datasets["validate"] = self.validation_datasets
 
@@ -374,7 +374,7 @@ class CellMapDataSplit:
         """Verifies that the datasets have data, and removes ones that don't from ``self.train_datasets`` and ``self.validation_datasets``."""
         if self.force_has_data:
             return
-        print("Verifying datasets...")
+        logger.info("Verifying datasets...")
         verified_datasets = []
         for ds in tqdm(self.train_datasets, desc="Training datasets"):
             if ds.verify():

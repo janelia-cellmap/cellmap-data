@@ -3,29 +3,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 from typing import Any, Callable, Mapping, Sequence, Optional
 import numpy as np
+from numpy.typing import ArrayLike
 import torch
 from torch.utils.data import Dataset
 import tensorstore
 
-from .utils.sampling import min_redundant_inds
+from .utils import min_redundant_inds, split_target_path, is_array_2D, get_sliced_shape
 from .image import CellMapImage, EmptyImage
 import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-def split_target_path(path: str) -> tuple[str, list[str]]:
-    """Splits a path to groundtruth data into the main path string, and the classes supplied for it."""
-    try:
-        path_prefix, path_rem = path.split("[")
-        classes, path_suffix = path_rem.split("]")
-        classes = classes.split(",")
-        path_string = path_prefix + "{label}" + path_suffix
-    except ValueError:
-        path_string = path
-        classes = [path.split(os.path.sep)[-1]]
-    return path_string, classes
 
 
 # %%
@@ -90,6 +78,7 @@ class CellMapDataset(Dataset):
             device (Optional[str | torch.device], optional): The device for the dataset. Defaults to None. If None, the device will be set to "cuda" if available, "mps" if available, or "cpu" if neither are available.
 
         """
+        super().__init__()
         self.raw_path = raw_path
         self.target_paths = target_path
         self.target_path_str, self.classes_with_path = split_target_path(target_path)
@@ -144,6 +133,91 @@ class CellMapDataset(Dataset):
                 )
             else:
                 self.target_sources[array_name] = self.get_target_array(array_info)
+
+    def __new__(
+        cls,
+        raw_path: str,  # TODO: Switch "raw_path" to "input_path"
+        target_path: str,
+        classes: Sequence[str] | None,
+        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
+        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]] | None = None,
+        spatial_transforms: Optional[Mapping[str, Mapping]] = None,  # type: ignore
+        raw_value_transforms: Optional[Callable] = None,
+        target_value_transforms: Optional[
+            Callable | Sequence[Callable] | Mapping[str, Callable]
+        ] = None,
+        class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
+        is_train: bool = False,
+        axis_order: str = "zyx",
+        context: Optional[tensorstore.Context] = None,  # type: ignore
+        rng: Optional[torch.Generator] = None,
+        force_has_data: bool = False,
+        empty_value: float | int = torch.nan,
+        pad: bool = True,
+        device: Optional[str | torch.device] = None,
+    ):
+        # Need to determine if 2D arrays are requested without slicing axis specified
+        # If so, turn into a multidataset with 3 datasets each 2D arrays sliced along one axis
+        if is_array_2D(input_arrays) or is_array_2D(target_arrays):
+            from cellmap_data.multidataset import CellMapMultiDataset
+
+            logger.warning(
+                "2D arrays requested without slicing axis specified. Creating datasets that each slice along one axis. If this is not intended, please specify the slicing axis in the input and target arrays."
+            )
+            datasets = []
+            for axis in range(3):
+                logger.debug(f"Creating dataset for axis {axis}")
+                input_arrays_2d = {
+                    name: {
+                        "shape": get_sliced_shape(array_info["shape"], axis),
+                        "scale": array_info["scale"],
+                    }
+                    for name, array_info in input_arrays.items()
+                }
+                target_arrays_2d = (
+                    {
+                        name: {
+                            "shape": get_sliced_shape(array_info["shape"], axis),
+                            "scale": array_info["scale"],
+                        }
+                        for name, array_info in target_arrays.items()
+                    }
+                    if target_arrays is not None
+                    else None
+                )
+                logger.debug(f"Input arrays for axis {axis}: {input_arrays_2d}")
+                logger.debug(f"Target arrays for axis {axis}: {target_arrays_2d}")
+                datasets.append(
+                    CellMapDataset(
+                        raw_path,
+                        target_path,
+                        classes,
+                        input_arrays_2d,
+                        target_arrays_2d,
+                        spatial_transforms=spatial_transforms,
+                        raw_value_transforms=raw_value_transforms,
+                        target_value_transforms=target_value_transforms,
+                        class_relation_dict=class_relation_dict,
+                        is_train=is_train,
+                        axis_order=axis_order,
+                        context=context,
+                        rng=rng,
+                        force_has_data=force_has_data,
+                        empty_value=empty_value,
+                        pad=pad,
+                        device=device,
+                    )
+                )
+            return CellMapMultiDataset(
+                classes=classes,
+                input_arrays=input_arrays,
+                target_arrays=target_arrays,
+                datasets=datasets,
+            )
+        # If not, return the standard CellMapDataset
+        else:
+            instance = super().__new__(cls)
+            return instance
 
     @property
     def center(self) -> Mapping[str, float] | None:
@@ -361,7 +435,7 @@ class CellMapDataset(Dataset):
             self._len = int(size)
             return self._len
 
-    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+    def __getitem__(self, idx: ArrayLike) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
         idx = np.array(idx)
         idx[idx < 0] = len(self) + idx[idx < 0]
@@ -390,11 +464,7 @@ class CellMapDataset(Dataset):
         def get_input_array(array_name: str) -> tuple[str, torch.Tensor]:
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
             array = self.input_sources[array_name][center]  # type: ignore
-            # TODO: Assumes 1 channel (i.e. grayscale)
-            if array.shape[0] != 1:
-                return array_name, array[None, ...]
-            else:
-                return array_name, array
+            return array_name, array.squeeze()[None, ...]  # Add channel dimension
 
         executor = ThreadPoolExecutor()
         futures = [
@@ -410,10 +480,7 @@ class CellMapDataset(Dataset):
                     spatial_transforms
                 )
                 array = self.target_sources[array_name][center]
-                if array.shape[0] != 1:
-                    return array_name, array[None, ...]
-                else:
-                    return array_name, array
+                return array_name, array.squeeze()[None, ...]  # Add channel dimension
 
         else:
 
@@ -621,7 +688,7 @@ class CellMapDataset(Dataset):
         try:
             return len(self) > 0
         except Exception as e:
-            print(f"Error: {e}")
+            logger.warning(f"Error: {e}")
             return False
 
     def get_indices(self, chunk_size: Mapping[str, int]) -> Sequence[int]:

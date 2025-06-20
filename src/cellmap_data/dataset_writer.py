@@ -8,23 +8,11 @@ import tensorstore
 from upath import UPath
 
 from .image import CellMapImage, ImageWriter
+from .utils import split_target_path
 import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-def split_target_path(path: str) -> tuple[str, list[str]]:
-    """Splits a path to groundtruth data into the main path string, and the classes supplied for it."""
-    try:
-        path_prefix, path_rem = path.split("[")
-        classes, path_suffix = path_rem.split("]")
-        classes = classes.split(",")
-        path_string = path_prefix + "{label}" + path_suffix
-    except ValueError:
-        path_string = path
-        classes = [path.split(os.path.sep)[-1]]
-    return path_string, classes
 
 
 # %%
@@ -469,7 +457,7 @@ class CellMapDatasetWriter(Dataset):
         try:
             return len(self) > 0
         except Exception as e:
-            print(f"Error: {e}")
+            logger.warning(f"Error: {e}")
             return False
 
     def get_indices(self, chunk_size: Mapping[str, float]) -> Sequence[int]:

@@ -1,9 +1,11 @@
 import torch
-from cellmap_data.dataset import split_target_path, CellMapDataset
-from cellmap_data.dataset_writer import (
-    split_target_path as writer_split_target_path,
-    CellMapDatasetWriter,
-)
+import numpy as np
+import pytest
+from unittest.mock import MagicMock
+
+from cellmap_data.dataset import CellMapDataset
+from cellmap_data.dataset_writer import CellMapDatasetWriter
+from cellmap_data.utils.misc import split_target_path
 from cellmap_data.datasplit import CellMapDataSplit
 from cellmap_data.image import CellMapImage
 from cellmap_data.multidataset import CellMapMultiDataset
@@ -11,102 +13,211 @@ from cellmap_data.subdataset import CellMapSubset
 
 
 def test_split_target_path_dataset():
-    path = "foo/bar/baz"
+    path = "foo/[bar,baz]"
     root, parts = split_target_path(path)
     assert isinstance(root, str)
     assert isinstance(parts, list)
+    assert root == "foo/{label}"
+    assert parts == ["bar", "baz"]
 
 
-def test_split_target_path_writer():
-    path = "foo/bar/baz"
-    root, parts = writer_split_target_path(path)
-    assert isinstance(root, str)
-    assert isinstance(parts, list)
+@pytest.fixture
+def mock_dataset():
+    ds = MagicMock()
+    ds.classes = ["a", "b"]
+    ds.input_arrays = {"in": {}}
+    ds.target_arrays = {"out": {}}
+    ds.class_counts = {"totals": {"a": 10, "a_bg": 90, "b": 20, "b_bg": 80}}
+    ds.validation_indices = [0, 1]
+    ds.verify.return_value = True
+    ds.__len__.return_value = 5
+    ds.get_indices.return_value = [0, 1, 2]
+    ds.to.return_value = ds
+    return ds
 
 
-def test_cellmap_dataset_len_and_getitem():
-    # Minimal mock for CellMapDataset
-    class Dummy(CellMapDataset):
-        def __init__(self):
-            pass
-
-        def __len__(self):
-            return 3
-
-        def __getitem__(self, idx):
-            return {"x": torch.tensor([idx]), "y": torch.tensor(idx)}
-
-    d = Dummy()
-    assert len(d) == 3
-    item = d[0]
-    assert "x" in item and "y" in item
+def test_has_data(mock_dataset):
+    mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
+    assert mds.has_data is True
+    mds_empty = CellMapMultiDataset.empty()
+    assert mds_empty.has_data is False
 
 
-def test_cellmap_dataset_writer_len_and_getitem():
-    class Dummy(CellMapDatasetWriter):
-        def __init__(self):
-            pass
-
-        def __len__(self):
-            return 2
-
-        def __getitem__(self, idx):
-            return {"x": torch.tensor([idx]), "y": torch.tensor(idx)}
-
-    d = Dummy()
-    assert len(d) == 2
-    item = d[1]
-    assert "x" in item and "y" in item
+def test_class_counts_and_weights(mock_dataset):
+    mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
+    cc = mds.class_counts
+    assert "totals" in cc
+    assert cc["totals"]["a"] == 10
+    assert cc["totals"]["b"] == 20
+    cw = mds.class_weights
+    assert set(cw.keys()) == {"a", "b"}
+    assert cw["a"] == 90 / 10
+    assert cw["b"] == 80 / 20
 
 
-def test_cellmap_datasplit_repr():
-    class Dummy(CellMapDataSplit):
-        def __init__(self):
-            pass
-
-        def __repr__(self):
-            return "DummySplit"
-
-    d = Dummy()
-    assert repr(d) == "DummySplit"
+def test_dataset_weights_and_sample_weights(mock_dataset):
+    mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
+    dw = mds.dataset_weights
+    assert mock_dataset in dw
+    sw = mds.sample_weights
+    assert len(sw) == len(mock_dataset)
 
 
-def test_cellmap_image_shape_and_center():
-    class Dummy(CellMapImage):
-        def __init__(self):
-            pass
-
-        def shape(self):
-            return {"x": 10, "y": 10}
-
-        def center(self):
-            return {"x": 5.0, "y": 5.0}
-
-    d = Dummy()
-    assert d.shape()["x"] == 10
-    assert d.center()["y"] == 5.0
+def test_validation_indices(mock_dataset):
+    mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
+    indices = mds.validation_indices
+    assert indices == [0, 1]
 
 
-def test_cellmap_multidataset_class_counts():
-    class Dummy(CellMapMultiDataset):
-        def __init__(self):
-            pass
+def test_verify(mock_dataset):
+    mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
+    assert mds.verify() is True
+    mds_empty = CellMapMultiDataset.empty()
+    assert mds_empty.verify() is False
+    ds_empty = CellMapDataset(
+        raw_path="dummy_raw_path",
+        target_path="dummy_path",
+        classes=["a", "b"],
+        input_arrays={"in": {"shape": (1, 1, 1), "scale": (1.0, 1.0, 1.0)}},
+        target_arrays={"out": {"shape": (1, 1, 1), "scale": (1.0, 1.0, 1.0)}},
+    )
+    assert ds_empty.verify() is False
 
-        def class_counts(self):
-            return {"a": 1.0, "b": 2.0}
 
-    d = Dummy()
-    cc = d.class_counts()
-    assert "a" in cc and cc["b"] == 2.0
+def test_empty():
+    mds = CellMapMultiDataset.empty()
+    assert isinstance(mds, CellMapMultiDataset)
+    assert mds.has_data is False
+    ds = CellMapDataset.empty()
+    assert isinstance(ds, CellMapDataset)
+    assert ds.has_data is False
 
 
-def test_cellmap_subdataset_classes():
-    class Dummy(CellMapSubset):
-        def __init__(self):
-            pass
+def test_repr(mock_dataset):
+    mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
+    s = repr(mds)
+    assert "CellMapMultiDataset" in s
 
-        def classes(self):
-            return ["a", "b"]
 
-    d = Dummy()
-    assert d.classes() == ["a", "b"]
+def test_to_device(mock_dataset):
+    mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
+    result = mds.to("cpu")
+    assert result is mds
+
+
+def test_get_weighted_sampler(mock_dataset):
+    mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
+    sampler = mds.get_weighted_sampler(batch_size=2)
+    assert hasattr(sampler, "__iter__")
+
+
+def test_get_subset_random_sampler(mock_dataset):
+    mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
+    sampler = mds.get_subset_random_sampler(num_samples=2)
+    assert hasattr(sampler, "__iter__")
+
+
+def test_multidataset_2d_shape_triggers_axis_slicing(monkeypatch):
+    """Test that requesting a 2D shape triggers creation of 3 datasets, one for each axis."""
+    from cellmap_data.dataset import CellMapDataset
+    from cellmap_data.multidataset import CellMapMultiDataset
+
+    # Patch CellMapDataset.__init__ to record calls and not do real work
+    created = []
+    orig_init = CellMapDataset.__init__
+
+    def fake_init(self, *args, **kwargs):
+        created.append((args, kwargs))
+        orig_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(CellMapDataset, "__init__", fake_init)
+
+    # Patch CellMapMultiDataset to record datasets passed to it
+    multi_created = {}
+    orig_multi_init = CellMapMultiDataset.__init__
+
+    def fake_multi_init(self, classes, input_arrays, target_arrays, datasets):
+        multi_created["datasets"] = datasets
+        orig_multi_init(self, classes, input_arrays, target_arrays, datasets)
+
+    monkeypatch.setattr(CellMapMultiDataset, "__init__", fake_multi_init)
+
+    # 2D shape triggers slicing
+    input_arrays = {"in": {"shape": (32, 32), "scale": (1.0, 1.0, 1.0)}}
+    target_arrays = {"out": {"shape": (32, 32), "scale": (1.0, 1.0, 1.0)}}
+    classes = ["a", "b"]
+
+    # Use __new__ directly to trigger the logic
+    ds = CellMapDataset.__new__(
+        CellMapDataset,
+        raw_path="dummy_raw_path",
+        target_path="dummy_path",
+        classes=classes,
+        input_arrays=input_arrays,
+        target_arrays=target_arrays,
+        spatial_transforms=None,
+        raw_value_transforms=None,
+        target_value_transforms=None,
+        class_relation_dict=None,
+        is_train=False,
+        axis_order="zyx",
+        context=None,
+        rng=None,
+        force_has_data=False,
+        empty_value=torch.nan,
+        pad=True,
+        device=None,
+    )
+
+    # Should return a CellMapMultiDataset
+    assert isinstance(ds, CellMapMultiDataset)
+    # Should have created 3 datasets (one per axis)
+    assert "datasets" in multi_created
+    assert len(multi_created["datasets"]) == 3
+
+    # Each dataset should have 2D shape in its input_arrays
+    for d in multi_created["datasets"]:
+        arr = d.input_arrays["in"]["shape"]
+        assert len(arr) == 2
+
+
+def test_multidataset_3d_shape_does_not_trigger_axis_slicing(monkeypatch):
+    """Test that requesting a 3D shape does not trigger axis slicing."""
+    from cellmap_data.dataset import CellMapDataset
+    from cellmap_data.multidataset import CellMapMultiDataset
+
+    # Patch CellMapMultiDataset to raise if called
+    monkeypatch.setattr(
+        CellMapMultiDataset,
+        "__init__",
+        lambda *a, **k: (_ for _ in ()).throw(Exception("Should not be called")),
+    )
+
+    input_arrays = {"in": {"shape": (32, 32, 32), "scale": (1.0, 1.0, 1.0)}}
+    target_arrays = {"out": {"shape": (32, 32, 32), "scale": (1.0, 1.0, 1.0)}}
+    classes = ["a", "b"]
+
+    # Use __new__ directly to trigger the logic
+    ds = CellMapDataset.__new__(
+        CellMapDataset,
+        raw_path="dummy_raw_path",
+        target_path="dummy_path",
+        classes=classes,
+        input_arrays=input_arrays,
+        target_arrays=target_arrays,
+        spatial_transforms=None,
+        raw_value_transforms=None,
+        target_value_transforms=None,
+        class_relation_dict=None,
+        is_train=False,
+        axis_order="zyx",
+        context=None,
+        rng=None,
+        force_has_data=False,
+        empty_value=torch.nan,
+        pad=True,
+        device=None,
+    )
+
+    # Should return a CellMapDataset instance, not a CellMapMultiDataset
+    assert isinstance(ds, CellMapDataset)

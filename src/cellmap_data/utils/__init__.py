@@ -5,7 +5,14 @@ from .figs import (
     fig_to_image,
     get_fig_dict,
 )
-from .misc import torch_max_value, longest_common_substring
+from .misc import (
+    torch_max_value,
+    longest_common_substring,
+    split_target_path,
+    is_array_2D,
+    get_sliced_shape,
+    array_has_singleton_dim,
+)
 from .metadata import (
     create_multiscale_metadata,
     add_multiscale_metadata_levels,

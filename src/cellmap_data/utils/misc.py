@@ -1,4 +1,6 @@
 from difflib import SequenceMatcher
+import os
+from typing import Any, Mapping, Sequence
 
 import torch
 
@@ -33,3 +35,68 @@ def longest_common_substring(a: str, b: str) -> str:
     m = SequenceMatcher(None, a, b)
     match = m.find_longest_match(0, len(a), 0, len(b))
     return a[match.a : match.a + match.size]
+
+
+def split_target_path(path: str) -> tuple[str, list[str]]:
+    """Splits a path to groundtruth data into the main path string, and the classes supplied for it."""
+    try:
+        path_prefix, path_rem = path.split("[")
+        classes, path_suffix = path_rem.split("]")
+        classes = classes.split(",")
+        path_string = path_prefix + "{label}" + path_suffix
+    except ValueError:
+        path_string = path
+        classes = [path.split(os.path.sep)[-1]]
+    return path_string, classes
+
+
+def is_array_2D(
+    array_info: Mapping[str, Any] | None, summary: bool = True
+) -> bool | Mapping[str, bool]:
+    """Checks if the array has only 2 dimensions of shape specified."""
+    if array_info is None or len(array_info) == 0:
+        return False
+    elif "shape" in array_info:
+        return len(array_info["shape"]) == 2
+    else:
+        arrays = {}
+        for key, value in array_info.items():
+            arrays[key] = is_array_2D(value)
+        if summary:
+            return all(arrays.values())
+        else:
+            return arrays
+
+
+def array_has_singleton_dim(
+    array_info: Mapping[str, Any] | None, summary: bool = True
+) -> bool | Mapping[str, bool]:
+    """Checks if the array has a singleton dimension."""
+    if array_info is None or len(array_info) == 0:
+        return False
+    elif "shape" in array_info:
+        return 1 in array_info["shape"]
+    else:
+        arrays = {}
+        for key, value in array_info.items():
+            arrays[key] = array_has_singleton_dim(value)
+        if summary:
+            return any(arrays.values())
+        else:
+            return arrays
+
+
+def get_sliced_shape(shape: Sequence[int], axis: int) -> Sequence[int]:
+    """Returns a shape expanded from 2D and sliced along the specified axis."""
+    shape = list(shape)
+    return (
+        tuple(
+            shape[:axis]
+            + [
+                1,
+            ]
+            + shape[axis:]
+        )
+        if len(shape) == 2
+        else tuple(shape)
+    )

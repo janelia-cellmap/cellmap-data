@@ -3,9 +3,12 @@ import numpy as np
 import torch
 from torch.utils.data import ConcatDataset, WeightedRandomSampler
 from tqdm import tqdm
+import logging
 
 from .utils.sampling import min_redundant_inds
 from .dataset import CellMapDataset
+
+logger = logging.getLogger(__name__)
 
 
 class CellMapMultiDataset(ConcatDataset):
@@ -40,7 +43,7 @@ class CellMapMultiDataset(ConcatDataset):
 
     Properties:
         class_counts: Mapping[str, float]
-            Returns the number of samples in each class for each dataset in the multi-dataset, as well as the total number of samples in each class.
+            Returns a nested dictionary containing the number of samples in each class for each dataset in the multi-dataset, with class-specific counts nested under a 'totals' key.
         class_weights: Mapping[str, float]
             Returns the class weights for the multi-dataset based on the number of samples in each class.
         dataset_weights: Mapping[CellMapDataset, float]
@@ -73,21 +76,30 @@ class CellMapMultiDataset(ConcatDataset):
         return out_string
 
     @property
-    def class_counts(self) -> dict[str, float]:
+    def has_data(self) -> bool:
+        """
+        Returns True if the multi-dataset has data, i.e., if it contains any datasets.
+        """
+        return len(self) > 0
+
+    @property
+    def class_counts(self) -> dict[str, dict[str, float]]:
         """
         Returns the number of samples in each class for each dataset in the multi-dataset, as well as the total number of samples in each class.
         """
         try:
             return self._class_counts
         except AttributeError:
-            class_counts = {c: 0.0 for c in self.classes}
-            class_counts.update({c + "_bg": 0.0 for c in self.classes})
-            print("Gathering class counts...")
+            class_counts = {"totals": {c: 0.0 for c in self.classes}}
+            class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
+            logger.info("Gathering class counts...")
             for ds in tqdm(self.datasets):
                 for c in self.classes:
                     if c in ds.class_counts["totals"]:
-                        class_counts[c] += ds.class_counts["totals"][c]
-                        class_counts[c + "_bg"] += ds.class_counts["totals"][c + "_bg"]
+                        class_counts["totals"][c] += ds.class_counts["totals"][c]
+                        class_counts["totals"][c + "_bg"] += ds.class_counts["totals"][
+                            c + "_bg"
+                        ]
             self._class_counts = class_counts
             return self._class_counts
 
@@ -102,8 +114,9 @@ class CellMapMultiDataset(ConcatDataset):
         except AttributeError:
             class_weights = {
                 c: (
-                    self.class_counts[c + "_bg"] / self.class_counts[c]
-                    if self.class_counts[c] != 0
+                    self.class_counts["totals"][c + "_bg"]
+                    / self.class_counts["totals"][c]
+                    if self.class_counts["totals"][c] != 0
                     else 1
                 )
                 for c in self.classes
@@ -172,6 +185,34 @@ class CellMapMultiDataset(ConcatDataset):
                     )
             self._validation_indices = indices
             return self._validation_indices
+
+    def verify(self) -> bool:
+        """
+        Verifies that all datasets in the multi-dataset have the same classes and input/target array keys.
+        """
+        if len(self.datasets) == 0:
+            return False
+
+        n_verified_datasets = 0
+        for dataset in self.datasets:
+            n_verified_datasets += int(dataset.verify())
+            try:
+                assert (
+                    dataset.classes == self.classes
+                ), "All datasets must have the same classes."
+                assert set(dataset.input_arrays.keys()) == set(
+                    self.input_arrays.keys()
+                ), "All datasets must have the same input arrays."
+                if self.target_arrays is not None:
+                    assert set(dataset.target_arrays.keys()) == set(
+                        self.target_arrays.keys()
+                    ), "All datasets must have the same target arrays."
+            except AssertionError as e:
+                logger.error(
+                    f"Dataset {dataset} does not match the expected structure: {e}"
+                )
+                return False
+        return n_verified_datasets > 0
 
     def to(
         self, device: str | torch.device, non_blocking: bool = True
