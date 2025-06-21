@@ -13,6 +13,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  PYTORCH_ENABLE_MPS_FALLBACK: 1
+
 jobs:
   docs:
     runs-on: ubuntu-latest

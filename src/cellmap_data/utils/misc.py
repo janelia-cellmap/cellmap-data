@@ -89,14 +89,17 @@ def array_has_singleton_dim(
 def get_sliced_shape(shape: Sequence[int], axis: int) -> Sequence[int]:
     """Returns a shape expanded from 2D and sliced along the specified axis."""
     shape = list(shape)
-    return (
-        tuple(
-            shape[:axis]
-            + [
-                1,
-            ]
-            + shape[axis:]
-        )
-        if len(shape) == 2
-        else tuple(shape)
-    )
+    if 1 in shape:
+        singleton_idx = shape.index(1)
+        if singleton_idx != axis:
+            # Move singleton to the current axis
+            shape.insert(axis, shape.pop(singleton_idx))
+    else:
+        # If no singleton, just add a singleton dimension at the current axis
+        shape.insert(axis, 1)
+    return tuple(shape)
+
+
+def permute_singleton_dimension(arr_dict, axis):
+    for arr_name, arr_info in arr_dict.items():
+        arr_info["shape"] = get_sliced_shape(arr_info["shape"], axis)
