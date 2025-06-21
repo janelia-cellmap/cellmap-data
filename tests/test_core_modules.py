@@ -175,10 +175,11 @@ def test_multidataset_2d_shape_triggers_axis_slicing(monkeypatch):
     assert "datasets" in multi_created
     assert len(multi_created["datasets"]) == 3
 
-    # Each dataset should have 2D shape in its input_arrays
+    # Each actual dataset should have 3D shape in its input_arrays each with one singleton dimension
     for d in multi_created["datasets"]:
         arr = d.input_arrays["in"]["shape"]
-        assert len(arr) == 2
+        assert len(arr) == 3
+        assert arr.count(1) == 1
 
 
 def test_multidataset_3d_shape_does_not_trigger_axis_slicing(monkeypatch):
