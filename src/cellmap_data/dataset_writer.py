@@ -7,7 +7,8 @@ from torch.utils.data import Dataset, Subset, DataLoader
 import tensorstore
 from upath import UPath
 
-from .image import CellMapImage, ImageWriter
+from .image import CellMapImage
+from .image_writer import ImageWriter
 from .utils import split_target_path
 import logging
 

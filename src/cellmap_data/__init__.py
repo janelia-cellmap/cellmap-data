@@ -20,7 +20,9 @@ from .dataloader import CellMapDataLoader
 from .datasplit import CellMapDataSplit
 from .dataset import CellMapDataset
 from .dataset_writer import CellMapDatasetWriter
-from .image import CellMapImage, EmptyImage, ImageWriter
+from .image import CellMapImage
+from .empty_image import EmptyImage
+from .image_writer import ImageWriter
 from .subdataset import CellMapSubset
 from . import transforms
 from . import utils

@@ -9,7 +9,8 @@ from torch.utils.data import Dataset
 import tensorstore
 
 from .utils import min_redundant_inds, split_target_path, is_array_2D, get_sliced_shape
-from .image import CellMapImage, EmptyImage
+from .image import CellMapImage
+from .empty_image import EmptyImage
 import logging
 
 logger = logging.getLogger(__name__)
