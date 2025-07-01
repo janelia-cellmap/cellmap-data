@@ -38,7 +38,7 @@ dependencies = [
     "cellpose",
     "neuroglancer",
     "h5py", # Only needed until the new cellmap-flow is released
-    "cellmap-flow",
+    # "cellmap-flow",
     "ipython",
     # "py_distance_transforms",
 ]

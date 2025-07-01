@@ -1,6 +1,7 @@
 import json
 import logging
 import operator
+import os
 import re
 import time
 import webbrowser
@@ -11,9 +12,8 @@ import numpy as np
 import urllib
 import s3fs
 import zarr
-from cellmap_flow.utils.ds import open_ds_tensorstore
+import tensorstore as ts
 
-# from cellmap_flow.utils.scale_pyramid import ScalePyramid
 from IPython import get_ipython
 from IPython.display import IFrame, display
 from upath import UPath
@@ -424,3 +424,95 @@ class ScalePyramid(neuroglancer.LocalVolume):
 
     def invalidate(self):
         return self.volume_layers[(1,) * self.dims].invalidate()
+
+
+def open_ds_tensorstore(dataset_path: str, mode="r", concurrency_limit=None):
+    # open with zarr or n5 depending on extension
+    filetype = (
+        "zarr" if dataset_path.rfind(".zarr") > dataset_path.rfind(".n5") else "n5"
+    )
+    extra_args = {}
+
+    if dataset_path.startswith("s3://"):
+        kvstore = {
+            "driver": "s3",
+            "bucket": dataset_path.split("/")[2],
+            "path": "/".join(dataset_path.split("/")[3:]),
+            "aws_credentials": {
+                "anonymous": True,
+            },
+        }
+    elif dataset_path.startswith("gs://"):
+        # check if path ends with s#int
+        if ends_with_scale(dataset_path):
+            scale_index = int(dataset_path.rsplit("/s")[1])
+            dataset_path = dataset_path.rsplit("/s")[0]
+        else:
+            scale_index = 0
+        filetype = "neuroglancer_precomputed"
+        kvstore = dataset_path
+        extra_args = {"scale_index": scale_index}
+    else:
+        kvstore = {
+            "driver": "file",
+            "path": os.path.normpath(dataset_path),
+        }
+
+    if concurrency_limit:
+        spec = {
+            "driver": filetype,
+            "context": {
+                "data_copy_concurrency": {"limit": concurrency_limit},
+                "file_io_concurrency": {"limit": concurrency_limit},
+            },
+            "kvstore": kvstore,
+            **extra_args,
+        }
+    else:
+        spec = {"driver": filetype, "kvstore": kvstore, **extra_args}
+
+    if mode == "r":
+        dataset_future = ts.open(spec, read=True, write=False)
+    else:
+        dataset_future = ts.open(spec, read=False, write=True)
+
+    if dataset_path.startswith("gs://"):
+        # NOTE: Currently a hack since google store is for some reason stored as mutlichannel
+        ts_dataset = dataset_future.result()[ts.d["channel"][0]]
+    else:
+        ts_dataset = dataset_future.result()
+
+    # return ts_dataset
+    return LazyNormalization(ts_dataset)
+
+
+def ends_with_scale(string):
+    pattern = (
+        r"s\d+$"  # Matches 's' followed by one or more digits at the end of the string
+    )
+    return bool(re.search(pattern, string))
+
+
+class LazyNormalization:
+    def __init__(self, ts_dataset):
+        self.ts_dataset = ts_dataset
+
+    def __getitem__(self, index):
+        result = self.ts_dataset[index]
+        return apply_norms(result)
+
+    def __getattr__(self, attr):
+        at = getattr(self.ts_dataset, attr)
+        if attr == "dtype":
+            if len(g.input_norms) > 0:
+                return np.dtype(g.input_norms[-1].dtype)
+            return np.dtype(at.numpy_dtype)
+        return at
+
+
+def apply_norms(data):
+    if hasattr(data, "read"):
+        data = data.read().result()
+    for norm in g.input_norms:
+        data = norm(data)
+    return data
