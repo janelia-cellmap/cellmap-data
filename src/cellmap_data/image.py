@@ -244,7 +244,10 @@ class CellMapImage:
         try:
             return self._array
         except AttributeError:
-            if os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower() == "zarr":
+            if (
+                os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower()
+                != "tensorstore"
+            ):
                 # use single-chunking matching the output shape to minimize graph size
                 data = da.from_array(
                     self.group[self.scale_level],
