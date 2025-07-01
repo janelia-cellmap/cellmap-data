@@ -6,6 +6,7 @@ logger = logging.getLogger(__name__)
 
 import numpy as np
 import tensorstore
+import dask.array as da
 import torch
 import xarray
 import xarray_tensorstore as xt
@@ -34,8 +35,8 @@ class CellMapImage:
         self,
         path: str,
         target_class: str,
-        target_scale: Sequence[float],
-        target_voxel_shape: Sequence[int],
+        target_scale: Sequence[float],  # TODO: make work with dict
+        target_voxel_shape: Sequence[int],  # TODO: make work with dict
         pad: bool = False,
         pad_value: float | int = np.nan,
         interpolation: str = "nearest",
@@ -117,15 +118,15 @@ class CellMapImage:
                     )
                     # center[c] = self.bounding_box[c][1] - self.output_size[c] / 2
                 coords[c] = np.linspace(
-                    center[c] - self.output_size[c] / 2,
-                    center[c] + self.output_size[c] / 2,
+                    center[c] - self.output_size[c] / 2 + self.scale[c] / 2,
+                    center[c] + self.output_size[c] / 2 - self.scale[c] / 2,
                     self.output_shape[c],
                 )
 
             # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
             data = self.apply_spatial_transforms(coords)
         else:
-            self._current_center = None
+            self._current_center = {k: np.mean(v) for k, v in center.items()}
             self._current_coords = center
             data = torch.tensor(self.return_data(self._current_coords).values)  # type: ignore
 
@@ -244,7 +245,11 @@ class CellMapImage:
             return self._array
         except AttributeError:
             if os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower() == "zarr":
-                data = self.group[self.scale_level]
+                # use single-chunking matching the output shape to minimize graph size
+                data = da.from_array(
+                    self.group[self.scale_level],
+                    chunks="auto",
+                )
             else:
                 # Construct an xarray with Tensorstore backend
                 spec = xt._zarr_spec_from_path(self.array_path)

@@ -55,6 +55,7 @@ dev = [
     "pdbpp",
     "pre-commit",
     "pytest-cov",
+    "pytest-timeout",
     "pytest>=6.0",
     "rich",
     "ruff",

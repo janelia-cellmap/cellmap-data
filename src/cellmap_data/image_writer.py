@@ -235,7 +235,9 @@ class ImageWriter:
     def aligned_coords_from_center(self, center: Mapping[str, float]):
         coords = {}
         for c in self.axes:
-            start_requested = center[c] - self.write_world_shape[c] / 2
+            start_requested = (
+                center[c] - self.write_world_shape[c] / 2 + self.scale[c] / 2
+            )
             start_aligned_idx = int(
                 np.abs(self.array.coords[c] - start_requested).argmin()
             )

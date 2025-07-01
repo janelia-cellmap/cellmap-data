@@ -1,8 +1,10 @@
+import dask
 import torch
 import numpy as np
 from cellmap_data.image import CellMapImage
 from cellmap_data.empty_image import EmptyImage
 from cellmap_data.image_writer import ImageWriter
+import pytest
 
 
 def test_empty_image_basic():
@@ -40,30 +42,35 @@ def test_image_writer_shape_and_coords(tmp_path):
     assert "ImageWriter" in repr(writer)
 
 
+@pytest.mark.timeout(10)  # Fail if test takes longer than 10 seconds
 def test_cellmap_image_write_and_read(tmp_path):
-    # Create a small zarr dataset using ImageWriter
-    bbox = {"x": [0.0, 4.0], "y": [0.0, 4.0], "z": [0.0, 4.0]}
-    shape = {"x": 4, "y": 4, "z": 4}
+    # Create a large, but empty zarr dataset using ImageWriter
+    bbox = {"x": [0.0, 4000.0], "y": [0.0, 4000.0], "z": [0.0, 400.0]}
+    write_shape = {"x": 4, "y": 4, "z": 4}
+    write_shape_list = list(write_shape.values())
     dtype = np.float32
-    arr = np.arange(4 * 4 * 4, dtype=dtype).reshape(4, 4, 4)
-
+    # Only write a small chunk at the center
+    arr = torch.arange(np.prod(write_shape_list), dtype=torch.float32).reshape(
+        *write_shape_list
+    )
     writer = ImageWriter(
         path=tmp_path / "test.zarr",
         label_class="test",
         scale={"x": 1.0, "y": 1.0, "z": 1.0},
         bounding_box=bbox,
-        write_voxel_shape=shape,
+        write_voxel_shape=write_shape,
         dtype=dtype,
+        overwrite=True,
     )
-    # Write a single block at the center
+    # Write a small block at the center
     writer[writer.center] = arr
 
-    # Now read it back with CellMapImage
+    # Now read back only the small chunk with CellMapImage
     img = CellMapImage(
         path=str(tmp_path / "test.zarr"),
         target_class="test",
         target_scale=[1.0, 1.0, 1.0],
-        target_voxel_shape=[4, 4, 4],
+        target_voxel_shape=write_shape_list,
     )
     assert img.path == writer.base_path, "Paths should match"
     assert writer.center == img.center, "Center coordinates should match"
@@ -75,43 +82,30 @@ def test_cellmap_image_write_and_read(tmp_path):
     # Test __getitem__ with a center in the middle of the bounding box
     arr_out = img[img.center]
     assert isinstance(arr_out, torch.Tensor)
-    assert arr_out.shape == (4, 4, 4)
+    assert arr_out.shape == tuple(
+        write_shape_list
+    ), "Output shape should match write shape"
+    assert all(
+        [
+            all([float(_w) == float(_i) for _w, _i in zip(w, i)])
+            for w, i in zip(
+                writer.aligned_coords_from_center(writer.center).values(),
+                img._current_coords.values(),
+            )
+        ]
+    ), "Aligned writer coords should match image current coords"
     # The values should match the original arr (modulo possible dtype/casting)
     np.testing.assert_allclose(
-        arr_out.cpu().numpy().squeeze(), arr, rtol=1e-5, atol=1e-5
+        arr_out.cpu().numpy(), arr.cpu().numpy(), rtol=1e-5, atol=1e-5
     )
 
 
 def test_cellmap_image_read_with_zarr_backend(tmp_path, monkeypatch):
     # Set the CELLMAP_DATA_BACKEND environment variable to 'zarr'
     monkeypatch.setenv("CELLMAP_DATA_BACKEND", "zarr")
-    bbox = {"x": [0.0, 4.0], "y": [0.0, 4.0], "z": [0.0, 4.0]}
-    shape = {"x": 4, "y": 4, "z": 4}
-    dtype = np.float32
-    arr = np.arange(4 * 4 * 4, dtype=dtype).reshape(4, 4, 4)
-
-    writer = ImageWriter(
-        path=tmp_path / "test_backend.zarr",
-        label_class="test",
-        scale={"x": 1.0, "y": 1.0, "z": 1.0},
-        bounding_box=bbox,
-        write_voxel_shape=shape,
-        dtype=dtype,
-    )
-    writer[writer.center] = arr
-
-    img = CellMapImage(
-        path=str(tmp_path / "test_backend.zarr"),
-        target_class="test",
-        target_scale=[1.0, 1.0, 1.0],
-        target_voxel_shape=[4, 4, 4],
-    )
-    arr_out = img[img.center]
-    assert isinstance(arr_out, torch.Tensor)
-    assert arr_out.shape == (4, 4, 4)
-    np.testing.assert_allclose(
-        arr_out.cpu().numpy().squeeze(), arr, rtol=1e-5, atol=1e-5
-    )
+    monkeypatch.setenv("PYDEVD_UNBLOCK_THREADS_TIMEOUT", "0.1")
+    dask.config.set(scheduler="synchronous")
+    test_cellmap_image_write_and_read(tmp_path)
 
 
 def test_image_writer_repr_and_array(tmp_path):
