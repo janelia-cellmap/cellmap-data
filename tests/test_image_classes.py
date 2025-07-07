@@ -42,7 +42,7 @@ def test_image_writer_shape_and_coords(tmp_path):
     assert "ImageWriter" in repr(writer)
 
 
-@pytest.mark.timeout(10)  # Fail if test takes longer than 10 seconds
+@pytest.mark.timeout(5)  # Fail if test takes longer than 5 seconds
 def test_cellmap_image_write_and_read(tmp_path):
     # Create a large, but empty zarr dataset using ImageWriter
     bbox = {"x": [0.0, 4000.0], "y": [0.0, 4000.0], "z": [0.0, 400.0]}
@@ -100,10 +100,11 @@ def test_cellmap_image_write_and_read(tmp_path):
     )
 
 
+@pytest.mark.timeout(5)  # Fail if test takes longer than 5 seconds
 def test_cellmap_image_read_with_zarr_backend(tmp_path, monkeypatch):
     # Set the CELLMAP_DATA_BACKEND environment variable to 'zarr'
     monkeypatch.setenv("CELLMAP_DATA_BACKEND", "zarr")
-    monkeypatch.setenv("PYDEVD_UNBLOCK_THREADS_TIMEOUT", "0.1")
+    monkeypatch.setenv("PYDEVD_UNBLOCK_THREADS_TIMEOUT", "0.01")
     dask.config.set(scheduler="synchronous")
     test_cellmap_image_write_and_read(tmp_path)
 
