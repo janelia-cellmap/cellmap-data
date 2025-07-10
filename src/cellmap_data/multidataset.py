@@ -135,7 +135,8 @@ class CellMapMultiDataset(ConcatDataset):
             dataset_weights = {}
             for dataset in self.datasets:
                 if len(self.classes) == 0:
-                    dataset_weight = len(dataset)
+                    # If no classes are defined, assign equal weight to all datasets
+                    dataset_weight = 1.0
                 else:
                     dataset_weight = np.sum(
                         [
@@ -143,6 +144,7 @@ class CellMapMultiDataset(ConcatDataset):
                             for c in self.classes
                         ]
                     )
+                    dataset_weight *= (1 / len(dataset)) if len(dataset) > 0 else 0
                 dataset_weights[dataset] = dataset_weight
             self._dataset_weights = dataset_weights
             return self._dataset_weights
