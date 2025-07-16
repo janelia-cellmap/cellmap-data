@@ -62,7 +62,7 @@ class CellMapImage:
         self.label_class = target_class
         # Below makes assumptions about image scale, and also locks which axis is sliced to 2D (this should only be encountered if bypassing dataset)
         if len(axis_order) > len(target_scale):
-            logger.warning(
+            logger.info(
                 f"Axis order {axis_order} has more axes than target scale {target_scale}. Padding target scale with first given scale ({target_scale[0]})."
             )
             target_scale = [target_scale[0]] * (
