@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader, Sampler
 import multiprocessing as mp
 import sys
 
+from .mutable_sampler import MutableSubsetRandomSampler
 from .subdataset import CellMapSubset
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
@@ -95,7 +96,10 @@ class CellMapDataLoader:
                 ctx = "spawn"
             else:
                 ctx = "forkserver"
+            torch.multiprocessing.set_start_method(ctx, force=True)
+            torch.multiprocessing.set_sharing_strategy("file_system")
             mp_kwargs = {
+                "num_workers": num_workers,
                 "multiprocessing_context": ctx,
                 "persistent_workers": True,
                 "pin_memory": True,
@@ -110,10 +114,10 @@ class CellMapDataLoader:
                 assert not isinstance(
                     self.dataset, CellMapDatasetWriter
                 ), "CellMapDatasetWriter does not support random sampling."
-                self.sampler = functools.partial(
-                    self.dataset.get_subset_random_sampler,
+                self.sampler = self.dataset.get_subset_random_sampler(
                     num_samples=iterations_per_epoch * batch_size,
                     weighted=weighted_sampler,
+                    rng=self.rng,
                 )
             elif weighted_sampler and isinstance(self.dataset, CellMapMultiDataset):
                 self.sampler = self.dataset.get_weighted_sampler(
@@ -137,25 +141,48 @@ class CellMapDataLoader:
 
     def refresh(self):
         """If the sampler is a Callable, refresh the DataLoader with the current sampler."""
-        kwargs = self.default_kwargs.copy()
-        kwargs.update(
-            {
-                "dataset": self.dataset,
-                "batch_size": self.batch_size,
-                "num_workers": self.num_workers,
-                "collate_fn": self.collate_fn,
-            }
-        )
-        if self.sampler is not None:
-            if isinstance(self.sampler, Callable):
-                kwargs["sampler"] = self.sampler()
-            else:
-                kwargs["sampler"] = self.sampler
-        elif self.is_train:
-            kwargs["shuffle"] = True
+        if isinstance(self.sampler, MutableSubsetRandomSampler):
+            self.sampler.refresh()
+            if not hasattr(self, "loader"):
+                kwargs = self.default_kwargs.copy()
+                pin_memory = (
+                    (self.device != "cpu" and self.num_workers > 0)
+                    or kwargs.get("pin_memory", False)
+                    or "pin_memory_device" in kwargs
+                )
+                kwargs.update(
+                    {
+                        "dataset": self.dataset,
+                        "batch_size": self.batch_size,
+                        "num_workers": self.num_workers,
+                        "pin_memory": pin_memory,
+                        "collate_fn": self.collate_fn,
+                        "sampler": self.sampler,
+                    }
+                )
+                self.loader = DataLoader(**kwargs)
         else:
-            kwargs["shuffle"] = False
-        self.loader = DataLoader(**kwargs)
+            kwargs = self.default_kwargs.copy()
+            kwargs.update(
+                {
+                    "dataset": self.dataset,
+                    "batch_size": self.batch_size,
+                    "num_workers": self.num_workers,
+                    "pin_memory": (self.device != "cpu" and self.num_workers > 0)
+                    or self.default_kwargs.get("pin_memory", False),
+                    "collate_fn": self.collate_fn,
+                }
+            )
+            if self.sampler is not None:
+                if isinstance(self.sampler, Callable):
+                    kwargs["sampler"] = self.sampler()
+                else:
+                    kwargs["sampler"] = self.sampler
+            elif self.is_train:
+                kwargs["shuffle"] = True
+            else:
+                kwargs["shuffle"] = False
+            self.loader = DataLoader(**kwargs)
 
     def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
         """Combine a list of dictionaries from different sources into a single dictionary for output."""

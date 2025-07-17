@@ -1,6 +1,6 @@
 # %%
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import os
+import functools
 from typing import Any, Callable, Mapping, Sequence, Optional
 import numpy as np
 from numpy.typing import ArrayLike
@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import Dataset
 import tensorstore
 
+from .mutable_sampler import MutableSubsetRandomSampler
 from .utils import min_redundant_inds, split_target_path, is_array_2D, get_sliced_shape
 from .image import CellMapImage
 from .empty_image import EmptyImage
@@ -81,7 +82,7 @@ class CellMapDataset(Dataset):
         """
         super().__init__()
         self.raw_path = raw_path
-        self.target_paths = target_path
+        self.target_path = target_path
         self.target_path_str, self.classes_with_path = split_target_path(target_path)
         self.classes = classes if classes is not None else []
         self.raw_only = classes is None
@@ -219,6 +220,33 @@ class CellMapDataset(Dataset):
         else:
             instance = super().__new__(cls)
             return instance
+
+    def __reduce__(self):
+        """
+        Support pickling for multiprocessing DataLoader and spawned processes.
+        """
+        # These are the args __init__ needs:
+        args = (
+            self.raw_path,
+            self.target_path,
+            self.classes,
+            self.input_arrays,
+            self.target_arrays,
+            self.spatial_transforms,
+            self.raw_value_transforms,
+            self.target_value_transforms,
+            self.class_relation_dict,
+            self.is_train,
+            self.axis_order,
+            self.context,
+            self._rng,
+            self.force_has_data,
+            self.empty_value,
+            self.pad,
+            self.device,
+        )
+        # Return: (callable, args_for_constructor, state_dict)
+        return (self.__class__, args, self.__dict__)
 
     @property
     def center(self) -> Mapping[str, float] | None:
@@ -581,7 +609,7 @@ class CellMapDataset(Dataset):
 
     def __repr__(self) -> str:
         """Returns a string representation of the dataset."""
-        return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.target_paths}\n\tClasses: {self.classes})"
+        return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.target_path}\n\tClasses: {self.classes})"
 
     def get_empty_store(
         self, array_info: Mapping[str, Sequence[int]], device: torch.device
@@ -822,20 +850,30 @@ class CellMapDataset(Dataset):
         else:
             raise ValueError(f"Unknown dataset array type: {type}")
 
+    def get_random_subset_indices(
+        self, num_samples: int, rng: Optional[torch.Generator] = None, **kwargs: Any
+    ) -> Sequence[int]:
+        return min_redundant_inds(len(self), num_samples, rng=rng).tolist()
+
     def get_subset_random_sampler(
         self,
         num_samples: int,
         rng: Optional[torch.Generator] = None,
         **kwargs: Any,
-    ) -> torch.utils.data.SubsetRandomSampler:
+    ) -> MutableSubsetRandomSampler:
         """
         Returns a random sampler that yields exactly `num_samples` indices from this subset.
         - If `num_samples` ≤ total number of available indices, samples without replacement.
         - If `num_samples` > total number of available indices, samples with replacement using repeated shuffles to minimize duplicates.
         """
-        return torch.utils.data.SubsetRandomSampler(
-            min_redundant_inds(len(self), num_samples, rng=rng).tolist(),
-            generator=rng,
+
+        indices_generator = functools.partial(
+            self.get_random_subset_indices, num_samples, rng, **kwargs
+        )
+
+        return MutableSubsetRandomSampler(
+            indices_generator,
+            rng=rng,
         )
 
     @staticmethod

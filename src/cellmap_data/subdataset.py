@@ -1,7 +1,9 @@
+import functools
 from typing import Any, Callable, Optional, Sequence
 import torch
 from torch.utils.data import Subset
 
+from .mutable_sampler import MutableSubsetRandomSampler
 from .utils.sampling import min_redundant_inds
 from .dataset import CellMapDataset
 
@@ -60,21 +62,29 @@ class CellMapSubset(Subset):
         """Sets the target value transforms for the subset dataset."""
         self.dataset.set_target_value_transforms(transforms)
 
+    def get_random_subset_indices(
+        self, num_samples: int, rng: Optional[torch.Generator] = None, **kwargs: Any
+    ) -> Sequence[int]:
+        inds = min_redundant_inds(len(self.indices), num_samples, rng=rng)
+        return torch.tensor(self.indices, dtype=torch.long)[inds].tolist()
+
     def get_subset_random_sampler(
         self,
         num_samples: int,
         rng: Optional[torch.Generator] = None,
         **kwargs: Any,
-    ) -> torch.utils.data.SubsetRandomSampler:
+    ) -> MutableSubsetRandomSampler:
         """
         Returns a random sampler that yields exactly `num_samples` indices from this subset.
         - If `num_samples` ≤ total number of available indices, samples without replacement.
         - If `num_samples` > total number of available indices, samples with replacement using repeated shuffles to minimize duplicates.
         """
-        inds = min_redundant_inds(len(self.indices), num_samples, rng=rng)
 
-        selected_indices = torch.tensor(self.indices, dtype=torch.long)[inds].tolist()
-        return torch.utils.data.SubsetRandomSampler(
-            selected_indices,
-            generator=rng,
+        indices_generator = functools.partial(
+            self.get_random_subset_indices, num_samples, rng, **kwargs
+        )
+
+        return MutableSubsetRandomSampler(
+            indices_generator,
+            rng=rng,
         )

@@ -2,7 +2,7 @@
 CellMap Data Loading Module.
 
 Utility for loading CellMap data for machine learning training,
-utilizing PyTorch, TensorStore, and PyDantic.
+utilizing PyTorch, TensorStore, XArray, and PyDantic.
 """
 
 from importlib.metadata import PackageNotFoundError, version
@@ -10,7 +10,7 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("cellmap_data")
 except PackageNotFoundError:
-    __version__ = "0.0.1"
+    __version__ = "0.1.1"
 
 __author__ = "Jeff Rhoades"
 __email__ = "rhoadesj@hhmi.org"
@@ -24,5 +24,6 @@ from .image import CellMapImage
 from .empty_image import EmptyImage
 from .image_writer import ImageWriter
 from .subdataset import CellMapSubset
+from .mutable_sampler import MutableSubsetRandomSampler
 from . import transforms
 from . import utils
