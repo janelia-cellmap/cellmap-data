@@ -133,7 +133,10 @@ class CellMapImage:
         # Apply any value transformations to the data
         if self.value_transform is not None:
             data = self.value_transform(data)
-        return data.to(self.device, non_blocking=True)
+
+        # Return data on CPU - let the DataLoader handle device transfer with streams
+        # This avoids redundant transfers and allows for optimized batch transfers
+        return data
 
     def __repr__(self) -> str:
         """Returns a string representation of the CellMapImage object."""

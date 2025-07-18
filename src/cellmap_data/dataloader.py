@@ -1,6 +1,8 @@
 import functools
+import os
 import torch
 from torch.utils.data import DataLoader, Sampler
+import logging
 
 import multiprocessing as mp
 import sys
@@ -12,6 +14,7 @@ from .multidataset import CellMapMultiDataset
 from .dataset_writer import CellMapDatasetWriter
 from typing import Callable, Optional, Sequence
 
+logger = logging.getLogger(__name__)
 
 class CellMapDataLoader:
     """
@@ -34,6 +37,13 @@ class CellMapDataLoader:
         collate_fn: Combine a list of dictionaries from different sources into a single dictionary for output.
 
     """
+
+    # Streaming settings
+    MIN_ELEMENTS_FOR_STREAMS = os.environ.get("MIN_ELEMENTS_FOR_STREAMS", 1_000_000)
+    MAX_CONCURRENT_CUDA_STREAMS = int(os.environ.get(
+        "MAX_CONCURRENT_CUDA_STREAMS", 8
+    ))
+    GPU_MEMORY_LOG_THRESHOLD_GB = float(os.environ.get("GPU_MEMORY_LOG_THRESHOLD_GB", 2.0))
 
     def __init__(
         self,
@@ -192,7 +202,92 @@ class CellMapDataLoader:
                 if key not in outputs:
                     outputs[key] = []
                 outputs[key].append(value)
-        for key, value in outputs.items():
-            if key != "__metadata__":
-                outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
+
+        # Determine if CUDA streams would be beneficial
+        use_streams = self._should_use_cuda_streams(outputs)
+
+        if use_streams:
+            # Limit number of streams to avoid resource exhaustion
+            data_keys = [key for key in outputs if key != "__metadata__"]
+            max_streams = min(
+                len(data_keys), self.MAX_CONCURRENT_CUDA_STREAMS
+            )  # Limit to MAX_CONCURRENT_STREAMS
+
+            # Create streams with proper error handling
+            streams = []
+            try:
+                streams = [torch.cuda.Stream() for _ in range(max_streams)]
+            except RuntimeError as e:
+                # Fallback to sequential processing if stream creation fails
+                use_streams = False
+
+            if use_streams:
+                # Track which keys are assigned to which streams to avoid conflicts
+                key_to_stream = {}
+                stream_assignments = {i: [] for i in range(max_streams)}
+
+                # Assign keys to streams in round-robin fashion
+                for i, key in enumerate(data_keys):
+                    stream_idx = i % max_streams
+                    key_to_stream[key] = stream_idx
+                    stream_assignments[stream_idx].append(key)
+
+                # Process each stream's keys sequentially within the stream
+                for stream_idx, assigned_keys in stream_assignments.items():
+                    if assigned_keys:  # Only use streams that have keys assigned
+                        stream = streams[stream_idx]
+                        with torch.cuda.stream(stream):
+                            for key in assigned_keys:
+                                if key in outputs:
+                                    outputs[key] = torch.stack(outputs[key]).to(
+                                        self.device, non_blocking=True
+                                    )
+
+                # Create synchronization barrier - wait for all streams to complete
+                for stream in streams:
+                    stream.synchronize()
+
+        # Log memory usage for large batches (minimal overhead)
+        if use_streams and torch.cuda.is_available():
+            try:
+                memory_allocated = torch.cuda.memory_allocated() / 1024**3  # GB
+                if memory_allocated > self.GPU_MEMORY_LOG_THRESHOLD_GB:  # Only log if > 2GB
+                    logger.debug(
+                        f"Large batch GPU memory usage: {memory_allocated:.2f} GB"
+                    )
+            except Exception:
+                pass  # Ignore memory monitoring failures
+
+        if not use_streams:
+            # Sequential processing for small/single tensors
+            for key, value in outputs.items():
+                if key != "__metadata__":
+                    outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
         return outputs
+
+    def _should_use_cuda_streams(self, outputs: dict) -> bool:
+        """Determine if CUDA streams would be beneficial for this batch."""
+        if not (str(self.device).startswith("cuda") and torch.cuda.is_available()):
+            return False
+
+        # Count data keys (excluding metadata)
+        data_keys = [key for key in outputs if key != "__metadata__"]
+        num_keys = len(data_keys)
+
+        # Only use streams if we have multiple keys
+        if num_keys < 2:
+            return False
+
+        # Estimate tensor sizes to determine if transfer is worth parallelizing
+        total_elements = 0
+        # Use streams if we have multiple keys and sufficient data volume
+        # Threshold: at least 1M elements total to justify stream overhead
+        min_elements_threshold = self.MIN_ELEMENTS_FOR_STREAMS
+        return num_keys >= 2 and total_elements >= min_elements_threshold
+                    batch_elements = sample_tensor.numel() * len(outputs[key])
+                    total_elements += batch_elements
+
+        # Use streams if we have multiple keys and sufficient data volume
+        # Threshold: at least 1M elements total to justify stream overhead
+        min_elements_threshold = 1_000_000
+        return num_keys >= 2 and total_elements >= min_elements_threshold
