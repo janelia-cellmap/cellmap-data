@@ -37,5 +37,5 @@ class RandomContrast(torch.nn.Module):
             .to(x.dtype)
         )
         # Hack to avoid NaNs
-        torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0, out=x)
+        torch.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0, out=result)
         return result

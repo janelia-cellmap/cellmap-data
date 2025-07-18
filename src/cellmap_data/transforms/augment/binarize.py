@@ -18,7 +18,7 @@ class Binarize(T.Transform):
     def _transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
         """Transform the input."""
         out = (x > self.threshold).to(x.dtype)
-        out[x.isnan()] *= torch.nan
+        out[x.isnan()] = torch.nan
         return out
 
     def __repr__(self) -> str:

@@ -56,20 +56,9 @@ class GaussianBlur(torch.nn.Module):
         if len(x.shape) == self.dim:
             # For 2D or 3D input without batch dimension
             x = x.view(1, *x.shape)  # Add batch dimension
-            out = self.conv(x.view(1, *x.shape).to(torch.float))
-            out = out.view(*x.shape)  # Remove batch dimension
+            out = self.conv(x.to(torch.float))
+            out = out.view(*x.shape[1:])  # Remove batch dimension
         else:
             out = self.conv(x.to(torch.float))
 
         return out
-
-
-# # Example usage
-# image_2d = torch.rand(4, 3, 128, 128)  # Batch of 2D images with 3 channels
-# image_3d = torch.rand(2, 3, 32, 32, 32)  # Batch of 3D volumes with 3 channels
-
-# blur_2d = GaussianBlur(kernel_size=5, sigma=1.0, dim=2)
-# blur_3d = GaussianBlur(kernel_size=5, sigma=1.0, dim=3)
-
-# blurred_2d = blur_2d(image_2d)
-# blurred_3d = blur_3d(image_3d)

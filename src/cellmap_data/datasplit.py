@@ -5,7 +5,7 @@ import tensorstore
 import torch
 import torchvision.transforms.v2 as T
 from tqdm import tqdm
-from .transforms.augment import NaNtoNum, Normalize, Binarize
+from .transforms import NaNtoNum, Normalize, Binarize
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .subdataset import CellMapSubset
