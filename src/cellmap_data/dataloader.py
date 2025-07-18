@@ -221,15 +221,13 @@ class CellMapDataLoader:
                     raise ValueError("Array info must include 'shape'")
                 # Input arrays: batch_size * elements_per_sample
                 total_elements += self.batch_size * np.prod(array_info["shape"])
-                total_elements += self.batch_size * np.prod(array_info["shape"])
 
-                # Calculate target array elements
+            # Calculate target array elements
+            for array_name, array_info in target_arrays.items():
                 if "shape" not in array_info:
                     raise ValueError("Array info must include 'shape'")
                 # Target arrays: batch_size * elements_per_sample * num_classes
                 elements_per_sample = np.prod(array_info["shape"])
-                num_classes = len(self.classes) if self.classes else 1
-                total_elements += self.batch_size * elements_per_sample * num_classes
                 num_classes = len(self.classes) if self.classes else 1
                 total_elements += self.batch_size * elements_per_sample * num_classes
 
