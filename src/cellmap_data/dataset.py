@@ -1,6 +1,7 @@
 # %%
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import functools
+import os
 from typing import Any, Callable, Mapping, Sequence, Optional
 import numpy as np
 from numpy.typing import ArrayLike
@@ -46,6 +47,7 @@ class CellMapDataset(Dataset):
         empty_value: float | int = torch.nan,
         pad: bool = True,
         device: Optional[str | torch.device] = None,
+        max_workers: Optional[int] = None,
     ) -> None:
         """Initializes the CellMapDataset class.
 
@@ -54,6 +56,7 @@ class CellMapDataset(Dataset):
             target_path (str): The path to the ground truth data.
             classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with zeros.
             input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::
+            max_workers (Optional[int], optional): The maximum number of worker threads to use for parallel data loading. If not specified, defaults to the minimum of the number of CPU cores and the value of the CELLMAP_MAX_WORKERS environment variable (default 4).
 
                 {
                     "array_name": {
@@ -135,6 +138,37 @@ class CellMapDataset(Dataset):
                 )
             else:
                 self.target_sources[array_name] = self.get_target_array(array_info)
+
+        # Initialize persistent ThreadPoolExecutor for performance
+        # This eliminates the major performance bottleneck of creating new executors per __getitem__ call
+        self._executor = None
+        if max_workers is not None:
+            self._max_workers = max_workers
+        else:
+            self._max_workers = min(
+                os.cpu_count() or 1, int(os.environ.get("CELLMAP_MAX_WORKERS", 4))
+            )
+
+        logger.info(
+            f"CellMapDataset initialized with {len(self.input_arrays)} input arrays, "
+            f"{len(self.target_arrays)} target arrays, {len(self.classes)} classes. "
+            f"Using persistent ThreadPoolExecutor with {self._max_workers} workers for performance."
+        )
+
+    @property
+    def executor(self) -> ThreadPoolExecutor:
+        """
+        Lazy initialization of persistent ThreadPoolExecutor.
+        This eliminates the performance bottleneck of creating new executors per __getitem__ call.
+        """
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
+        return self._executor
+
+    def __del__(self):
+        """Cleanup ThreadPoolExecutor to prevent resource leaks."""
+        if hasattr(self, "_executor") and self._executor is not None:
+            self._executor.shutdown(wait=False)
 
     def __new__(
         cls,
@@ -495,9 +529,9 @@ class CellMapDataset(Dataset):
             array = self.input_sources[array_name][center]  # type: ignore
             return array_name, array.squeeze()[None, ...]  # Add channel dimension
 
-        executor = ThreadPoolExecutor()
+        # Use persistent executor instead of creating new one (MAJOR PERFORMANCE FIX)
         futures = [
-            executor.submit(get_input_array, array_name)
+            self.executor.submit(get_input_array, array_name)
             for array_name in self.input_arrays.keys()
         ]
 
@@ -541,7 +575,8 @@ class CellMapDataset(Dataset):
                     return label, array
 
                 futures = [
-                    executor.submit(get_label_array, label) for label in self.classes
+                    self.executor.submit(get_label_array, label)
+                    for label in self.classes
                 ]
                 for future in as_completed(futures):
                     label, array = future.result()
@@ -565,7 +600,7 @@ class CellMapDataset(Dataset):
                     return label, array
 
                 futures = [
-                    executor.submit(infer_label_array, label)
+                    self.executor.submit(infer_label_array, label)
                     for label in inferred_arrays
                 ]
                 for future in as_completed(futures):
@@ -578,7 +613,7 @@ class CellMapDataset(Dataset):
                 return array_name, array
 
         futures += [
-            executor.submit(get_target_array, array_name)
+            self.executor.submit(get_target_array, array_name)
             for array_name in self.target_arrays.keys()
         ]
 
