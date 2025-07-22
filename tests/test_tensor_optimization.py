@@ -32,7 +32,7 @@ def test_tensor_creation_optimization():
     print(f"Array shape: {large_array.shape}")
     print(f"torch.tensor time: {copy_time:.6f} seconds")
     print(f"torch.from_numpy time: {zerocopy_time:.6f} seconds")
-    print(f"Speedup: {copy_time/zerocopy_time:.2f}x")
+    print(f"Speedup: {copy_time/(zerocopy_time+1e-9):.2f}x")
 
     # Verify they produce equivalent results
     assert torch.allclose(tensor_copy, tensor_zerocopy)
