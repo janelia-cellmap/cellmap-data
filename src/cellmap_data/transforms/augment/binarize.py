@@ -18,9 +18,11 @@ class Binarize(T.Transform):
     def _transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
         """Transform the input."""
         out = (x > self.threshold).to(x.dtype)
-        if not torch.is_floating_point(out) and x.isnan().any():
+        hasnans = x.isnan().any()
+        if not torch.is_floating_point(out) and hasnans:
             out = out.to(torch.float32)
-        out[x.isnan()] = torch.nan
+        if hasnans:
+            out[x.isnan()] = torch.nan
         return out
 
     def __repr__(self) -> str:
