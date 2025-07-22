@@ -105,7 +105,7 @@ def test_cellmap_image_read_with_dask_backend(tmp_path, monkeypatch):
     # Set the CELLMAP_DATA_BACKEND environment variable to 'dask'
     monkeypatch.setenv("CELLMAP_DATA_BACKEND", "dask")
     monkeypatch.setenv("PYDEVD_UNBLOCK_THREADS_TIMEOUT", "0.01")
-    dask.config.set(scheduler="synchronous")
+    # dask.config.set(scheduler="synchronous")
     test_cellmap_image_write_and_read(tmp_path)
 
 
