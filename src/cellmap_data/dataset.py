@@ -1,6 +1,7 @@
 # %%
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import functools
+import os
 from typing import Any, Callable, Mapping, Sequence, Optional
 import numpy as np
 from numpy.typing import ArrayLike
@@ -46,6 +47,7 @@ class CellMapDataset(Dataset):
         empty_value: float | int = torch.nan,
         pad: bool = True,
         device: Optional[str | torch.device] = None,
+        max_workers: Optional[int] = None,
     ) -> None:
         """Initializes the CellMapDataset class.
 
@@ -54,6 +56,7 @@ class CellMapDataset(Dataset):
             target_path (str): The path to the ground truth data.
             classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with zeros.
             input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::
+            max_workers (Optional[int], optional): The maximum number of worker threads to use for parallel data loading. If not specified, defaults to the minimum of the number of CPU cores and the value of the CELLMAP_MAX_WORKERS environment variable (default 4).
 
                 {
                     "array_name": {
@@ -135,6 +138,37 @@ class CellMapDataset(Dataset):
                 )
             else:
                 self.target_sources[array_name] = self.get_target_array(array_info)
+
+        # Initialize persistent ThreadPoolExecutor for performance
+        # This eliminates the major performance bottleneck of creating new executors per __getitem__ call
+        self._executor = None
+        if max_workers is not None:
+            self._max_workers = max_workers
+        else:
+            self._max_workers = min(
+                os.cpu_count() or 1, int(os.environ.get("CELLMAP_MAX_WORKERS", 4))
+            )
+
+        logger.debug(
+            f"CellMapDataset initialized with {len(self.input_arrays)} input arrays, "
+            f"{len(self.target_arrays)} target arrays, {len(self.classes)} classes. "
+            f"Using persistent ThreadPoolExecutor with {self._max_workers} workers for performance."
+        )
+
+    @property
+    def executor(self) -> ThreadPoolExecutor:
+        """
+        Lazy initialization of persistent ThreadPoolExecutor.
+        This eliminates the performance bottleneck of creating new executors per __getitem__ call.
+        """
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
+        return self._executor
+
+    def __del__(self):
+        """Cleanup ThreadPoolExecutor to prevent resource leaks."""
+        if hasattr(self, "_executor") and self._executor is not None:
+            self._executor.shutdown(wait=False)
 
     def __new__(
         cls,
@@ -495,9 +529,9 @@ class CellMapDataset(Dataset):
             array = self.input_sources[array_name][center]  # type: ignore
             return array_name, array.squeeze()[None, ...]  # Add channel dimension
 
-        executor = ThreadPoolExecutor()
+        # Use persistent executor instead of creating new one (MAJOR PERFORMANCE FIX)
         futures = [
-            executor.submit(get_input_array, array_name)
+            self.executor.submit(get_input_array, array_name)
             for array_name in self.input_arrays.keys()
         ]
 
@@ -541,7 +575,8 @@ class CellMapDataset(Dataset):
                     return label, array
 
                 futures = [
-                    executor.submit(get_label_array, label) for label in self.classes
+                    self.executor.submit(get_label_array, label)
+                    for label in self.classes
                 ]
                 for future in as_completed(futures):
                     label, array = future.result()
@@ -551,6 +586,7 @@ class CellMapDataset(Dataset):
                         inferred_arrays.append(label)
 
                 # 2) Infer true negatives from mutually exclusive classes in gt
+                # Use the dataset device to match the device of tensors returned by CellMapImage
                 empty_array = self.get_empty_store(
                     self.target_arrays[array_name], device=self.device
                 )  # type: ignore
@@ -565,20 +601,31 @@ class CellMapDataset(Dataset):
                     return label, array
 
                 futures = [
-                    executor.submit(infer_label_array, label)
+                    self.executor.submit(infer_label_array, label)
                     for label in inferred_arrays
                 ]
                 for future in as_completed(futures):
                     label, array = future.result()
                     class_arrays[label] = array
-                array = torch.stack(list(class_arrays.values()))
+                # Ensure all tensors are on the correct device before stacking, and filter out None
+                array = torch.stack(
+                    [
+                        (
+                            arr
+                            if arr.device == self.device
+                            else arr.to(self.device, non_blocking=True)
+                        )
+                        for arr in class_arrays.values()
+                        if arr is not None
+                    ]
+                )
                 assert array.shape[0] == len(
                     self.classes
                 ), f"Number of classes in target array {array_name} does not match number of classes in dataset: {len(self.classes)} != {array.shape[0]}"
                 return array_name, array
 
         futures += [
-            executor.submit(get_target_array, array_name)
+            self.executor.submit(get_target_array, array_name)
             for array_name in self.target_arrays.keys()
         ]
 
@@ -622,7 +669,8 @@ class CellMapDataset(Dataset):
         self, array_info: Mapping[str, Sequence[int | float]]
     ) -> dict[str, CellMapImage | EmptyImage | Sequence[str]]:
         """Returns a target array source for the dataset. Creates a dictionary of image sources for each class in the dataset. For classes that are not present in the ground truth data, the data can be inferred from the other classes in the dataset. This is useful for training segmentation networks with mutually exclusive classes."""
-        empty_store = self.get_empty_store(array_info, device=self.device)  # type: ignore
+        # Use CPU device to match the device of tensors returned by CellMapImage
+        empty_store = self.get_empty_store(array_info, device=torch.device("cpu"))  # type: ignore
         target_array = {}
         for i, label in enumerate(self.classes):
             target_array[label] = self.get_label_array(

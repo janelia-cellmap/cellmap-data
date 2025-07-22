@@ -1,6 +1,9 @@
 import functools
+import os
+import numpy as np
 import torch
 from torch.utils.data import DataLoader, Sampler
+import logging
 
 import multiprocessing as mp
 import sys
@@ -11,6 +14,14 @@ from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .dataset_writer import CellMapDatasetWriter
 from typing import Callable, Optional, Sequence
+
+logger = logging.getLogger(__name__)
+
+# Stream optimization settings
+MIN_BATCH_MEMORY_FOR_STREAMS_MB = float(
+    os.environ.get("MIN_BATCH_MEMORY_FOR_STREAMS_MB", 100.0)
+)
+MAX_CONCURRENT_CUDA_STREAMS = int(os.environ.get("MAX_CONCURRENT_CUDA_STREAMS", 8))
 
 
 class CellMapDataLoader:
@@ -85,6 +96,11 @@ class CellMapDataLoader:
                 device = "cpu"
         self.device = device
         self.iterations_per_epoch = iterations_per_epoch
+
+        # Initialize stream optimization settings
+        self._use_streams = None  # Determined once, cached
+        self._streams = None  # Created once, reused
+        self._stream_assignments = None  # Cached key assignments
         if num_workers == 0:
             self.dataset.to(device, non_blocking=True)
             mp_kwargs = {}
@@ -138,6 +154,10 @@ class CellMapDataLoader:
         """Move the dataset to the specified device."""
         self.dataset.to(device, non_blocking=non_blocking)
         self.device = device
+        # Reset stream optimization for new device
+        self._use_streams = None
+        self._streams = None
+        self._stream_assignments = None
 
     def refresh(self):
         """If the sampler is a Callable, refresh the DataLoader with the current sampler."""
@@ -184,6 +204,98 @@ class CellMapDataLoader:
                 kwargs["shuffle"] = False
             self.loader = DataLoader(**kwargs)
 
+    def _calculate_batch_memory_mb(self) -> float:
+        """Calculate the expected memory usage for a batch in MB."""
+        try:
+            input_arrays = getattr(self.dataset, "input_arrays", {})
+            target_arrays = getattr(self.dataset, "target_arrays", {})
+
+            if not input_arrays and not target_arrays:
+                return 0.0
+
+            total_elements = 0
+
+            # Calculate input array elements
+            for array_name, array_info in input_arrays.items():
+                if "shape" not in array_info:
+                    raise ValueError(
+                        f"Input array info for {array_name} must include 'shape'"
+                    )
+                # Input arrays: batch_size * elements_per_sample
+                total_elements += self.batch_size * np.prod(array_info["shape"])
+
+            # Calculate target array elements
+            for array_name, array_info in target_arrays.items():
+                if "shape" not in array_info:
+                    raise ValueError(
+                        f"Target array info for {array_name} must include 'shape'"
+                    )
+                # Target arrays: batch_size * elements_per_sample * num_classes
+                elements_per_sample = np.prod(array_info["shape"])
+                num_classes = len(self.classes) if self.classes else 1
+                total_elements += self.batch_size * elements_per_sample * num_classes
+
+            # Convert to MB (assume float32 = 4 bytes per element)
+            bytes_total = total_elements * 4  # float32
+            mb_total = bytes_total / (1024 * 1024)  # Convert bytes to MB
+            return mb_total
+
+        except (AttributeError, KeyError, TypeError) as e:
+            # Fallback: if we can't calculate, return 0 to disable memory-based decision
+            logger.debug(f"Could not calculate batch memory size: {e}")
+            return 0.0
+
+    def _initialize_stream_optimization(self, sample_batch: dict) -> None:
+        """Initialize stream optimization settings once based on dataset characteristics."""
+        if self._use_streams is not None:
+            return  # Already initialized
+
+        # Calculate expected batch memory usage
+        batch_memory_mb = self._calculate_batch_memory_mb()
+
+        # Determine if streams should be used based on static conditions
+        self._use_streams = (
+            str(self.device).startswith("cuda")
+            and torch.cuda.is_available()
+            and batch_memory_mb >= MIN_BATCH_MEMORY_FOR_STREAMS_MB
+        )
+
+        if not self._use_streams:
+            if batch_memory_mb > 0:
+                logger.debug(
+                    f"CUDA streams disabled: batch_size={self.batch_size}, "
+                    f"memory={batch_memory_mb:.1f}MB (min: {MIN_BATCH_MEMORY_FOR_STREAMS_MB}MB)"
+                )
+            return
+
+        # Get data keys from sample batch
+        data_keys = [key for key in sample_batch if key != "__metadata__"]
+        num_keys = len(data_keys)
+
+        # Create persistent streams with error handling
+        max_streams = min(num_keys, MAX_CONCURRENT_CUDA_STREAMS)
+        try:
+            self._streams = [torch.cuda.Stream() for _ in range(max_streams)]
+
+            # Pre-compute stream assignments for efficiency
+            self._stream_assignments = {}
+            for i, key in enumerate(data_keys):
+                stream_idx = i % max_streams
+                self._stream_assignments[key] = stream_idx
+
+            logger.debug(
+                f"CUDA streams enabled: {max_streams} streams, "
+                f"batch_size={self.batch_size}, memory={batch_memory_mb:.1f}MB"
+            )
+
+        except RuntimeError as e:
+            logger.warning(
+                f"Failed to create CUDA streams, falling back to sequential: {e}"
+            )
+            self._use_streams = False
+            self._streams = None
+            self._stream_assignments = None
+
     def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
         """Combine a list of dictionaries from different sources into a single dictionary for output."""
         outputs = {}
@@ -192,7 +304,32 @@ class CellMapDataLoader:
                 if key not in outputs:
                     outputs[key] = []
                 outputs[key].append(value)
-        for key, value in outputs.items():
-            if key != "__metadata__":
-                outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
+
+        # Initialize stream optimization on first batch
+        self._initialize_stream_optimization(outputs)
+
+        if (
+            self._use_streams
+            and self._streams is not None
+            and self._stream_assignments is not None
+        ):
+            # Use pre-allocated streams with cached assignments
+            for key, value in outputs.items():
+                if key != "__metadata__":
+                    stream_idx = self._stream_assignments.get(key, 0)
+                    stream = self._streams[stream_idx]
+                    with torch.cuda.stream(stream):
+                        outputs[key] = torch.stack(value).to(
+                            self.device, non_blocking=True
+                        )
+
+            # Synchronization barrier
+            for stream in self._streams:
+                stream.synchronize()
+        else:
+            # Sequential processing
+            for key, value in outputs.items():
+                if key != "__metadata__":
+                    outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
+
         return outputs

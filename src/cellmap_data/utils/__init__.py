@@ -1,4 +1,3 @@
-from .coordinate import Coordinate
 from .figs import (
     fig_to_image,
     get_fig_dict,
@@ -22,6 +21,5 @@ from .misc import (
     split_target_path,
     torch_max_value,
 )
-from .roi import Roi
 from .sampling import min_redundant_inds
 from .view import get_neuroglancer_link, open_neuroglancer

@@ -11,4 +11,3 @@ cellmap\_data.transforms
    :recursive:
 
    augment
-   targets

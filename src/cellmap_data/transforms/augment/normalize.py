@@ -20,7 +20,7 @@ class Normalize(T.Transform):
 
         Example:
             >>> import torch
-            >>> from cellmap_data.transforms.augment import Normalize
+            >>> from cellmap_data.transforms import Normalize
             >>> x = torch.tensor([[0, 255], [2, 3]], dtype=torch.uint8)
             >>> Normalize(shift=0, scale=1/255).transform(x, {})
             tensor([[0.0000, 1],
