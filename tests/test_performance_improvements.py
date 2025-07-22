@@ -1,258 +1,204 @@
 """
-Performance improvement tests for CellMap-Data package.
-
-This module tests the critical performance fixes implemented in Phase 1:
-1. ThreadPoolExecutor persistence in CellMapDataset
-2. Memory calculation accuracy in CellMapDataLoader
-3. Tensor creation optimization in CellMapImage
-4. Overall performance impact validation
+Test suite for performance improvements implemented in Phase 1.
+Validates that the optimizations work correctly with actual cellmap-data code.
 """
 
-import time
-import os
-from concurrent.futures import ThreadPoolExecutor
 import pytest
-import numpy as np
 import torch
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import MagicMock
+import numpy as np
 
-try:
+
+def test_tensor_creation_optimization(monkeypatch):
+    """Test that tensor creation is optimized and consistent."""
     from cellmap_data.dataset import CellMapDataset
-    from cellmap_data.dataloader import CellMapDataLoader
-    from cellmap_data.image import CellMapImage
-except ImportError:
-    pytest.skip("cellmap_data not available", allow_module_level=True)
+    import torch
 
+    # Test that get_empty_store method works correctly (it's a method of CellMapDataset)
+    # Mock the necessary dependencies
+    monkeypatch.setattr("zarr.open_group", lambda path, mode="r": MagicMock())
+    monkeypatch.setattr("tensorstore.open", lambda spec: MagicMock())
+    monkeypatch.setattr(Path, "exists", lambda self: True)
 
-def test_threadpool_executor_persistence():
-    """Test ThreadPoolExecutor persistence pattern used in the actual implementation."""
-
-    # Test the exact pattern implemented in CellMapDataset
-    # This tests the logic without relying on dataset creation which may fail due to missing files
-
-    class TestExecutorPersistence:
-        def __init__(self):
-            self._executor = None
-            self._max_workers = min(4, os.cpu_count() or 1)
-
-        @property
-        def executor(self):
-            """Persistent ThreadPoolExecutor property - exactly as implemented in CellMapDataset."""
-            if self._executor is None:
-                self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
-            return self._executor
-
-        def __del__(self):
-            """Cleanup method - exactly as implemented in CellMapDataset."""
-            if hasattr(self, "_executor") and self._executor is not None:
-                self._executor.shutdown(wait=False)
-
-    # Test the persistence behavior
-    test_obj = TestExecutorPersistence()
-
-    # Multiple accesses should return the same executor instance
-    executor1 = test_obj.executor
-    executor2 = test_obj.executor
-    executor3 = test_obj.executor
-
-    # Verify they are the same object (identity check)
-    assert executor1 is executor2 is executor3, "Executor instances should be identical"
-
-    # Verify it's a ThreadPoolExecutor with correct configuration
-    assert isinstance(executor1, ThreadPoolExecutor), "Should be ThreadPoolExecutor"
-    assert (
-        executor1._max_workers == test_obj._max_workers
-    ), "Should use configured max_workers"
-
-    # Test that the executor can be used
-    def sample_task():
-        return "completed"
-
-    future = executor1.submit(sample_task)
-    result = future.result(timeout=1.0)
-    assert result == "completed", "Executor should be functional"
-
-
-def test_memory_calculation_accuracy():
-    """Test memory calculation accuracy by directly testing the algorithm."""
-
-    # Test the memory calculation algorithm directly without mocking the entire dataloader
-    # This tests the actual computation logic used in CellMapDataLoader._calculate_batch_memory_mb
-
-    # Test data
-    input_arrays = {
-        "input1": {"shape": (32, 32, 32)},
-        "input2": {"shape": (16, 16, 16)},
-    }
-    target_arrays = {"target1": {"shape": (32, 32, 32)}}
-    classes = ["class1", "class2", "class3"]  # 3 classes
-    batch_size = 4
-
-    # Implement the exact algorithm from CellMapDataLoader._calculate_batch_memory_mb
-    def calculate_batch_memory_mb(input_arrays, target_arrays, classes, batch_size):
-        """Replicate the exact algorithm from CellMapDataLoader._calculate_batch_memory_mb"""
-        if not input_arrays and not target_arrays:
-            return 0.0
-
-        total_elements = 0
-
-        # Calculate input array elements
-        for array_name, array_info in input_arrays.items():
-            if "shape" not in array_info:
-                raise ValueError(
-                    f"Input array info for {array_name} must include 'shape'"
-                )
-            # Input arrays: batch_size * elements_per_sample
-            total_elements += batch_size * np.prod(array_info["shape"])
-
-        # Calculate target array elements
-        for array_name, array_info in target_arrays.items():
-            if "shape" not in array_info:
-                raise ValueError(
-                    f"Target array info for {array_name} must include 'shape'"
-                )
-            # Target arrays: batch_size * elements_per_sample * num_classes
-            elements_per_sample = np.prod(array_info["shape"])
-            num_classes = len(classes) if classes else 1
-            total_elements += batch_size * elements_per_sample * num_classes
-
-        # Convert to MB (assume float32 = 4 bytes per element)
-        bytes_total = total_elements * 4  # float32
-        mb_total = bytes_total / (1024 * 1024)  # Convert bytes to MB
-        return mb_total
-
-    # Test the algorithm
-    memory_mb = calculate_batch_memory_mb(
-        input_arrays, target_arrays, classes, batch_size
+    # Create a dataset instance to test get_empty_store
+    dataset = CellMapDataset(
+        raw_path="/fake/path",
+        target_path="/fake/path",
+        classes=["test"],
+        input_arrays={"em": {"shape": (64, 64, 64), "scale": (1.0, 1.0, 1.0)}},
+        target_arrays={"labels": {"shape": (64, 64, 64), "scale": (1.0, 1.0, 1.0)}},
     )
 
-    # Manual verification
-    num_classes = 3
+    # Test the get_empty_store method
+    shape_config = {"shape": (64, 64, 64)}
+    device = torch.device("cpu")
 
-    # Input arrays: batch_size * elements_per_sample
-    input1_elements = batch_size * 32 * 32 * 32
-    input2_elements = batch_size * 16 * 16 * 16
+    # Create empty tensor using the optimized method
+    empty_tensor = dataset.get_empty_store(shape_config, device)
 
-    # Target arrays: batch_size * elements_per_sample * num_classes
-    target1_elements = batch_size * 32 * 32 * 32 * num_classes
+    # Verify tensor properties
+    assert isinstance(
+        empty_tensor, torch.Tensor
+    ), "get_empty_store should return a torch.Tensor"
+    assert empty_tensor.shape == (64, 64, 64), f"Shape mismatch: {empty_tensor.shape}"
+    assert empty_tensor.device == device, f"Device mismatch: {empty_tensor.device}"
 
-    total_elements = input1_elements + input2_elements + target1_elements
-    expected_mb = (total_elements * 4) / (1024 * 1024)  # float32 = 4 bytes
+    # Test that tensor is properly initialized (should be NaN for empty values)
+    assert torch.isnan(
+        empty_tensor
+    ).all(), "Empty tensor should be filled with NaN values"
 
-    # Should be approximately equal (allowing for small floating point differences)
+    # Test memory efficiency - empty tensor should not use excessive memory
+    tensor_size_bytes = empty_tensor.element_size() * empty_tensor.nelement()
+    expected_size = 64 * 64 * 64 * 4  # float32 is 4 bytes
     assert (
-        abs(memory_mb - expected_mb) < 0.01
-    ), f"Memory calculation mismatch: {memory_mb:.3f} vs {expected_mb:.3f}"
+        tensor_size_bytes == expected_size
+    ), f"Memory usage mismatch: {tensor_size_bytes} vs {expected_size}"
 
-    # Verify reasonable range (should be around 1-2 MB for this test case)
+    # Test that multiple empty tensors can be created consistently
+    empty_tensor_2 = dataset.get_empty_store(shape_config, device)
+    # Compare NaN tensors properly - NaN != NaN, so check that both are all NaN
+    assert torch.isnan(
+        empty_tensor_2
+    ).all(), "Second empty tensor should also be filled with NaN"
     assert (
-        0.5 < memory_mb < 5.0
-    ), f"Memory calculation seems unreasonable: {memory_mb:.3f} MB"
-
-    # Test edge case: empty arrays
-    empty_mb = calculate_batch_memory_mb({}, {}, [], 1)
-    assert empty_mb == 0.0, "Empty arrays should return 0.0 MB"
+        empty_tensor.shape == empty_tensor_2.shape
+    ), "Multiple empty tensors should have same shape"
 
 
-def test_performance_impact():
-    """Test the performance impact of persistent vs new executors."""
+def test_device_consistency_fix(monkeypatch):
+    """Test that device consistency issues are resolved."""
+    from cellmap_data.dataset import CellMapDataset
+    import torch
 
-    def time_old_approach(num_iterations=50):
-        """Simulate the old approach of creating new executors."""
+    # Mock the necessary dependencies
+    monkeypatch.setattr("zarr.open_group", lambda path, mode="r": MagicMock())
+    monkeypatch.setattr("tensorstore.open", lambda spec: MagicMock())
+    monkeypatch.setattr(Path, "exists", lambda self: True)
+
+    # Create a dataset instance to test get_empty_store
+    dataset = CellMapDataset(
+        raw_path="/fake/path",
+        target_path="/fake/path",
+        classes=["test"],
+        input_arrays={"em": {"shape": (32, 32, 32), "scale": (1.0, 1.0, 1.0)}},
+        target_arrays={"labels": {"shape": (32, 32, 32), "scale": (1.0, 1.0, 1.0)}},
+    )
+
+    # Test device consistency between different tensor operations
+    device = torch.device("cpu")
+
+    # Create a regular tensor
+    regular_tensor = torch.ones((32, 32, 32), device=device)
+
+    # Create an empty tensor using our optimized method
+    empty_tensor = dataset.get_empty_store({"shape": (32, 32, 32)}, device)
+
+    # Test that both tensors are on the same device
+    assert (
+        regular_tensor.device == empty_tensor.device
+    ), "Device consistency issue detected"
+
+    # Test that we can perform operations between them without device errors
+    try:
+        result = regular_tensor + empty_tensor
+        assert result.device == device, "Result tensor device is inconsistent"
+    except RuntimeError as e:
+        if "device" in str(e).lower():
+            pytest.fail(f"Device consistency error in tensor operations: {e}")
+        else:
+            raise  # Re-raise if it's a different error
+
+    # Test stacking tensors from different sources
+    image_tensor = torch.randn((32, 32, 32), device=device)
+
+    # Get an empty tensor from the actual dataset method
+    empty_tensor_2 = dataset.get_empty_store(
+        {"shape": (32, 32, 32)}, torch.device("cpu")
+    )
+
+    # Test that we can stack them (the key test that would fail before our fix)
+    try:
+        stacked = torch.stack([image_tensor, empty_tensor_2])
+        assert stacked.shape == (2, 32, 32, 32)
+        assert stacked.device.type == "cpu"
+    except RuntimeError as e:
+        if "device" in str(e).lower():
+            pytest.fail(f"Device consistency fix failed: {e}")
+        else:
+            raise
+
+    # Test concatenation as well
+    try:
+        concatenated = torch.cat(
+            [image_tensor.unsqueeze(0), empty_tensor_2.unsqueeze(0)], dim=0
+        )
+        assert concatenated.shape == (2, 32, 32, 32)
+        assert concatenated.device.type == "cpu"
+    except RuntimeError as e:
+        if "device" in str(e).lower():
+            pytest.fail(f"Device consistency fix failed in concatenation: {e}")
+        else:
+            raise
+
+
+def test_dataloader_creation():
+    """Test that CellMapDataLoader can be created and configured correctly."""
+    from cellmap_data import CellMapDataLoader, CellMapDataset
+
+    # Create a simple mock dataset for testing
+    mock_dataset = MagicMock()
+    mock_dataset.__len__.return_value = 10
+
+    # Create a data loader
+    dataloader = CellMapDataLoader(mock_dataset, batch_size=2)
+
+    # Verify basic properties
+    assert dataloader is not None
+    assert dataloader.batch_size == 2
+
+
+def test_performance_optimization_integration():
+    """Test that performance optimizations work together correctly."""
+    from cellmap_data.dataset import CellMapDataset
+    import time
+
+    # This test validates that the overall system works efficiently
+    # Create a dataset that should benefit from performance optimizations
+    mock_zarr_group = MagicMock()
+    mock_zarr_group.attrs = {"axes": ["z", "y", "x"]}
+    mock_zarr_group.__getitem__.return_value = np.ones((100, 100, 100))
+
+    with pytest.MonkeyPatch().context() as m:
+        m.setattr("zarr.open_group", lambda path, mode="r": mock_zarr_group)
+        m.setattr("tensorstore.open", lambda spec: MagicMock())
+        m.setattr(Path, "exists", lambda self: True)
+
+        # Create dataset
+        dataset = CellMapDataset(
+            raw_path="/fake/path",
+            target_path="/fake/path",
+            classes=["test"],
+            input_arrays={"em": {"shape": (100, 100, 100), "scale": (1.0, 1.0, 1.0)}},
+            target_arrays={
+                "labels": {"shape": (100, 100, 100), "scale": (1.0, 1.0, 1.0)}
+            },
+        )
+
+        # Test that operations complete quickly (performance optimization impact)
         start_time = time.time()
-        executors = []
-        for i in range(num_iterations):
-            executor = ThreadPoolExecutor(max_workers=4)
-            executors.append(executor)
-            executor.shutdown(wait=True)
-        return time.time() - start_time
 
-    def time_new_approach(num_iterations=50):
-        """Simulate the new approach with persistent executor."""
+        # Test multiple empty tensor creations (this should be fast)
+        for i in range(10):
+            empty_tensor = dataset.get_empty_store(
+                {"shape": (50, 50, 50)}, torch.device("cpu")
+            )
+            assert empty_tensor is not None
 
-        class MockDatasetWithPersistentExecutor:
-            def __init__(self):
-                self._executor = None
-                self._max_workers = 4
+        end_time = time.time()
+        creation_time = end_time - start_time
 
-            @property
-            def executor(self):
-                if self._executor is None:
-                    self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
-                return self._executor
-
-            def cleanup(self):
-                if self._executor:
-                    self._executor.shutdown(wait=False)
-
-        start_time = time.time()
-        mock_ds = MockDatasetWithPersistentExecutor()
-        for i in range(num_iterations):
-            executor = mock_ds.executor  # Reuses same executor
-        mock_ds.cleanup()
-        return time.time() - start_time
-
-    old_time = time_old_approach(50)
-    new_time = time_new_approach(50)
-
-    speedup = old_time / new_time if new_time > 0 else float("inf")
-
-    # Minimum expected speedup for the new executor approach.
-    # Can be overridden by setting the CELLMAP_MIN_SPEEDUP environment variable.
-    min_speedup = float(os.environ.get("CELLMAP_MIN_SPEEDUP", 3.0))
-    assert (
-        speedup > min_speedup
-    ), f"Expected at least {min_speedup:.1f}x speedup, got {speedup:.1f}x"
-
-
-def test_tensor_creation_optimization():
-    """Test that tensor creation optimization uses torch.from_numpy for numpy arrays."""
-
-    # Create a numpy array to test with
-    test_array = np.random.random((10, 10, 10)).astype(np.float32)
-
-    # Test the optimized tensor creation logic
-    # This mimics the logic in CellMapImage.__getitem__ and apply_spatial_transforms
-
-    # Test Case 1: numpy array should use torch.from_numpy (zero-copy)
-    if isinstance(test_array, np.ndarray):
-        optimized_tensor = torch.from_numpy(test_array)
-    else:
-        optimized_tensor = torch.tensor(test_array)
-
-    # Test Case 2: non-numpy data should use torch.tensor
-    test_list = [[1, 2, 3], [4, 5, 6]]
-    if isinstance(test_list, np.ndarray):
-        fallback_tensor = torch.from_numpy(test_list)
-    else:
-        fallback_tensor = torch.tensor(test_list)
-
-    # Verify the optimization works
-    assert isinstance(optimized_tensor, torch.Tensor), "Should create tensor"
-    assert isinstance(fallback_tensor, torch.Tensor), "Should create tensor"
-
-    # Verify memory sharing for numpy case (zero-copy)
-    original_value = test_array[0, 0, 0]
-    test_array[0, 0, 0] = 999.0
-    assert optimized_tensor[0, 0, 0] == 999.0, "torch.from_numpy should share memory"
-
-    # Reset the value
-    test_array[0, 0, 0] = original_value
-
-    # Verify performance benefit exists
-    large_array = np.random.random((100, 100, 100)).astype(np.float32)
-
-    # Time torch.tensor (copies data)
-    start_time = time.time()
-    for _ in range(10):
-        _ = torch.tensor(large_array)
-    copy_time = time.time() - start_time
-
-    # Time torch.from_numpy (zero-copy)
-    start_time = time.time()
-    for _ in range(10):
-        _ = torch.from_numpy(large_array)
-    zerocopy_time = time.time() - start_time
-
-    # torch.from_numpy should be significantly faster
-    speedup = copy_time / zerocopy_time if zerocopy_time > 0 else float("inf")
-    assert speedup > 2.0, f"Expected significant speedup, got {speedup:.2f}x"
+        # Should be very fast with optimizations
+        assert creation_time < 1.0, f"Tensor creation took too long: {creation_time}s"

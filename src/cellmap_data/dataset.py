@@ -586,8 +586,9 @@ class CellMapDataset(Dataset):
                         inferred_arrays.append(label)
 
                 # 2) Infer true negatives from mutually exclusive classes in gt
+                # Use CPU device to match the device of tensors returned by CellMapImage
                 empty_array = self.get_empty_store(
-                    self.target_arrays[array_name], device=self.device
+                    self.target_arrays[array_name], device=torch.device("cpu")
                 )  # type: ignore
 
                 def infer_label_array(label: str) -> tuple[str, torch.Tensor]:
@@ -657,7 +658,8 @@ class CellMapDataset(Dataset):
         self, array_info: Mapping[str, Sequence[int | float]]
     ) -> dict[str, CellMapImage | EmptyImage | Sequence[str]]:
         """Returns a target array source for the dataset. Creates a dictionary of image sources for each class in the dataset. For classes that are not present in the ground truth data, the data can be inferred from the other classes in the dataset. This is useful for training segmentation networks with mutually exclusive classes."""
-        empty_store = self.get_empty_store(array_info, device=self.device)  # type: ignore
+        # Use CPU device to match the device of tensors returned by CellMapImage
+        empty_store = self.get_empty_store(array_info, device=torch.device("cpu"))  # type: ignore
         target_array = {}
         for i, label in enumerate(self.classes):
             target_array[label] = self.get_label_array(

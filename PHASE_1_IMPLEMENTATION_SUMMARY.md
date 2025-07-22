@@ -63,24 +63,32 @@ def executor(self) -> ThreadPoolExecutor:
 - Uses `torch.from_numpy()` when data is already a numpy array (zero-copy)
 - Falls back to `torch.tensor()` for non-numpy data types
 - Applied to both major tensor creation points in image loading
+- **Fixed device consistency**: Updated dataset empty tensor creation to use CPU device
 
 **Files Modified**:
 - `src/cellmap_data/image.py` (lines 129-134, 477-482)
+- `src/cellmap_data/dataset.py` (lines 591, 661) - Device consistency fix
 
 **Performance Impact**:
 - **Zero-copy tensor creation** for numpy arrays (most common case)
 - Eliminates unnecessary memory allocation and data copying
 - Faster tensor creation, especially for large arrays
+- **Consistent device handling** prevents device mismatch errors
 - **Zero breaking changes** to public API
 
 **Code Changes**:
 ```python
+# Image.py optimization:
 # OLD: data = torch.tensor(array_data)
 # NEW: 
 if isinstance(array_data, np.ndarray):
     data = torch.from_numpy(array_data)  # Zero-copy for numpy arrays
 else:
     data = torch.tensor(array_data)     # Fallback for other types
+
+# Dataset.py device consistency fix:
+# OLD: device=self.device  
+# NEW: device=torch.device("cpu")  # Match CellMapImage tensor device
 ```
 
 ### 4. ✅ Enhanced Logging and Error Handling
