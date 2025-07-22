@@ -257,14 +257,14 @@ class CellMapDataLoader:
         self._use_streams = (
             str(self.device).startswith("cuda")
             and torch.cuda.is_available()
-            and batch_memory_mb >= self.MIN_BATCH_MEMORY_FOR_STREAMS_MB
+            and batch_memory_mb >= MIN_BATCH_MEMORY_FOR_STREAMS_MB
         )
 
         if not self._use_streams:
             if batch_memory_mb > 0:
                 logger.debug(
                     f"CUDA streams disabled: batch_size={self.batch_size}, "
-                    f"memory={batch_memory_mb:.1f}MB (min: {self.MIN_BATCH_MEMORY_FOR_STREAMS_MB}MB)"
+                    f"memory={batch_memory_mb:.1f}MB (min: {MIN_BATCH_MEMORY_FOR_STREAMS_MB}MB)"
                 )
             return
 
