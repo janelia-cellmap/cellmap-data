@@ -204,57 +204,6 @@ def test_performance_impact():
     ), f"Expected at least {min_speedup:.1f}x speedup, got {speedup:.1f}x"
 
 
-def test_performance_impact():
-    """Test the performance impact of persistent vs new executors."""
-
-    def time_old_approach(num_iterations=50):
-        """Simulate the old approach of creating new executors."""
-        start_time = time.time()
-        executors = []
-        for i in range(num_iterations):
-            executor = ThreadPoolExecutor(max_workers=4)
-            executors.append(executor)
-            executor.shutdown(wait=True)
-        return time.time() - start_time
-
-    def time_new_approach(num_iterations=50):
-        """Simulate the new approach with persistent executor."""
-
-        class MockDatasetWithPersistentExecutor:
-            def __init__(self):
-                self._executor = None
-                self._max_workers = 4
-
-            @property
-            def executor(self):
-                if self._executor is None:
-                    self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
-                return self._executor
-
-            def cleanup(self):
-                if self._executor:
-                    self._executor.shutdown(wait=False)
-
-        start_time = time.time()
-        mock_ds = MockDatasetWithPersistentExecutor()
-        for i in range(num_iterations):
-            executor = mock_ds.executor  # Reuses same executor
-        mock_ds.cleanup()
-        return time.time() - start_time
-
-    old_time = time_old_approach(50)
-    new_time = time_new_approach(50)
-
-    speedup = old_time / new_time if new_time > 0 else float("inf")
-
-    # Minimum expected speedup for the new executor approach.
-    # Can be overridden by setting the CELLMAP_MIN_SPEEDUP environment variable.
-    min_speedup = float(os.environ.get("CELLMAP_MIN_SPEEDUP", 3.0))
-    assert (
-        speedup > min_speedup
-    ), f"Expected at least {min_speedup:.1f}x speedup, got {speedup:.1f}x"
-
-
 def test_tensor_creation_optimization():
     """Test that tensor creation optimization uses torch.from_numpy for numpy arrays."""
 
