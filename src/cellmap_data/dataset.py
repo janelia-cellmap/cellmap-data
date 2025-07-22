@@ -149,7 +149,7 @@ class CellMapDataset(Dataset):
                 os.cpu_count() or 1, int(os.environ.get("CELLMAP_MAX_WORKERS", 4))
             )
 
-        logger.info(
+        logger.debug(
             f"CellMapDataset initialized with {len(self.input_arrays)} input arrays, "
             f"{len(self.target_arrays)} target arrays, {len(self.classes)} classes. "
             f"Using persistent ThreadPoolExecutor with {self._max_workers} workers for performance."
