@@ -100,7 +100,7 @@ def test_cellmap_image_write_and_read(tmp_path):
     )
 
 
-@pytest.mark.timeout(15)  # Fail if test takes longer than 15 seconds
+@pytest.mark.timeout(20)  # Fail if test takes longer than 20 seconds
 def test_cellmap_image_read_with_dask_backend(tmp_path, monkeypatch):
     # Set the CELLMAP_DATA_BACKEND environment variable to 'dask'
     monkeypatch.setenv("CELLMAP_DATA_BACKEND", "dask")

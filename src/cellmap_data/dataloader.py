@@ -17,6 +17,12 @@ from typing import Callable, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
+# Stream optimization settings
+MIN_BATCH_MEMORY_FOR_STREAMS_MB = float(
+    os.environ.get("MIN_BATCH_MEMORY_FOR_STREAMS_MB", 100.0)
+)
+MAX_CONCURRENT_CUDA_STREAMS = int(os.environ.get("MAX_CONCURRENT_CUDA_STREAMS", 8))
+
 
 class CellMapDataLoader:
     """
@@ -39,12 +45,6 @@ class CellMapDataLoader:
         collate_fn: Combine a list of dictionaries from different sources into a single dictionary for output.
 
     """
-
-    # Stream optimization settings
-    MIN_BATCH_MEMORY_FOR_STREAMS_MB = float(
-        os.environ.get("MIN_BATCH_MEMORY_FOR_STREAMS_MB", 100.0)
-    )
-    MAX_CONCURRENT_CUDA_STREAMS = int(os.environ.get("MAX_CONCURRENT_CUDA_STREAMS", 8))
 
     def __init__(
         self,
