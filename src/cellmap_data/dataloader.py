@@ -273,7 +273,7 @@ class CellMapDataLoader:
         num_keys = len(data_keys)
 
         # Create persistent streams with error handling
-        max_streams = min(num_keys, self.MAX_CONCURRENT_CUDA_STREAMS)
+        max_streams = min(num_keys, MAX_CONCURRENT_CUDA_STREAMS)
         try:
             self._streams = [torch.cuda.Stream() for _ in range(max_streams)]
 
