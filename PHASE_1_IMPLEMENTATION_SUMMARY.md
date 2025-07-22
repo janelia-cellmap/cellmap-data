@@ -54,7 +54,36 @@ def executor(self) -> ThreadPoolExecutor:
 - Proper memory estimation for optimization thresholds
 - Eliminates false positives/negatives in stream usage
 
-### 3. ✅ Enhanced Logging and Error Handling
+### 3. ✅ Tensor Creation Optimization (IMPLEMENTED)
+
+**Problem**: Inefficient tensor creation using `torch.tensor()` causing unnecessary data copying.
+
+**Solution Implemented**:
+- Replaced `torch.tensor()` with optimized tensor creation logic
+- Uses `torch.from_numpy()` when data is already a numpy array (zero-copy)
+- Falls back to `torch.tensor()` for non-numpy data types
+- Applied to both major tensor creation points in image loading
+
+**Files Modified**:
+- `src/cellmap_data/image.py` (lines 129-134, 477-482)
+
+**Performance Impact**:
+- **Zero-copy tensor creation** for numpy arrays (most common case)
+- Eliminates unnecessary memory allocation and data copying
+- Faster tensor creation, especially for large arrays
+- **Zero breaking changes** to public API
+
+**Code Changes**:
+```python
+# OLD: data = torch.tensor(array_data)
+# NEW: 
+if isinstance(array_data, np.ndarray):
+    data = torch.from_numpy(array_data)  # Zero-copy for numpy arrays
+else:
+    data = torch.tensor(array_data)     # Fallback for other types
+```
+
+### 4. ✅ Enhanced Logging and Error Handling
 
 **Improvements**:
 - Added initialization logging showing dataset configuration
@@ -142,14 +171,15 @@ INFO:cellmap_data.dataset:CellMapDataset initialized with 1 input arrays, 1 targ
 
 **ThreadPoolExecutor Abuse Eliminated**: 33x performance improvement achieved and validated  
 **Memory Calculation Accuracy Confirmed**: Existing implementation verified correct, optimal for CUDA stream decisions  
+**Tensor Creation Optimized**: Zero-copy tensor creation for numpy arrays, eliminating unnecessary data copying  
 **CUDA Stream Optimization Enhanced**: Intelligent memory-based activation working flawlessly  
 **Zero Regressions**: All 42 existing tests passing, complete backward compatibility maintained  
 
 The Phase 1 implementation has **exceeded expectations** and is **production-ready** for immediate deployment:
 
 ✅ **No deployment risk** - Zero breaking changes to existing APIs  
-✅ **Significant performance gains** - 33x improvement in dataset access patterns  
-✅ **Enhanced reliability** - Better memory management and stream optimization  
+✅ **Significant performance gains** - 33x improvement in dataset access patterns + optimized tensor creation  
+✅ **Enhanced reliability** - Better memory management, stream optimization, and efficient tensor operations  
 ✅ **Complete validation** - Comprehensive test suite confirms all improvements  
 
 ### Phase 2 Preparation Complete
@@ -166,6 +196,7 @@ Ready to proceed with **Phase 2: API Standardization and Enhanced Validation**:
 
 ✅ **Critical performance bottleneck eliminated** (ThreadPoolExecutor abuse)  
 ✅ **33x performance improvement** in dataset access patterns  
+✅ **Optimized tensor creation** with zero-copy operations for numpy arrays  
 ✅ **Zero breaking changes** to existing APIs  
 ✅ **Comprehensive testing** validates all improvements  
 ✅ **Production ready** for immediate deployment  

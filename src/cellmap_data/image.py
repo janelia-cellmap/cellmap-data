@@ -11,16 +11,13 @@ import torch
 import xarray
 import xarray_tensorstore as xt
 import zarr
-from pydantic_ome_ngff.v04.axis import Axis
 from pydantic_ome_ngff.v04.multiscale import MultiscaleGroupAttrs, MultiscaleMetadata
 from pydantic_ome_ngff.v04.transform import (
     Scale,
     Translation,
     VectorScale,
-    VectorTranslation,
 )
 from scipy.spatial.transform import Rotation as rot
-from upath import UPath
 from xarray_ome_ngff.v04.multiscale import coords_from_transforms
 
 
@@ -128,7 +125,12 @@ class CellMapImage:
         else:
             self._current_center = {k: np.mean(v) for k, v in center.items()}
             self._current_coords = center
-            data = torch.tensor(self.return_data(self._current_coords).values)  # type: ignore
+            # Optimized tensor creation: use torch.from_numpy when possible to avoid data copying
+            array_data = self.return_data(self._current_coords).values
+            if isinstance(array_data, np.ndarray):
+                data = torch.from_numpy(array_data)
+            else:
+                data = torch.tensor(array_data)  # type: ignore
 
         # Apply any value transformations to the data
         if self.value_transform is not None:
@@ -478,7 +480,11 @@ class CellMapImage:
                 ]
                 data = np.transpose(data, new_order)
 
-        return torch.tensor(data)
+        # Optimized tensor creation: use torch.from_numpy when possible to avoid data copying
+        if isinstance(data, np.ndarray):
+            return torch.from_numpy(data)
+        else:
+            return torch.tensor(data)
 
     @property
     def tolerance(self) -> float:
