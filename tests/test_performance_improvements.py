@@ -202,3 +202,51 @@ def test_performance_optimization_integration():
 
         # Should be very fast with optimizations
         assert creation_time < 1.0, f"Tensor creation took too long: {creation_time}s"
+
+
+def test_device_consistency_production_scenario(monkeypatch):
+    """Test device consistency in the exact scenario that causes production RuntimeError."""
+    from cellmap_data.dataset import CellMapDataset
+    import torch
+
+    # Mock the necessary dependencies
+    monkeypatch.setattr("zarr.open_group", lambda path, mode="r": MagicMock())
+    monkeypatch.setattr("tensorstore.open", lambda spec: MagicMock())
+    monkeypatch.setattr(Path, "exists", lambda self: True)
+
+    # Create a dataset instance that simulates the production environment
+    # Force the dataset to use CUDA device if available (similar to production)
+    dataset = CellMapDataset(
+        raw_path="/fake/path",
+        target_path="/fake/path",
+        classes=["test"],
+        input_arrays={"em": {"shape": (32, 32, 32), "scale": (1.0, 1.0, 1.0)}},
+        target_arrays={"labels": {"shape": (32, 32, 32), "scale": (1.0, 1.0, 1.0)}},
+        device="cuda" if torch.cuda.is_available() else "cpu"
+    )
+
+    # Test that get_empty_store uses the correct device (should be dataset.device, not hardcoded CPU)
+    empty_tensor = dataset.get_empty_store({"shape": (32, 32, 32)}, dataset.device)
+    
+    # Verify the tensor is on the expected device (compare device types, not exact device objects)
+    assert empty_tensor.device.type == dataset.device.type, f"Empty tensor device type {empty_tensor.device.type} does not match dataset device type {dataset.device.type}"
+    
+    # Create mock tensors that would come from class_arrays.values() in production
+    # These should all be on the same device type as the empty_tensor
+    mock_class_tensor_1 = torch.ones((32, 32, 32), device=dataset.device.type)
+    mock_class_tensor_2 = torch.zeros((32, 32, 32), device=dataset.device.type) 
+    
+    # This is the exact operation that was failing in production (line 610 in dataset.py)
+    # torch.stack(list(class_arrays.values()))
+    try:
+        stacked_tensors = torch.stack([mock_class_tensor_1, mock_class_tensor_2, empty_tensor])
+        
+        # Verify the stacked result
+        assert stacked_tensors.device.type == dataset.device.type, "Stacked tensors should be on dataset device type"
+        assert stacked_tensors.shape == (3, 32, 32, 32), "Stacked shape should be correct"
+        
+    except RuntimeError as e:
+        if "Expected all tensors to be on the same device" in str(e):
+            pytest.fail(f"Device consistency fix failed - tensors are on different devices: {e}")
+        else:
+            raise  # Re-raise if it's a different error

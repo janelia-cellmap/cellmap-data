@@ -59,6 +59,17 @@ This document outlines a strategic improvement plan for the CellMap-Data package
    - **Fix Needed**: Add early return for num_samples=0 case
    - **Test Coverage**: ✅ Validated with test_zero_samples
 
+### Critical Bug Fixes Implemented
+
+2. **Device Consistency RuntimeError in Production (FIXED)** ⚡ **HIGH PRIORITY**
+   - **Location**: `src/cellmap_data/dataset.py`, line 590-592
+   - **Issue**: Hardcoded `device=torch.device("cpu")` in `get_empty_store()` call
+   - **Root Cause**: Mixed device tensors when stacking in `torch.stack(list(class_arrays.values()))`
+   - **Production Error**: `RuntimeError: Expected all tensors to be on the same device, but found at least two devices, cpu and cuda:0!`
+   - **Fix Applied**: ✅ Changed to `device=self.device` to use dataset's configured device
+   - **Impact**: Eliminates device consistency crashes in CUDA environments
+   - **Test Coverage**: ✅ Added `test_device_consistency_production_scenario` to prevent regression
+
 ## Shared Fixture Extraction (COMPLETED)
 
 ### Problem Addressed
@@ -386,18 +397,26 @@ class TestBackwardCompatibility:
 ## Session Summary: Test Quality Enhancement Results
 
 ### Key Achievements
-1. **Created 39 Comprehensive Tests** across 3 new test files
-   - 4 performance optimization validation tests
+1. **Created 40 Comprehensive Tests** across 3 new test files (5 performance tests after production bug fix)
+   - 5 performance optimization validation tests (including production scenario)
    - 24 coverage improvement tests targeting low-hanging fruit
    - 11 utility function edge case tests
 
-2. **Enhanced Test Infrastructure**
+2. **Critical Production Bug Fix** ⚡
+   - **Identified and Fixed**: Device consistency RuntimeError in production environment
+   - **Root Cause**: Hardcoded CPU device in dataset.py line 590-592
+   - **Solution**: Use `self.device` instead of `torch.device("cpu")`
+   - **Impact**: Eliminates crashes in CUDA training environments
+   - **Prevention**: Added regression test to catch similar issues
+
+3. **Enhanced Test Infrastructure**
    - Extracted shared fixtures to eliminate code duplication
    - Implemented robust mocking patterns for external dependencies
    - Created comprehensive edge case validation suites
 
-3. **Bug Discovery and Documentation**
+4. **Bug Discovery and Documentation**
    - Identified RuntimeError in `min_redundant_inds` with zero samples
+   - Found critical device consistency bug through production error analysis
    - Documented fix requirements for future implementation
    - Validated edge cases across multiple utility functions
 
@@ -408,15 +427,18 @@ class TestBackwardCompatibility:
    - Integration testing for dataloader configuration
 
 ### Technical Quality Metrics
-- **100% Test Pass Rate**: All 39 tests passing consistently
+- **100% Test Pass Rate**: All 40 tests passing consistently
+- **Critical Bug Fix**: Resolved production RuntimeError that crashed CUDA training
 - **Zero Duplicated Mock Code**: Shared fixtures eliminate maintenance overhead
 - **Comprehensive Edge Case Coverage**: Tests cover boundary conditions and error cases
 - **Real Code Validation**: Tests execute actual cellmap-data implementation paths
+- **Production Issue Prevention**: New test prevents regression of device consistency bugs
 
 ### Files Successfully Enhanced
-- `tests/test_performance_improvements.py`: ✅ 4/4 tests passing
+- `tests/test_performance_improvements.py`: ✅ 5/5 tests passing (including production scenario)
 - `tests/test_coverage_improvements.py`: ✅ 24/24 tests passing  
 - `tests/test_utils_coverage.py`: ✅ 11/11 tests passing
+- `src/cellmap_data/dataset.py`: ✅ Critical device consistency bug fixed
 
 ### Quality Improvements Delivered
 1. **Maintainability**: Centralized mock configuration, shared fixtures

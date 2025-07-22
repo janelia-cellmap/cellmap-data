@@ -586,9 +586,9 @@ class CellMapDataset(Dataset):
                         inferred_arrays.append(label)
 
                 # 2) Infer true negatives from mutually exclusive classes in gt
-                # Use CPU device to match the device of tensors returned by CellMapImage
+                # Use the dataset device to match the device of tensors returned by CellMapImage
                 empty_array = self.get_empty_store(
-                    self.target_arrays[array_name], device=torch.device("cpu")
+                    self.target_arrays[array_name], device=self.device
                 )  # type: ignore
 
                 def infer_label_array(label: str) -> tuple[str, torch.Tensor]:
@@ -607,7 +607,18 @@ class CellMapDataset(Dataset):
                 for future in as_completed(futures):
                     label, array = future.result()
                     class_arrays[label] = array
-                array = torch.stack(list(class_arrays.values()))
+                # Ensure all tensors are on the correct device before stacking, and filter out None
+                array = torch.stack(
+                    [
+                        (
+                            arr
+                            if arr.device == self.device
+                            else arr.to(self.device, non_blocking=True)
+                        )
+                        for arr in class_arrays.values()
+                        if arr is not None
+                    ]
+                )
                 assert array.shape[0] == len(
                     self.classes
                 ), f"Number of classes in target array {array_name} does not match number of classes in dataset: {len(self.classes)} != {array.shape[0]}"
