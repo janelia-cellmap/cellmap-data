@@ -1,3 +1,5 @@
+from .validation.schemas import DataSplitConfig
+from .validation.validation import ConfigValidator
 import csv
 import os
 from typing import Any, Callable, Mapping, Optional, Sequence
@@ -90,7 +92,7 @@ class CellMapDataSplit:
 
     def __init__(
         self,
-        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
+        input_arrays: dict[str, dict[str, Sequence[int | float]]],
         target_arrays: Optional[
             Mapping[str, Mapping[str, Sequence[int | float]]]
         ] = None,
@@ -122,7 +124,7 @@ class CellMapDataSplit:
         force_has_data: bool = False,
         context: Optional[tensorstore.Context] = None,  # type: ignore
         device: Optional[str | torch.device] = None,
-    ) -> None:
+    ):
         """Initializes the CellMapDatasets class.
 
         Args:
@@ -185,8 +187,37 @@ class CellMapDataSplit:
         """
 
         logger.info("Initializing CellMapDataSplit...")
+
+        # Validate config
+        config = {
+            "input_arrays": input_arrays,
+            "target_arrays": target_arrays,
+            "classes": classes,
+            "empty_value": empty_value,
+            "pad": pad,
+            "datasets": datasets,
+            "dataset_dict": dataset_dict,
+            "csv_path": csv_path,
+            "spatial_transforms": spatial_transforms,
+            "train_raw_value_transforms": train_raw_value_transforms,
+            "val_raw_value_transforms": val_raw_value_transforms,
+            "target_value_transforms": target_value_transforms,
+            "class_relation_dict": class_relation_dict,
+            "force_has_data": force_has_data,
+            "context": context,
+            "device": device,
+        }
+        validator = ConfigValidator(get_datasplit_schema())
+        if not validator.validate(config):
+            raise ValueError("Invalid CellMapDataSplit configuration.")
+
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
+        if self.input_arrays:
+            validate_array_config(self.input_arrays, "input_arrays")
+        if self.target_arrays:
+            validate_array_config(self.target_arrays, "target_arrays")
+
         self.classes = classes
         self.empty_value = empty_value
         self.pad = pad

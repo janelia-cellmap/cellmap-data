@@ -13,6 +13,7 @@ from .mutable_sampler import MutableSubsetRandomSampler
 from .utils import min_redundant_inds, split_target_path, is_array_2D, get_sliced_shape
 from .image import CellMapImage
 from .empty_image import EmptyImage
+from .validation.validation import ConfigValidator
 import logging
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,14 @@ class CellMapDataset(Dataset):
 
         """
         super().__init__()
+
+        # Validate config
+        config = locals()
+        config.pop("self")
+        config.pop("__class__", None)  # Ensure __class__ is removed if present
+        if not ConfigValidator.validate_dataset_config(config):
+            raise ValueError("Invalid dataset configuration.")
+
         self.raw_path = raw_path
         self.target_path = target_path
         self.target_path_str, self.classes_with_path = split_target_path(target_path)
@@ -107,6 +116,8 @@ class CellMapDataset(Dataset):
         self.input_sources: dict[str, CellMapImage] = {}
         if device is not None:
             self._device = torch.device(device)
+        else:
+            self._device = None
         for array_name, array_info in self.input_arrays.items():
             self.input_sources[array_name] = CellMapImage(
                 self.raw_path,
@@ -119,7 +130,7 @@ class CellMapDataset(Dataset):
                 pad_value=0,  # inputs to the network should be padded with 0
                 interpolation="linear",
             )
-        self.target_sources = {}
+        self.target_sources: dict[str, CellMapImage | dict[str, CellMapImage]] = {}
         self.has_data = (
             False if (len(self.target_arrays) > 0 and len(self.classes) > 0) else True
         )
@@ -130,7 +141,11 @@ class CellMapDataset(Dataset):
                     "raw",
                     array_info["scale"],
                     array_info["shape"],  # type: ignore
-                    value_transform=self.target_value_transforms,
+                    value_transform=(
+                        self.target_value_transforms
+                        if callable(self.target_value_transforms)
+                        else None
+                    ),
                     context=self.context,
                     pad=self.pad,
                     pad_value=0,  # inputs to the network should be padded with 0
