@@ -511,11 +511,22 @@ class TestParameterMigration:
 - Create migration helper tools
 - Write compatibility tests
 
-### Week 3-4: Enhanced Validation  
+### Week 2-3: Enhanced Validation  
 - Implement configuration validation
 - Add diagnostic tools
 - Enhance error messages
 - Create verification utilities
+
+### Week 3-6: Performance Optimization & Framework Compatibility (NEW)
+- Implement consolidated device strategy
+- Add tensor memory pooling
+- Integrate intelligent prefetching pipeline
+- Optimize zarr/tensorstore access patterns
+- Add strategic pinned memory usage
+- Tune I/O thread/process pools
+- Optimize memory layout for GPU
+- Add framework compatibility layer (Accelerate, PyTorch Lightning)
+- Document and test all new optimizations
 
 ### Week 4-5: Documentation
 - Write migration guides
@@ -540,10 +551,25 @@ class TestParameterMigration:
 - Parameter validation may catch previously hidden issues
 - **Mitigation**: Provide clear fixes and configuration helpers
 
+### Performance Risk
+- All optimizations are designed to be framework-aware and auto-disable if running under Accelerate or PyTorch Lightning
+- Extensive compatibility testing with external frameworks
+
 ### Success Dependencies
 - ✅ Maintain zero breaking changes commitment
 - ✅ Comprehensive test coverage for all legacy patterns
 - ✅ Clear communication of deprecation timeline
 - ✅ Automated migration tools for easy adoption
+- Compatibility with Hugging Face Accelerate and PyTorch Lightning
+- Performance improvements validated in both standalone and framework-managed environments
 
 This Phase 2 plan maintains the excellent foundation established in Phase 1 while significantly improving the developer experience and API consistency, setting up the package for long-term maintainability and growth.
+
+---
+
+## Advanced Device and Memory Management Goals (Phase 2+)
+- Implement robust tensor memory pooling in DeviceManager, CellMapDataset, and CellMapDataloader
+- Integrate CUDA stream management for high-throughput GPU operations
+- Ensure all tensor allocation and device transfer logic is centralized and framework-aware
+- Design for future extensibility: support for pinned memory, async I/O, and multi-GPU
+- Defer full implementation until after codebase modularization and simplification
