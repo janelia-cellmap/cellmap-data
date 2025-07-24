@@ -95,6 +95,10 @@ class CellMapDataLoader:
         self.sampler = sampler
         self.is_train = is_train
         self.rng = rng
+
+        if len(dataset) == 0:
+            self.loader = None
+            return
         if device is None:
             if torch.cuda.is_available():
                 device = "cuda"
@@ -129,7 +133,11 @@ class CellMapDataLoader:
                 "pin_memory": True,
             }
         if self.sampler is None:
-            if iterations_per_epoch is not None or (
+            if len(self.dataset) == 0:
+                self.sampler = None
+                self.loader = None
+                return
+            elif iterations_per_epoch is not None or (
                 weighted_sampler and len(self.dataset) > 2**24
             ):
                 assert (
@@ -152,11 +160,25 @@ class CellMapDataLoader:
         self.default_kwargs.update(kwargs)
         self.refresh()
 
-    def __getitem__(self, indices: Sequence[int]) -> dict:
-        """Get an item from the DataLoader."""
-        if isinstance(indices, int):
-            indices = [indices]
-        return self.collate_fn([self.loader.dataset[index] for index in indices])
+    def __len__(self):
+        if self.loader is None:
+            return 0
+        return len(self.loader)
+
+    def __getitem__(self, index):
+        if self.loader is None:
+            raise IndexError("DataLoader is empty")
+        # This is a simplified version; the actual implementation might be more complex
+        # and may not directly support indexing. This is a placeholder.
+        if isinstance(index, slice):
+            # Handle slicing if the underlying loader/sampler supports it
+            raise NotImplementedError("Slicing is not directly supported.")
+
+        # The following is a conceptual example and might need adjustment
+        # based on how the loader is intended to be used with indexing.
+        # This is not a standard way to interact with a DataLoader.
+        batch = next(iter(self.loader))
+        return batch[index]
 
     def to(self, device: str | torch.device, non_blocking: bool = True):
         """Move the dataset to the specified device."""

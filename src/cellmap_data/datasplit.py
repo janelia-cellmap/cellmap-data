@@ -6,11 +6,14 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 import tensorstore
 import torch
 import torchvision.transforms.v2 as T
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from .transforms import NaNtoNum, Normalize, Binarize
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .subdataset import CellMapSubset
+from .dataset_factory import DatasetFactory
+from .data_split_config_manager import DataSplitConfigManager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,310 +21,122 @@ logger = logging.getLogger(__name__)
 
 class CellMapDataSplit:
     """
-    A class to split the data into training and validation datasets.
-
-    Attributes:
-        input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::
-            {
-                "array_name": {
-                    "shape": tuple[int],
-                    "scale": Sequence[float],
-                },
-                ...
-            }
-
-        target_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as input_arrays.
-        classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays.
-        empty_value (int | float): The value to use for empty data. Defaults to torch.nan.
-        pad (bool | str): Whether to pad the data. If a string, it should be either "train" or "validate". Defaults to False.
-        datasets (Optional[Mapping[str, Sequence[CellMapDataset]]]): A dictionary containing the dataset objects. The dictionary should have the following structure:
-            {
-                "train": Iterable[CellMapDataset],
-                "validate": Iterable[CellMapDataset],
-            }. Defaults to None.
-        dataset_dict (Optional[Mapping[str, Sequence[Mapping[str, str]]]): A dictionary containing the dataset data. Defaults to None. The dictionary should have the following structure::
-
-            {
-                "train" | "validate": [{
-                    "raw": str (path to raw data),
-                    "gt": str (path to ground truth data),
-                }],
-                ...
-            }
-
-        csv_path (Optional[str]): A path to a csv file containing the dataset data. Defaults to None. Each row in the csv file should have the following structure:
-            train | validate, raw path, gt path
-        spatial_transforms (Optional[Sequence[dict[str, Any]]]): A sequence of dictionaries containing the spatial transformations to apply to the data. Defaults to None. The dictionary should have the following structure::
-
-            {transform_name: {transform_args}}
-
-        train_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in training datasets. Example is to add gaussian noise to the raw data. Defailts to Normalize, ToDtype, and NaNtoNum.
-        val_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in validation datasets. Example is to normalize the raw data. Defaults to Normalize, ToDtype, and NaNtoNum.
-        target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]]): A function to convert the ground truth data to target arrays. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order. Defaults to ToDtype and Binarize.
-        class_relation_dict (Optional[Mapping[str, Sequence[str]]]): A dictionary containing the class relations. The dictionary should have the following structure::
-
-            {
-                "class_name": [mutually_exclusive_class_name, ...],
-                ...
-            }
-
-        force_has_data (bool): Whether to force the datasets to have data even if no ground truth data is found. Defaults to False. Useful for training with only raw data.
-        context (Optional[tensorstore.Context]): The TensorStore context for the image data. Defaults to None.
-        device (Optional[str | torch.device]): Device to use for the dataloaders. Defaults to None.
-
-    Note:
-        The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.
-
-    Methods:
-        __repr__(): Returns the string representation of the class.
-        from_csv(csv_path: str): Loads the dataset data from a csv file.
-        construct(dataset_dict: Mapping[str, Sequence[Mapping[str, str]]]): Constructs the datasets from the dataset dictionary.
-        verify_datasets(): Verifies that the datasets have data, and removes ones that don't from 'self.train_datasets' and 'self.validation_datasets'.
-        set_raw_value_transforms(train_transforms: Optional[Callable] = None, val_transforms: Optional[Callable] = None): Sets the raw value transforms for each dataset in the training/validation multi-datasets.
-        set_target_value_transforms(transforms: Callable): Sets the target value transforms for each dataset in both training and validation multi-datasets.
-        set_spatial_transforms(spatial_transforms: dict[str, Any] | None): Sets the spatial transforms for each dataset in the training multi-dataset.
-        set_arrays(arrays: Mapping[str, Mapping[str, Sequence[int | float]]], type: str = "target", usage: str = "validate"): Sets the input or target arrays for the training or validation datasets.
-
-    Properties:
-        train_datasets_combined: A multi-dataset from the combination of all training datasets.
-        validation_datasets_combined: A multi-dataset from the combination of all validation datasets.
-        validation_blocks: A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks.
-        class_counts: A dictionary containing the class counts for the training and validation datasets.
-
+    A class for managing data splits for CellMap datasets.
     """
 
     def __init__(
         self,
         input_arrays: dict[str, dict[str, Sequence[int | float]]],
-        target_arrays: Optional[
-            Mapping[str, Mapping[str, Sequence[int | float]]]
-        ] = None,
-        classes: Sequence[str] | None = None,
-        empty_value: int | float = torch.nan,
-        pad: bool | str = False,
-        datasets: Optional[Mapping[str, Sequence[CellMapDataset]]] = None,
-        dataset_dict: Optional[Mapping[str, Sequence[Mapping[str, str]]]] = None,
+        target_arrays: dict[str, dict[str, Sequence[int | float]]],
+        classes: list[str],
+        empty_value: int | float,
+        pad: int,
+        dataset_dict: Optional[dict[str, list[dict[str, Any]]]] = None,
         csv_path: Optional[str] = None,
-        spatial_transforms: Optional[Mapping[str, Any]] = None,
-        train_raw_value_transforms: Optional[T.Transform] = T.Compose(
-            [
-                Normalize(),
-                T.ToDtype(torch.float, scale=True),
-                NaNtoNum({"nan": 0, "posinf": None, "neginf": None}),
-            ],
-        ),
-        val_raw_value_transforms: Optional[T.Transform] = T.Compose(
-            [
-                Normalize(),
-                T.ToDtype(torch.float, scale=True),
-                NaNtoNum({"nan": 0, "posinf": None, "neginf": None}),
-            ],
-        ),
-        target_value_transforms: Optional[T.Transform] = T.Compose(
-            [T.ToDtype(torch.float), Binarize()]
-        ),
-        class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
+        datasets_in: Optional[dict[str, list[CellMapDataset]]] = None,
+        spatial_transforms: Optional[Callable] = None,
+        train_raw_value_transforms: Optional[Callable] = None,
+        val_raw_value_transforms: Optional[Callable] = None,
+        target_value_transforms: Optional[Callable] = None,
+        class_relation_dict: Optional[dict[str, str]] = None,
         force_has_data: bool = False,
-        context: Optional[tensorstore.Context] = None,  # type: ignore
+        context: Optional[list[int]] = None,
         device: Optional[str | torch.device] = None,
     ):
-        """Initializes the CellMapDatasets class.
+        self._config_manager = DataSplitConfigManager(
+            input_arrays=input_arrays,
+            target_arrays=target_arrays,
+            classes=classes,
+            empty_value=empty_value,
+            pad=pad,
+            dataset_dict=dataset_dict,
+            csv_path=csv_path,
+            spatial_transforms=spatial_transforms,
+            train_raw_value_transforms=train_raw_value_transforms,
+            val_raw_value_transforms=val_raw_value_transforms,
+            target_value_transforms=target_value_transforms,
+            class_relation_dict=class_relation_dict,
+            force_has_data=force_has_data,
+            context=context,
+            device=device,
+        )
+        self._dataset_factory = DatasetFactory()
 
-        Args:
-            input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::
-
-                {
-                    "array_name": {
-                        "shape": tuple[int],
-                        "scale": Sequence[float],
-                    },
-                    ...
-                }
-
-            target_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as input_arrays.
-            classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays.
-            empty_value (int | float): The value to use for empty data. Defaults to torch.nan.
-            pad (bool | str): Whether to pad the data. If a string, it should be either "train" or "validate". Defaults to False.
-            datasets (Optional[Mapping[str, Sequence[CellMapDataset]]]): A dictionary containing the dataset objects. Defaults to None. The dictionary should have the following structure::
-
-                {
-                    "train": Iterable[CellMapDataset],
-                    "validate": Iterable[CellMapDataset],
-                }.
-
-            dataset_dict (Optional[Mapping[str, Sequence[Mapping[str, str]]]): A dictionary containing the dataset data. Defaults to None. The dictionary should have the following structure::
-
-                {
-                    "train" | "validate": [{
-                        "raw": str (path to raw data),
-                        "gt": str (path to ground truth data),
-                    }],
-                    ...
-                }
-
-            csv_path (Optional[str]): A path to a csv file containing the dataset data. Defaults to None. Each row in the csv file should have the following structure:"
-
-                train | validate, raw path, gt path
-
-            spatial_transforms (Optional[Sequence[dict[str, Any]]]): A sequence of dictionaries containing the spatial transformations to apply to the data. Defaults to None. The dictionary should have the following structure::
-
-                {transform_name: {transform_args}}
-
-            train_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in training datasets. Defaults to None. Example is to add gaussian noise to the raw data.
-            val_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in validation datasets. Defaults to None. Example is to normalize the raw data.
-            target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]]): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
-            class_relation_dict (Optional[Mapping[str, Sequence[str]]]): A dictionary containing the class relations. The dictionary should have the following structure::
-
-                {
-                    "class_name": [mutually_exclusive_class_name, ...],
-                    ...
-                }
-
-            force_has_data (bool): Whether to force the datasets to have data even if no ground truth data is found. Defaults to False. Useful for training with only raw data.
-            context (Optional[tensorstore.Context]): The TensorStore context for the image data. Defaults to None.
-            device (Optional[str | torch.device]): Device to use for the dataloaders. Defaults to None.
-
-        Note:
-            The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.
-
-        """
-
-        logger.info("Initializing CellMapDataSplit...")
-
-        # Validate config
-        config = {
-            "input_arrays": input_arrays,
-            "target_arrays": target_arrays,
-            "classes": classes,
-            "empty_value": empty_value,
-            "pad": pad,
-            "datasets": datasets,
-            "dataset_dict": dataset_dict,
-            "csv_path": csv_path,
-            "spatial_transforms": spatial_transforms,
-            "train_raw_value_transforms": train_raw_value_transforms,
-            "val_raw_value_transforms": val_raw_value_transforms,
-            "target_value_transforms": target_value_transforms,
-            "class_relation_dict": class_relation_dict,
-            "force_has_data": force_has_data,
-            "context": context,
-            "device": device,
-        }
-        validator = ConfigValidator(get_datasplit_schema())
-        if not validator.validate(config):
-            raise ValueError("Invalid CellMapDataSplit configuration.")
-
+        # Maintain attributes for backward compatibility
+        for key, value in self._config_manager.config.items():
+            setattr(self, key, value)
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
-        if self.input_arrays:
-            validate_array_config(self.input_arrays, "input_arrays")
-        if self.target_arrays:
-            validate_array_config(self.target_arrays, "target_arrays")
-
         self.classes = classes
-        self.empty_value = empty_value
-        self.pad = pad
-        self.device = device
-        if isinstance(pad, str):
-            self.pad_training = pad.lower() == "train"
-            self.pad_validation = pad.lower() == "validate"
+
+        self.datasets = {}
+        self._train_dataset = None
+        self._validate_dataset = None
+        self._class_counts: Optional[Mapping[str, Any]] = None
+
+        if datasets_in is not None:
+            self.datasets = datasets_in
+        elif self._config_manager.config.get("dataset_dict") is not None:
+            self.datasets = self.get_datasets_from_dict(
+                self._config_manager.config["dataset_dict"]
+            )
+        elif self._config_manager.config.get("csv_path") is not None:
+            self.datasets = self.get_datasets_from_csv(
+                self._config_manager.config["csv_path"]
+            )
         else:
-            self.pad_training = pad
-            self.pad_validation = pad
-        self.force_has_data = force_has_data
-        if datasets is not None:
-            self.datasets = datasets
-            self.train_datasets = datasets["train"]
-            if "validate" in datasets:
-                self.validation_datasets = datasets["validate"]
-            else:
-                self.validation_datasets = []
-            self.dataset_dict = None
-        elif dataset_dict is not None:
-            self.dataset_dict = dataset_dict
-        elif csv_path is not None:
-            self.dataset_dict = self.from_csv(csv_path)
-        self.spatial_transforms = spatial_transforms
-        self.train_raw_value_transforms = train_raw_value_transforms
-        self.val_raw_value_transforms = val_raw_value_transforms
-        self.target_value_transforms = target_value_transforms
-        self.class_relation_dict = class_relation_dict
-        self.context = context
-        if self.dataset_dict is not None:
-            self.construct(self.dataset_dict)
+            raise ValueError(
+                "Must provide one of 'datasets_in', 'dataset_dict', or 'csv_path'."
+            )
+
+        self.train_datasets = self.datasets.get("train", [])
+        self.validation_datasets = self.datasets.get("validate", [])
         self.verify_datasets()
         assert len(self.train_datasets) > 0, "No valid training datasets found."
         logger.info("CellMapDataSplit initialized.")
 
     def __repr__(self) -> str:
-        """Returns the string representation of the class."""
-        return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.train_raw_value_transforms}\n\tGT value transforms: {self.target_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
+        return (
+            f"CellMapDataSplit(\n"
+            f"\tInput arrays: {self.input_arrays}\n"
+            f"\tTarget arrays:{self.target_arrays}\n"
+            f"\tClasses: {self.classes}\n"
+            f"\tDataset dict: {self._config_manager.config['dataset_dict']}\n"
+            f"\tSpatial transforms: {self._config_manager.config['spatial_transforms']}\n"
+            f"\tTrain raw value transforms: {self._config_manager.config['train_raw_value_transforms']}\n"
+            f"\tTarget value transforms: {self._config_manager.config['target_value_transforms']}\n"
+            f"\tForce has data: {self._config_manager.config['force_has_data']}\n"
+            f"\tContext: {self._config_manager.config['context']}\n"
+            f")"
+        )
 
-    @property
-    def train_datasets_combined(self) -> CellMapMultiDataset:
-        """A multi-dataset from the combination of all training datasets."""
-        try:
-            return self._train_datasets_combined
-        except AttributeError:
-            self._train_datasets_combined = CellMapMultiDataset(
-                self.classes,
-                self.input_arrays,
-                self.target_arrays,
-                [
-                    ds
-                    for ds in self.train_datasets
-                    if self.force_has_data or ds.has_data
-                ],
-            )
-            return self._train_datasets_combined
-
-    @property
-    def validation_datasets_combined(self) -> CellMapMultiDataset:
-        """A multi-dataset from the combination of all validation datasets."""
-        try:
-            return self._validation_datasets_combined
-        except AttributeError:
-            if len(self.validation_datasets) == 0:
-                UserWarning("Validation datasets not loaded.")
-                self._validation_datasets_combined = CellMapMultiDataset.empty()
-            else:
-                self._validation_datasets_combined = CellMapMultiDataset(
+    def get_datasets_from_dict(self, dataset_dict):
+        """
+        Gets datasets from a dictionary.
+        """
+        datasets = {"train": [], "validate": []}
+        for key, value in dataset_dict.items():
+            for item in value:
+                ds = CellMapDataset(
+                    item["raw"],
+                    item["gt"],
                     self.classes,
                     self.input_arrays,
                     self.target_arrays,
-                    [
-                        ds
-                        for ds in self.validation_datasets
-                        if self.force_has_data or ds.has_data
+                    is_train=key == "train",
+                    context=self._config_manager.config["context"],
+                    force_has_data=self._config_manager.config["force_has_data"],
+                    empty_value=self._config_manager.config["empty_value"],
+                    class_relation_dict=self._config_manager.config[
+                        "class_relation_dict"
                     ],
+                    pad=self._config_manager.config["pad"],
+                    device=self._config_manager.config["device"],
                 )
-            return self._validation_datasets_combined
+                datasets[key].append(ds)
+        return datasets
 
-    @property
-    def validation_blocks(self) -> CellMapSubset:
-        """A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks."""
-        try:
-            return self._validation_blocks
-        except AttributeError:
-            self._validation_blocks = CellMapSubset(
-                self.validation_datasets_combined,
-                self.validation_datasets_combined.validation_indices,
-            )
-            return self._validation_blocks
-
-    @property
-    def class_counts(self) -> dict[str, dict[str, float]]:
-        """A dictionary containing the class counts for the training and validation datasets."""
-        try:
-            return self._class_counts
-        except AttributeError:
-            self._class_counts = {
-                "train": self.train_datasets_combined.class_counts,
-                "validate": self.validation_datasets_combined.class_counts,
-            }
-            return self._class_counts
-
-    def from_csv(self, csv_path) -> dict[str, Sequence[dict[str, str]]]:
+    def get_datasets_from_csv(self, csv_path):
         """Loads the dataset_dict data from a csv file."""
         dataset_dict = {}
         with open(csv_path, "r") as f:
@@ -337,176 +152,153 @@ class CellMapDataSplit:
                     }
                 )
 
-        return dataset_dict
+        return self.get_datasets_from_dict(dataset_dict)
 
-    def construct(self, dataset_dict) -> None:
-        """Constructs the datasets from the dataset dictionary."""
-        self.train_datasets = []
-        self.validation_datasets = []
-        self.datasets = {}
-        logger.info("Constructing datasets...")
-        for data_paths in tqdm(dataset_dict["train"], desc="Training datasets"):
-            try:
-                self.train_datasets.append(
-                    CellMapDataset(
-                        data_paths["raw"],
-                        data_paths["gt"],
-                        self.classes,
-                        self.input_arrays,
-                        self.target_arrays,
-                        self.spatial_transforms,
-                        raw_value_transforms=self.train_raw_value_transforms,
-                        target_value_transforms=self.target_value_transforms,
-                        is_train=True,
-                        context=self.context,
-                        force_has_data=self.force_has_data,
-                        empty_value=self.empty_value,
-                        class_relation_dict=self.class_relation_dict,
-                        pad=self.pad_training,
-                        device=self.device,
-                    )
-                )
-            except ValueError as e:
-                logger.warning(f"Error loading dataset: {e}")
+    def verify_datasets(self):
+        """
+        Verifies the datasets in the split.
+        """
+        for name, datasets in self.datasets.items():
+            logger.info(f"Verifying {name} datasets...")
+            for ds in datasets:
+                if self._config_manager.config["force_has_data"] or ds.has_data:
+                    pass
+                else:
+                    logger.warning(f"Dataset {ds.raw_path} has no data, removing.")
+                    datasets.remove(ds)
 
-        self.datasets["train"] = self.train_datasets
+    @property
+    def train_dataset(self) -> CellMapMultiDataset | CellMapSubset:
+        """A multi-dataset from the combination of all training datasets."""
+        if self._train_dataset is None:
+            self._train_dataset = self.get_train_dataset()
+        return self._train_dataset
 
-        # TODO: probably want larger arrays for validation
+    def get_train_dataset(self) -> CellMapMultiDataset | CellMapSubset:
+        logger.info("Constructing training dataset...")
+        return self.construct(self.train_datasets, "train")
 
-        if "validate" in dataset_dict:
-            for data_paths in tqdm(
-                dataset_dict["validate"], desc="Validation datasets"
-            ):
-                try:
-                    self.validation_datasets.append(
-                        CellMapDataset(
-                            data_paths["raw"],
-                            data_paths["gt"],
-                            self.classes,
-                            self.input_arrays,
-                            self.target_arrays,
-                            raw_value_transforms=self.val_raw_value_transforms,
-                            target_value_transforms=self.target_value_transforms,
-                            is_train=False,
-                            context=self.context,
-                            force_has_data=self.force_has_data,
-                            empty_value=self.empty_value,
-                            class_relation_dict=self.class_relation_dict,
-                            pad=self.pad_validation,
-                            device=self.device,
-                        )
-                    )
-                except ValueError as e:
-                    logger.warning(f"Error loading dataset: {e}")
+    @property
+    def validate_dataset(self) -> CellMapMultiDataset | CellMapSubset:
+        """A multi-dataset from the combination of all validation datasets."""
+        if self._validate_dataset is None:
+            self._validate_dataset = self.get_validate_dataset()
+        return self._validate_dataset
 
-            self.datasets["validate"] = self.validation_datasets
+    def get_validate_dataset(self) -> CellMapMultiDataset | CellMapSubset:
+        logger.info("Constructing validation dataset...")
+        return self.construct(self.validation_datasets, "validate")
 
-    def verify_datasets(self) -> None:
-        """Verifies that the datasets have data, and removes ones that don't from ``self.train_datasets`` and ``self.validation_datasets``."""
-        if self.force_has_data:
-            return
-        logger.info("Verifying datasets...")
-        verified_datasets = []
-        for ds in tqdm(self.train_datasets, desc="Training datasets"):
-            if ds.verify():
-                verified_datasets.append(ds)
-        self.train_datasets = verified_datasets
+    def get_class_counts(self) -> Mapping[str, Any]:
+        """
+        Returns the class counts for the split.
+        """
+        if self._class_counts is None:
+            self._class_counts = {
+                "train": self.train_dataset.class_counts,
+                "validate": self.validate_dataset.class_counts,
+            }
+        return self._class_counts
 
-        verified_datasets = []
-        for ds in tqdm(self.validation_datasets, desc="Validation datasets"):
-            if ds.verify():
-                verified_datasets.append(ds)
-        self.validation_datasets = verified_datasets
+    @property
+    def class_counts(self) -> Mapping[str, Any]:
+        """
+        Returns the class counts for the split.
+        """
+        return self.get_class_counts()
 
-    def set_raw_value_transforms(
-        self,
-        train_transforms: Optional[Callable] = None,
-        val_transforms: Optional[Callable] = None,
-    ) -> None:
-        """Sets the raw value transforms for each dataset in the training/validation multi-datasets."""
-        if train_transforms is not None:
-            for dataset in self.train_datasets:
-                dataset.set_raw_value_transforms(train_transforms)
-            if hasattr(self, "_train_datasets_combined"):
-                self._train_datasets_combined.set_raw_value_transforms(train_transforms)
-        if val_transforms is not None:
-            for dataset in self.validation_datasets:
-                dataset.set_raw_value_transforms(val_transforms)
-            if hasattr(self, "_validation_datasets_combined"):
-                self._validation_datasets_combined.set_raw_value_transforms(
-                    val_transforms
-                )
+    def construct(
+        self, datasets: list[CellMapDataset], name: str
+    ) -> CellMapMultiDataset | CellMapSubset:
+        """
+        Constructs a dataset from a list of datasets.
 
-    def set_target_value_transforms(self, transforms: Callable) -> None:
-        """Sets the target value transforms for each dataset in the multi-datasets."""
-        for dataset in self.train_datasets:
-            dataset.set_target_value_transforms(transforms)
-        if hasattr(self, "_train_datasets_combined"):
-            self._train_datasets_combined.set_target_value_transforms(transforms)
+        Args:
+            datasets (list[CellMapDataset]): A list of datasets to construct from.
+            name (str): The name of the dataset.
 
-        for dataset in self.validation_datasets:
-            dataset.set_target_value_transforms(transforms)
-        if hasattr(self, "_validation_datasets_combined"):
-            self._validation_datasets_combined.set_target_value_transforms(transforms)
-        if hasattr(self, "_validation_blocks"):
-            self._validation_blocks.set_target_value_transforms(transforms)
+        Returns:
+            A CellMapMultiDataset or CellMapSubset.
+        """
+        filtered_datasets = [
+            ds
+            for ds in datasets
+            if self._config_manager.config["force_has_data"] or ds.has_data
+        ]
 
-    def set_spatial_transforms(
-        self,
-        train_transforms: Optional[dict[str, Any]] = None,
-        val_transforms: Optional[dict[str, Any]] = None,
-    ) -> None:
-        """Sets the raw value transforms for each dataset in the training/validation multi-dataset."""
-        if train_transforms is not None:
-            for dataset in self.train_datasets:
-                dataset.spatial_transforms = train_transforms
-            if hasattr(self, "_train_datasets_combined"):
-                self._train_datasets_combined.set_spatial_transforms(train_transforms)
-        if val_transforms is not None:
-            for dataset in self.validation_datasets:
-                dataset.spatial_transforms = val_transforms
-            if hasattr(self, "_validation_datasets_combined"):
-                self._validation_datasets_combined.set_spatial_transforms(
-                    val_transforms
-                )
+        if not filtered_datasets:
+            raise ValueError(f"No valid datasets found for {name}")
 
-    def set_arrays(
-        self,
-        arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
-        type: str = "target",
-        usage: str = "validate",
-    ) -> None:
-        """Sets the input or target arrays for the training or validation datasets."""
-        reset_attrs = []
-        for dataset in self.datasets[usage]:
-            if type == "inputs":
-                dataset.input_arrays = arrays
-            elif type == "target":
-                dataset.target_arrays = arrays
-            else:
-                raise ValueError("Type must be 'inputs' or 'target'.")
-            dataset.reset_arrays(type)
+        if name == "train":
+            return self._dataset_factory.create_multidataset(
+                filtered_datasets,
+                spatial_transforms=self._config_manager.config["spatial_transforms"],
+                raw_value_transforms=self._config_manager.config[
+                    "train_raw_value_transforms"
+                ],
+                target_value_transforms=self._config_manager.config[
+                    "target_value_transforms"
+                ],
+                context=self._config_manager.config["context"],
+            )
+        elif name == "validate":
+            return self._dataset_factory.create_multidataset(
+                filtered_datasets,
+                spatial_transforms=self._config_manager.config["spatial_transforms"],
+                raw_value_transforms=self._config_manager.config[
+                    "val_raw_value_transforms"
+                ],
+                target_value_transforms=self._config_manager.config[
+                    "target_value_transforms"
+                ],
+                context=self._config_manager.config["context"],
+            )
+        else:
+            return self._dataset_factory.create_multidataset(
+                filtered_datasets,
+                spatial_transforms=self._config_manager.config["spatial_transforms"],
+                raw_value_transforms=self._config_manager.config[
+                    "val_raw_value_transforms"
+                ],
+                target_value_transforms=self._config_manager.config[
+                    "target_value_transforms"
+                ],
+                context=self._config_manager.config["context"],
+            )
 
-        if usage == "train":
-            self.train_datasets = self.datasets["train"]
-            reset_attrs.append("_train_datasets_combined")
-        elif usage == "validate":
-            self.validation_datasets = self.datasets["validate"]
-            reset_attrs.extend(["_validation_datasets_combined", "_validation_blocks"])
-        for attr in reset_attrs:
-            if hasattr(self, attr):
-                delattr(self, attr)
+    def get_dataloader(self, name: str, **kwargs) -> DataLoader:
+        """
+        Gets a dataloader for a dataset.
 
-    def to(self, device: str | torch.device, non_blocking: bool = True) -> None:
-        """Sets the device for the dataloaders."""
-        self.device = device
-        for dataset in self.train_datasets:
-            dataset.to(device, non_blocking=non_blocking)
-        for dataset in self.validation_datasets:
-            dataset.to(device, non_blocking=non_blocking)
-        if hasattr(self, "_train_datasets_combined"):
-            self._train_datasets_combined.to(device, non_blocking=non_blocking)
-        if hasattr(self, "_validation_datasets_combined"):
-            self._validation_datasets_combined.to(device, non_blocking=non_blocking)
-        if hasattr(self, "_validation_blocks"):
-            self._validation_blocks.to(device, non_blocking=non_blocking)
+        Args:
+            name (str): The name of the dataset.
+            **kwargs: Additional arguments for the DataLoader.
+
+        Returns:
+            A DataLoader for the dataset.
+        """
+        if name == "train":
+            dataset = self.train_dataset
+        elif name == "validate":
+            dataset = self.validate_dataset
+        else:
+            raise ValueError(f"Unknown dataset name: {name}")
+        return DataLoader(dataset, **kwargs)
+
+    def get_train_dataloader(self, **kwargs) -> DataLoader:
+        """
+        Gets the dataloader for the training dataset.
+
+        Returns:
+            A DataLoader for the training dataset.
+        """
+        return self.get_dataloader("train", **kwargs)
+
+    def get_validate_dataloader(self, **kwargs) -> DataLoader:
+        """
+        Gets the dataloader for the validation dataset.
+
+        Returns:
+            A DataLoader for the validation dataset.
+        """
+        return self.get_dataloader("validate", **kwargs)

@@ -24,26 +24,10 @@ def test_split_target_path_dataset():
     assert parts == ["bar", "baz"]
 
 
-@pytest.fixture
-def mock_dataset():
-    ds = MagicMock()
-    ds.classes = ["a", "b"]
-    ds.input_arrays = {"in": {}}
-    ds.target_arrays = {"out": {}}
-    ds.class_counts = {"totals": {"a": 10, "a_bg": 90, "b": 20, "b_bg": 80}}
-    ds.validation_indices = [0, 1]
-    ds.verify.return_value = True
-    ds.__len__.return_value = 5
-    ds.get_indices.return_value = [0, 1, 2]
-    ds.to.return_value = ds
-    return ds
-
-
-def test_has_data(mock_dataset):
+def test_has_data(mock_dataset, empty_cellmap_multidataset):
     mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
     assert mds.has_data is True
-    mds_empty = CellMapMultiDataset.empty()
-    assert mds_empty.has_data is False
+    assert empty_cellmap_multidataset.has_data is False
 
 
 def test_class_counts_and_weights(mock_dataset):
@@ -72,28 +56,18 @@ def test_validation_indices(mock_dataset):
     assert indices == [0, 1]
 
 
-def test_verify(mock_dataset):
+def test_verify(mock_dataset, empty_cellmap_multidataset, empty_cellmap_dataset):
     mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
     assert mds.verify() is True
-    mds_empty = CellMapMultiDataset.empty()
-    assert mds_empty.verify() is False
-    ds_empty = CellMapDataset(
-        raw_path="dummy_raw_path",
-        target_path="dummy_path",
-        classes=["a", "b"],
-        input_arrays={"in": {"shape": (1, 1, 1), "scale": (1.0, 1.0, 1.0)}},
-        target_arrays={"out": {"shape": (1, 1, 1), "scale": (1.0, 1.0, 1.0)}},
-    )
-    assert ds_empty.verify() is False
+    assert empty_cellmap_multidataset.verify() is False
+    assert empty_cellmap_dataset.verify() is False
 
 
-def test_empty():
-    mds = CellMapMultiDataset.empty()
-    assert isinstance(mds, CellMapMultiDataset)
-    assert mds.has_data is False
-    ds = CellMapDataset.empty()
-    assert isinstance(ds, CellMapDataset)
-    assert ds.has_data is False
+def test_empty(empty_cellmap_multidataset, empty_cellmap_dataset):
+    assert isinstance(empty_cellmap_multidataset, CellMapMultiDataset)
+    assert empty_cellmap_multidataset.has_data is False
+    assert isinstance(empty_cellmap_dataset, CellMapDataset)
+    assert empty_cellmap_dataset.has_data is False
 
 
 def test_repr(mock_dataset):
