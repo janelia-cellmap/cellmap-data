@@ -1,20 +1,31 @@
+"""
+Enhanced CellMapDataLoader with plugin system support.
+Extends the original dataloader with extensible plugin hooks.
+"""
+
 import functools
 import os
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Sampler
 import logging
-
 import multiprocessing as mp
 import sys
+from typing import Callable, Optional, Sequence, Dict, Any
 
 from .mutable_sampler import MutableSubsetRandomSampler
 from .subdataset import CellMapSubset
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .dataset_writer import CellMapDatasetWriter
-from .enhanced_dataloader import EnhancedCellMapDataLoader
-from typing import Callable, Optional, Sequence
+from .plugins import (
+    PluginManager,
+    PrefetchPlugin,
+    AugmentationPlugin,
+    DeviceTransferPlugin,
+    MemoryOptimizationPlugin,
+)
+from .device.device_manager import DeviceManager
 
 logger = logging.getLogger(__name__)
 
@@ -25,33 +36,21 @@ MIN_BATCH_MEMORY_FOR_STREAMS_MB = float(
 MAX_CONCURRENT_CUDA_STREAMS = int(os.environ.get("MAX_CONCURRENT_CUDA_STREAMS", 8))
 
 
-class CellMapDataLoader:
+class EnhancedCellMapDataLoader:
     """
-    Utility class to create a DataLoader for a CellMapDataset or CellMapMultiDataset.
+    Enhanced CellMapDataLoader with plugin system support.
 
-    This class now delegates to EnhancedCellMapDataLoader for improved functionality
-    while maintaining backward compatibility. The enhanced version includes:
-    - Plugin system for extensible data processing
-    - Device management and memory optimization
-    - Advanced prefetching capabilities
-    - Framework-aware optimizations
+    Provides extensible hooks for data processing pipeline stages:
+    - pre_batch: Before batch creation
+    - post_sample: After individual sample loading
+    - post_collate: After batch collation
+    - post_batch: After batch processing
 
-    Attributes:
-        dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): The dataset to load.
-        classes (Iterable[str]): The classes to load.
-        batch_size (int): The batch size.
-        num_workers (int): The number of workers to use.
-        weighted_sampler (bool): Whether to use a weighted sampler.
-        sampler (Sampler | Callable | None): The sampler to use.
-        is_train (bool): Whether the data is for training and thus should be shuffled.
-        rng (Optional[torch.Generator]): The random number generator to use.
-        loader (DataLoader): The PyTorch DataLoader.
-        default_kwargs (dict): The default arguments to pass to the PyTorch DataLoader.
-
-    Methods:
-        refresh: If the sampler is a Callable, refresh the DataLoader with the current sampler.
-        collate_fn: Combine a list of dictionaries from different sources into a single dictionary for output.
-
+    Built-in plugins:
+    - PrefetchPlugin: Asynchronous data prefetching
+    - AugmentationPlugin: Data augmentation pipeline
+    - DeviceTransferPlugin: Framework-aware device transfer
+    - MemoryOptimizationPlugin: Memory pooling and optimization
     """
 
     def __init__(
@@ -68,25 +67,40 @@ class CellMapDataLoader:
         rng: Optional[torch.Generator] = None,
         device: Optional[str | torch.device] = None,
         iterations_per_epoch: Optional[int] = None,
+        # Plugin system options
+        enable_plugins: bool = True,
+        enable_prefetch: bool = True,
+        enable_augmentation: bool = True,
+        enable_device_transfer: bool = True,
+        enable_memory_optimization: bool = True,
+        max_prefetch: int = 8,
+        transforms: Optional[list] = None,
         **kwargs,
     ):
         """
-        Initialize the CellMapDataLoader
+        Initialize Enhanced CellMapDataLoader with plugin system.
 
         Args:
-            dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): The dataset to load.
-            classes (Iterable[str]): The classes to load.
-            batch_size (int): The batch size.
-            num_workers (int): The number of workers to use.
-            weighted_sampler (bool): Whether to use a weighted sampler. Defaults to False.
-            sampler (Sampler | Callable | None): The sampler to use.
-            is_train (bool): Whether the data is for training and thus should be shuffled.
-            rng (Optional[torch.Generator]): The random number generator to use.
-            device (Optional[str | torch.device]): The device to use. Defaults to "cuda" or "mps" if available, else "cpu".
-            iterations_per_epoch (Optional[int]): Number of iterations per epoch, only necessary when a subset is used with a weighted sampler (i.e. if total samples in the dataset are > 2^24).
-            `**kwargs`: Additional arguments to pass to the DataLoader.
-
+            dataset: Dataset to load from
+            classes: Classes to load (defaults to dataset.classes)
+            batch_size: Batch size for loading
+            num_workers: Number of worker processes
+            weighted_sampler: Use weighted sampling
+            sampler: Custom sampler
+            is_train: Training mode (affects shuffling)
+            rng: Random number generator
+            device: Target device for tensors
+            iterations_per_epoch: Iterations per epoch for large datasets
+            enable_plugins: Enable the plugin system
+            enable_prefetch: Enable prefetching plugin
+            enable_augmentation: Enable augmentation plugin
+            enable_device_transfer: Enable device transfer plugin
+            enable_memory_optimization: Enable memory optimization plugin
+            max_prefetch: Maximum items to prefetch
+            transforms: List of augmentation transforms
+            **kwargs: Additional DataLoader arguments
         """
+        # Core attributes
         self.dataset = dataset
         self.classes = classes if classes is not None else dataset.classes
         self.batch_size = batch_size
@@ -95,10 +109,9 @@ class CellMapDataLoader:
         self.sampler = sampler
         self.is_train = is_train
         self.rng = rng
+        self.iterations_per_epoch = iterations_per_epoch
 
-        if len(dataset) == 0:
-            self.loader = None
-            return
+        # Device setup
         if device is None:
             if torch.cuda.is_available():
                 device = "cuda"
@@ -107,12 +120,27 @@ class CellMapDataLoader:
             else:
                 device = "cpu"
         self.device = device
-        self.iterations_per_epoch = iterations_per_epoch
 
-        # Initialize stream optimization settings
-        self._use_streams = None  # Determined once, cached
-        self._streams = None  # Created once, reused
-        self._stream_assignments = None  # Cached key assignments
+        # Initialize DeviceManager
+        self.device_manager = DeviceManager(device=device)
+
+        # Plugin system setup
+        self.plugin_manager = PluginManager() if enable_plugins else None
+        self._setup_plugins(
+            enable_prefetch=enable_prefetch,
+            enable_augmentation=enable_augmentation,
+            enable_device_transfer=enable_device_transfer,
+            enable_memory_optimization=enable_memory_optimization,
+            max_prefetch=max_prefetch,
+            transforms=transforms,
+        )
+
+        # Stream optimization settings
+        self._use_streams = None
+        self._streams = None
+        self._stream_assignments = None
+
+        # Multiprocessing setup
         if num_workers == 0:
             self.dataset.to(device, non_blocking=True)
             mp_kwargs = {}
@@ -132,12 +160,10 @@ class CellMapDataLoader:
                 "persistent_workers": True,
                 "pin_memory": True,
             }
+
+        # Sampler setup
         if self.sampler is None:
-            if len(self.dataset) == 0:
-                self.sampler = None
-                self.loader = None
-                return
-            elif iterations_per_epoch is not None or (
+            if iterations_per_epoch is not None or (
                 weighted_sampler and len(self.dataset) > 2**24
             ):
                 assert (
@@ -160,37 +186,93 @@ class CellMapDataLoader:
         self.default_kwargs.update(kwargs)
         self.refresh()
 
-    def __len__(self):
-        if self.loader is None:
-            return 0
-        return len(self.loader)
+    def _setup_plugins(
+        self,
+        enable_prefetch: bool,
+        enable_augmentation: bool,
+        enable_device_transfer: bool,
+        enable_memory_optimization: bool,
+        max_prefetch: int,
+        transforms: Optional[list],
+    ):
+        """Setup built-in plugins based on configuration."""
+        if self.plugin_manager is None:
+            return
 
-    def __getitem__(self, index):
-        if self.loader is None:
-            raise IndexError("DataLoader is empty")
-        # This is a simplified version; the actual implementation might be more complex
-        # and may not directly support indexing. This is a placeholder.
-        if isinstance(index, slice):
-            # Handle slicing if the underlying loader/sampler supports it
-            raise NotImplementedError("Slicing is not directly supported.")
+        if enable_prefetch:
+            prefetch_plugin = PrefetchPlugin(max_prefetch=max_prefetch)
+            self.plugin_manager.register_plugin(prefetch_plugin)
 
-        # The following is a conceptual example and might need adjustment
-        # based on how the loader is intended to be used with indexing.
-        # This is not a standard way to interact with a DataLoader.
-        batch = next(iter(self.loader))
-        return batch[index]
+        if enable_augmentation:
+            augmentation_plugin = AugmentationPlugin(transforms=transforms)
+            self.plugin_manager.register_plugin(augmentation_plugin)
+
+        if enable_device_transfer:
+            device_plugin = DeviceTransferPlugin(device_manager=self.device_manager)
+            self.plugin_manager.register_plugin(device_plugin)
+
+        if enable_memory_optimization:
+            memory_plugin = MemoryOptimizationPlugin(device_manager=self.device_manager)
+            self.plugin_manager.register_plugin(memory_plugin)
+
+    def add_plugin(self, plugin):
+        """Add a custom plugin to the loader."""
+        if self.plugin_manager is not None:
+            self.plugin_manager.register_plugin(plugin)
+
+    def remove_plugin(self, plugin_name: str):
+        """Remove a plugin by name."""
+        if self.plugin_manager is not None:
+            self.plugin_manager.unregister_plugin(plugin_name)
+
+    def get_plugin(self, plugin_name: str):
+        """Get a plugin by name."""
+        if self.plugin_manager is not None:
+            return self.plugin_manager.get_plugin(plugin_name)
+        return None
+
+    def __getitem__(self, indices: Sequence[int]) -> dict:
+        """Get an item from the DataLoader with plugin hooks."""
+        if isinstance(indices, int):
+            indices = [indices]
+
+        # Pre-batch hook
+        if self.plugin_manager:
+            self.plugin_manager.execute_hook("pre_batch", self.dataset, indices)
+
+        # Load samples with post_sample hooks
+        samples = []
+        for index in indices:
+            sample = self.loader.dataset[index]
+
+            # Post-sample hook (for augmentation)
+            if self.plugin_manager:
+                sample = self.plugin_manager.execute_hook("post_sample", sample)
+
+            samples.append(sample)
+
+        # Collate and apply post-collate hooks
+        batch = self.collate_fn(samples)
+
+        # Post-batch hook
+        if self.plugin_manager:
+            self.plugin_manager.execute_hook("post_batch")
+
+        return batch
 
     def to(self, device: str | torch.device, non_blocking: bool = True):
         """Move the dataset to the specified device."""
         self.dataset.to(device, non_blocking=non_blocking)
         self.device = device
+        self.device_manager.device = device
+
         # Reset stream optimization for new device
         self._use_streams = None
         self._streams = None
         self._stream_assignments = None
 
     def refresh(self):
-        """If the sampler is a Callable, refresh the DataLoader with the current sampler."""
+        """Refresh the DataLoader with current sampler."""
         if isinstance(self.sampler, MutableSubsetRandomSampler):
             self.sampler.refresh()
             if not hasattr(self, "loader"):
@@ -251,7 +333,6 @@ class CellMapDataLoader:
                     raise ValueError(
                         f"Input array info for {array_name} must include 'shape'"
                     )
-                # Input arrays: batch_size * elements_per_sample
                 total_elements += self.batch_size * np.prod(array_info["shape"])
 
             # Calculate target array elements
@@ -260,30 +341,26 @@ class CellMapDataLoader:
                     raise ValueError(
                         f"Target array info for {array_name} must include 'shape'"
                     )
-                # Target arrays: batch_size * elements_per_sample * num_classes
                 elements_per_sample = np.prod(array_info["shape"])
                 num_classes = len(self.classes) if self.classes else 1
                 total_elements += self.batch_size * elements_per_sample * num_classes
 
             # Convert to MB (assume float32 = 4 bytes per element)
-            bytes_total = total_elements * 4  # float32
-            mb_total = bytes_total / (1024 * 1024)  # Convert bytes to MB
+            bytes_total = total_elements * 4
+            mb_total = bytes_total / (1024 * 1024)
             return mb_total
 
         except (AttributeError, KeyError, TypeError) as e:
-            # Fallback: if we can't calculate, return 0 to disable memory-based decision
             logger.debug(f"Could not calculate batch memory size: {e}")
             return 0.0
 
     def _initialize_stream_optimization(self, sample_batch: dict) -> None:
         """Initialize stream optimization settings once based on dataset characteristics."""
         if self._use_streams is not None:
-            return  # Already initialized
+            return
 
-        # Calculate expected batch memory usage
         batch_memory_mb = self._calculate_batch_memory_mb()
 
-        # Determine if streams should be used based on static conditions
         self._use_streams = (
             str(self.device).startswith("cuda")
             and torch.cuda.is_available()
@@ -298,16 +375,13 @@ class CellMapDataLoader:
                 )
             return
 
-        # Get data keys from sample batch
         data_keys = [key for key in sample_batch if key != "__metadata__"]
         num_keys = len(data_keys)
 
-        # Create persistent streams with error handling
         max_streams = min(num_keys, MAX_CONCURRENT_CUDA_STREAMS)
         try:
             self._streams = [torch.cuda.Stream() for _ in range(max_streams)]
 
-            # Pre-compute stream assignments for efficiency
             self._stream_assignments = {}
             for i, key in enumerate(data_keys):
                 stream_idx = i % max_streams
@@ -327,7 +401,7 @@ class CellMapDataLoader:
             self._stream_assignments = None
 
     def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
-        """Combine a list of dictionaries from different sources into a single dictionary for output."""
+        """Combine a list of dictionaries with plugin hooks for optimization."""
         outputs = {}
         for b in batch:
             for key, value in b.items():
@@ -338,6 +412,7 @@ class CellMapDataLoader:
         # Initialize stream optimization on first batch
         self._initialize_stream_optimization(outputs)
 
+        # Standard collation
         if (
             self._use_streams
             and self._streams is not None
@@ -362,4 +437,14 @@ class CellMapDataLoader:
                 if key != "__metadata__":
                     outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
 
+        # Post-collate hook (for device transfer and memory optimization)
+        if self.plugin_manager:
+            outputs = self.plugin_manager.execute_hook(
+                "post_collate", outputs, device=self.device
+            )
+
         return outputs
+
+
+# Backward compatibility alias
+CellMapDataLoaderWithPlugins = EnhancedCellMapDataLoader

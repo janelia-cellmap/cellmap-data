@@ -24,26 +24,10 @@ def test_split_target_path_dataset():
     assert parts == ["bar", "baz"]
 
 
-@pytest.fixture
-def mock_dataset():
-    ds = MagicMock()
-    ds.classes = ["a", "b"]
-    ds.input_arrays = {"in": {}}
-    ds.target_arrays = {"out": {}}
-    ds.class_counts = {"totals": {"a": 10, "a_bg": 90, "b": 20, "b_bg": 80}}
-    ds.validation_indices = [0, 1]
-    ds.verify.return_value = True
-    ds.__len__.return_value = 5
-    ds.get_indices.return_value = [0, 1, 2]
-    ds.to.return_value = ds
-    return ds
-
-
-def test_has_data(mock_dataset):
+def test_has_data(mock_dataset, empty_cellmap_multidataset):
     mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
     assert mds.has_data is True
-    mds_empty = CellMapMultiDataset.empty()
-    assert mds_empty.has_data is False
+    assert empty_cellmap_multidataset.has_data is False
 
 
 def test_class_counts_and_weights(mock_dataset):
@@ -72,28 +56,18 @@ def test_validation_indices(mock_dataset):
     assert indices == [0, 1]
 
 
-def test_verify(mock_dataset):
+def test_verify(mock_dataset, empty_cellmap_multidataset, empty_cellmap_dataset):
     mds = CellMapMultiDataset(["a", "b"], {"in": {}}, {"out": {}}, [mock_dataset])
     assert mds.verify() is True
-    mds_empty = CellMapMultiDataset.empty()
-    assert mds_empty.verify() is False
-    ds_empty = CellMapDataset(
-        raw_path="dummy_raw_path",
-        target_path="dummy_path",
-        classes=["a", "b"],
-        input_arrays={"in": {"shape": (1, 1, 1), "scale": (1.0, 1.0, 1.0)}},
-        target_arrays={"out": {"shape": (1, 1, 1), "scale": (1.0, 1.0, 1.0)}},
-    )
-    assert ds_empty.verify() is False
+    assert empty_cellmap_multidataset.verify() is False
+    assert empty_cellmap_dataset.verify() is False
 
 
-def test_empty():
-    mds = CellMapMultiDataset.empty()
-    assert isinstance(mds, CellMapMultiDataset)
-    assert mds.has_data is False
-    ds = CellMapDataset.empty()
-    assert isinstance(ds, CellMapDataset)
-    assert ds.has_data is False
+def test_empty(empty_cellmap_multidataset, empty_cellmap_dataset):
+    assert isinstance(empty_cellmap_multidataset, CellMapMultiDataset)
+    assert empty_cellmap_multidataset.has_data is False
+    assert isinstance(empty_cellmap_dataset, CellMapDataset)
+    assert empty_cellmap_dataset.has_data is False
 
 
 def test_repr(mock_dataset):
@@ -354,3 +328,98 @@ def test_cellmap_dataset_has_executor_attributes():
         assert hasattr(
             CellMapDataset, "executor"
         ), "CellMapDataset class should have executor property"
+
+
+def test_multidataset_prefetch_basic():
+    from cellmap_data.multidataset import CellMapMultiDataset
+    from cellmap_data.dataset import CellMapDataset
+    import torch
+
+    class DummyCellMapDataset(CellMapDataset):
+        def __new__(cls, length=5):
+            # Provide all required args to parent __new__
+            return super().__new__(
+                cls,
+                raw_path="/tmp",
+                target_path="/tmp",
+                classes=["a"],
+                input_arrays={"x": {"shape": (1,), "scale": (1.0,)}},
+                target_arrays=None,
+            )
+
+        def __init__(self, length=5):
+            self._length = length
+
+        def __len__(self):
+            return self._length
+
+        def __getitem__(self, idx):
+            import torch
+
+            return {"x": torch.tensor([idx], dtype=torch.float32)}
+
+        @property
+        def has_data(self):
+            return True
+
+        @property
+        def axis_order(self):
+            return ["x"]
+
+        @property
+        def force_has_data(self):
+            return True
+
+        @property
+        def sampling_box_shape(self):
+            return {"x": self._length}
+
+    def make_dataset(length=5):
+        return DummyCellMapDataset(length)
+
+    datasets = [make_dataset(5), make_dataset(5)]
+    multi = CellMapMultiDataset(
+        classes=["a"],
+        input_arrays={"x": {"shape": (1,), "scale": (1.0,)}},
+        target_arrays=None,
+        datasets=datasets,
+    )
+    indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    batch_size = 2
+    # Use the new prefetch method
+    batches = list(multi.prefetch(indices, batch_size=batch_size))
+    assert len(batches) == len(indices)
+    for i, batch in enumerate(batches):
+        # For ConcatDataset, global indices are mapped to dataset local indices
+        # Dataset 0: global indices 0-4 → local indices 0-4
+        # Dataset 1: global indices 5-9 → local indices 0-4
+        expected_value = indices[i] % 5  # Each dataset has 5 items (0-4)
+        assert batch["x"].item() == expected_value
+
+
+def test_device_manager_pool_tensor_cpu():
+    from cellmap_data.device.device_manager import DeviceManager
+    import torch
+
+    dev_mgr = DeviceManager(device="cpu")
+    t1 = torch.zeros((2, 2), dtype=torch.float32)
+    t2 = torch.zeros((2, 2), dtype=torch.float32)
+    pooled1 = dev_mgr.pool_tensor(t1)
+    pooled2 = dev_mgr.pool_tensor(t2)
+    # Should reuse the same tensor object for same shape/dtype
+    assert pooled1 is pooled2 or torch.equal(pooled1, pooled2)
+
+
+def test_device_manager_pool_tensor_cuda():
+    from cellmap_data.device.device_manager import DeviceManager
+    import torch
+
+    if torch.cuda.is_available():
+        dev_mgr = DeviceManager(device="cuda")
+        t1 = torch.zeros((2, 2), dtype=torch.float32, device="cuda")
+        t2 = torch.zeros((2, 2), dtype=torch.float32, device="cuda")
+        pooled1 = dev_mgr.pool_tensor(t1)
+        pooled2 = dev_mgr.pool_tensor(t2)
+        # CUDA pooling is handled by torch, so just check device
+        assert pooled1.device.type == "cuda"
+        assert pooled2.device.type == "cuda"

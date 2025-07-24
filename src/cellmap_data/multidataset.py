@@ -9,6 +9,8 @@ import logging
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils.sampling import min_redundant_inds
 from .dataset import CellMapDataset
+from .device.device_manager import DeviceManager
+from .validation import validate_multidataset
 
 logger = logging.getLogger(__name__)
 
@@ -202,36 +204,46 @@ class CellMapMultiDataset(ConcatDataset):
     def verify(self) -> bool:
         """
         Verifies that all datasets in the multi-dataset have the same classes and input/target array keys.
+        Uses centralized validation logic for maintainability and extensibility.
         """
-        if len(self.datasets) == 0:
-            return False
-
-        n_verified_datasets = 0
-        for dataset in self.datasets:
-            n_verified_datasets += int(dataset.verify())
-            try:
-                assert (
-                    dataset.classes == self.classes
-                ), "All datasets must have the same classes."
-                assert set(dataset.input_arrays.keys()) == set(
-                    self.input_arrays.keys()
-                ), "All datasets must have the same input arrays."
-                if self.target_arrays is not None:
-                    assert set(dataset.target_arrays.keys()) == set(
-                        self.target_arrays.keys()
-                    ), "All datasets must have the same target arrays."
-            except AssertionError as e:
-                logger.error(
-                    f"Dataset {dataset} does not match the expected structure: {e}"
-                )
-                return False
-        return n_verified_datasets > 0
+        return validate_multidataset(self)
 
     def to(
         self, device: str | torch.device, non_blocking: bool = True
     ) -> "CellMapMultiDataset":
+        """
+        Move all datasets and their tensor attributes to the specified device efficiently.
+        Uses DeviceManager for robust device transfer and framework awareness.
+        Optimized for batch operations and memory efficiency.
+        Includes hooks for future memory pooling and CUDA stream management.
+        """
+        dev_mgr = DeviceManager(device)
         for dataset in self.datasets:
-            dataset.to(device, non_blocking=non_blocking)
+            # Use dataset's own to() if available
+            if hasattr(dataset, "to"):
+                dataset.to(device, non_blocking=non_blocking)
+            # Move all tensor attributes in a single pass
+            tensor_attrs = [
+                attr
+                for attr in dir(dataset)
+                if not attr.startswith("_")
+                and attr not in ("to", "__class__", "__dict__")
+            ]
+            tensors_to_move = [
+                (attr, getattr(dataset, attr))
+                for attr in tensor_attrs
+                if isinstance(getattr(dataset, attr), torch.Tensor)
+                and getattr(dataset, attr).device != dev_mgr.device
+            ]
+            # Batch move tensors if possible, with future pooling support
+            for attr, val in tensors_to_move:
+                pooled = dev_mgr.pool_tensor(val)
+                setattr(
+                    dataset,
+                    attr,
+                    dev_mgr.to_device(pooled, device, non_blocking=non_blocking),
+                )
+        # TODO: Add CUDA stream management hooks here for future optimization
         return self
 
     def get_weighted_sampler(
@@ -419,3 +431,18 @@ class CellMapMultiDataset(ConcatDataset):
         empty_dataset._validation_indices = []
 
         return empty_dataset
+
+    def prefetch(self, indices, batch_size=8):
+        """
+        Asynchronously prefetch batches of data using Prefetcher.
+        Returns a generator yielding prefetched batches.
+        """
+        from .prefetch import Prefetcher
+
+        prefetcher = Prefetcher(self.__getitem__, max_prefetch=batch_size * 2)
+        prefetcher.start(indices)
+        try:
+            for _ in range(len(indices)):
+                yield prefetcher.get()
+        finally:
+            prefetcher.stop()

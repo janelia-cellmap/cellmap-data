@@ -1,0 +1,6 @@
+{
+    "raw_path": "raw.zarr",
+    "target_path": "target.zarr",
+    "classes": ["class1"],
+    "input_arrays": {"s0": {"shape": [1, 64, 64, 64], "scale": [1, 1, 1, 1]}}
+}

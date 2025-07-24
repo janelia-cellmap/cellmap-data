@@ -33,6 +33,7 @@ dependencies = [
     "tensorstore",
     # "xarray=2024.10.0",
     "xarray-tensorstore>=0.1.5",
+    "pydantic>=2.0.0",
     "universal_pathlib>=0.2.0",
     "fsspec[s3,http]",
     "cellpose",
@@ -75,8 +76,9 @@ homepage = "https://github.com/janelia-cellmap/cellmap-data"
 repository = "https://github.com/janelia-cellmap/cellmap-data"
 
 # same as console_scripts entry point
-# [project.scripts]
-# spam-cli = "spam:main_cli"
+[project.scripts]
+cellmap-data = "cellmap_data.cli:main"
+
 
 # Entry points
 # https://peps.python.org/pep-0621/#entry-points
