@@ -1,5 +1,6 @@
 import csv
 import os
+import warnings
 from typing import Any, Callable, Mapping, Optional, Sequence
 import tensorstore
 import torch
@@ -118,6 +119,7 @@ class CellMapDataSplit:
         target_value_transforms: Optional[T.Transform] = T.Compose(
             [T.ToDtype(torch.float), Binarize()]
         ),
+        class_relationships: Optional[Mapping[str, Sequence[str]]] = None,
         class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
         force_has_data: bool = False,
         context: Optional[tensorstore.Context] = None,  # type: ignore
@@ -168,13 +170,14 @@ class CellMapDataSplit:
             train_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in training datasets. Defaults to None. Example is to add gaussian noise to the raw data.
             val_raw_value_transforms (Optional[Callable]): A function to apply to the raw data in validation datasets. Defaults to None. Example is to normalize the raw data.
             target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]]): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order.
-            class_relation_dict (Optional[Mapping[str, Sequence[str]]]): A dictionary containing the class relations. The dictionary should have the following structure::
+            class_relationships (Optional[Mapping[str, Sequence[str]]]): A dictionary containing the class relations. The dictionary should have the following structure::
 
                 {
                     "class_name": [mutually_exclusive_class_name, ...],
                     ...
                 }
 
+            class_relation_dict (Optional[Mapping[str, Sequence[str]]]): **DEPRECATED**. Use `class_relationships` instead. Will be removed in a future version.
             force_has_data (bool): Whether to force the datasets to have data even if no ground truth data is found. Defaults to False. Useful for training with only raw data.
             context (Optional[tensorstore.Context]): The TensorStore context for the image data. Defaults to None.
             device (Optional[str | torch.device]): Device to use for the dataloaders. Defaults to None.
@@ -214,7 +217,26 @@ class CellMapDataSplit:
         self.train_raw_value_transforms = train_raw_value_transforms
         self.val_raw_value_transforms = val_raw_value_transforms
         self.target_value_transforms = target_value_transforms
-        self.class_relation_dict = class_relation_dict
+
+        # Handle deprecated class_relation_dict parameter
+        if class_relation_dict is not None:
+            if class_relationships is not None:
+                raise ValueError(
+                    "Cannot specify both 'class_relationships' and deprecated 'class_relation_dict'. "
+                    "Please use 'class_relationships' only. 'class_relation_dict' will be removed in a future version."
+                )
+            warnings.warn(
+                "Parameter 'class_relation_dict' is deprecated and will be removed in a future version. "
+                "Please use 'class_relationships' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            class_relationships = class_relation_dict
+
+        self.class_relationships = class_relationships
+        self.class_relation_dict = (
+            class_relationships  # Keep old name for backward compatibility
+        )
         self.context = context
         if self.dataset_dict is not None:
             self.construct(self.dataset_dict)
@@ -330,7 +352,7 @@ class CellMapDataSplit:
                         context=self.context,
                         force_has_data=self.force_has_data,
                         empty_value=self.empty_value,
-                        class_relation_dict=self.class_relation_dict,
+                        class_relationships=self.class_relationships,
                         pad=self.pad_training,
                         device=self.device,
                     )
@@ -360,7 +382,7 @@ class CellMapDataSplit:
                             context=self.context,
                             force_has_data=self.force_has_data,
                             empty_value=self.empty_value,
-                            class_relation_dict=self.class_relation_dict,
+                            class_relationships=self.class_relationships,
                             pad=self.pad_validation,
                             device=self.device,
                         )

@@ -25,13 +25,15 @@ class CellMapDatasetWriter(Dataset):
 
     def __init__(
         self,
-        raw_path: str,  # TODO: Switch "raw_path" to "input_path"
-        target_path: str,
-        classes: Sequence[str],
-        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
-        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
-        target_bounds: Mapping[str, Mapping[str, list[float]]],
+        input_path: str | None = None,
+        target_path: str | None = None,
+        classes: Sequence[str] | None = None,
+        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]] | None = None,
+        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]] | None = None,
+        target_bounds: Mapping[str, Mapping[str, list[float]]] | None = None,
         raw_value_transforms: Optional[Callable] = None,
+        # Deprecated parameters - use input_path instead
+        raw_path: str | None = None,
         axis_order: str = "zyx",
         context: Optional[tensorstore.Context] = None,  # type: ignore
         rng: Optional[torch.Generator] = None,
@@ -42,35 +44,56 @@ class CellMapDatasetWriter(Dataset):
         """Initializes the CellMapDatasetWriter.
 
         Args:
-
-            raw_path (str): The full path to the raw data zarr, excluding the mulstiscale level.
-            target_path (str): The full path to the ground truth data zarr, excluding the mulstiscale level and the class name.
+            input_path (str): The full path to the input/raw data zarr, excluding the multiscale level.
+            target_path (str): The full path to the ground truth data zarr, excluding the multiscale level and the class name.
             classes (Sequence[str]): The classes in the dataset.
-            input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): The input arrays to return for processing. The dictionary should have the following structure::
-
-                {
-                    "array_name": {
-                        "shape": tuple[int],
-                        "scale": Sequence[float],
-
-                        and optionally:
-                        "scale_level": int,
-                    },
-                    ...
-                }
-
-            where 'array_name' is the name of the array, 'shape' is the shape of the array in voxels, and 'scale' is the scale of the array in world units. The 'scale_level' is the multiscale level to use for the array, otherwise set to 0 if not supplied.
-            target_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): The target arrays to write to disk, with format matching that for input_arrays.
-            target_bounds (Mapping[str, Mapping[str, list[float]]]): The bounding boxes for each target array, in world units. Example: {"array_1": {"x": [12.0, 102.0], "y": [12.0, 102.0], "z": [12.0, 102.0]}}.
+            input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): The input arrays to return for processing.
+            target_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): The target arrays to write to disk.
+            target_bounds (Mapping[str, Mapping[str, list[float]]]): The bounding boxes for each target array, in world units.
             raw_value_transforms (Optional[Callable]): The value transforms to apply to the raw data.
             axis_order (str): The order of the axes in the data.
             context (Optional[tensorstore.Context]): The context to use for the tensorstore.
             rng (Optional[torch.Generator]): The random number generator to use.
             empty_value (float | int): The value to use for empty data in an array.
             overwrite (bool): Whether to overwrite existing data.
-            device (Optional[str | torch.device]): The device to use for the dataset. If None, will default to "cuda" if available, then "mps", otherwise "cpu".
+            device (Optional[str | torch.device]): The device to use for the dataset.
+            raw_path (str, deprecated): Use input_path instead. Deprecated parameter for backward compatibility.
         """
-        self.raw_path = raw_path
+
+        # Handle parameter migration: raw_path -> input_path
+        if raw_path is not None and input_path is not None:
+            raise ValueError(
+                "Cannot specify both 'raw_path' and 'input_path'. "
+                "Use 'input_path' (raw_path is deprecated)."
+            )
+        elif raw_path is not None:
+            import warnings
+
+            warnings.warn(
+                "Parameter 'raw_path' is deprecated and will be removed in a future version. "
+                "Use 'input_path' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            input_path = raw_path
+        elif input_path is None:
+            raise ValueError("Must specify 'input_path' parameter.")
+
+        # Validate required parameters
+        if target_path is None:
+            raise ValueError("Must specify 'target_path' parameter.")
+        if classes is None:
+            raise ValueError("Must specify 'classes' parameter.")
+        if input_arrays is None:
+            raise ValueError("Must specify 'input_arrays' parameter.")
+        if target_arrays is None:
+            raise ValueError("Must specify 'target_arrays' parameter.")
+        if target_bounds is None:
+            raise ValueError("Must specify 'target_bounds' parameter.")
+
+        # Store validated parameters
+        self.raw_path = input_path  # Keep internal name for compatibility
+        self.input_path = input_path
         self.target_path = target_path
         self.classes = classes
         self.input_arrays = input_arrays
@@ -87,7 +110,7 @@ class CellMapDatasetWriter(Dataset):
         self.input_sources: dict[str, CellMapImage] = {}
         for array_name, array_info in self.input_arrays.items():
             self.input_sources[array_name] = CellMapImage(
-                self.raw_path,
+                self.input_path,
                 "raw",
                 array_info["scale"],
                 array_info["shape"],  # type: ignore
@@ -104,7 +127,7 @@ class CellMapDatasetWriter(Dataset):
             )
         if device is not None:
             self._device = device
-        self.to(device, non_blocking=True)
+            self.to(device, non_blocking=True)
 
     @property
     def center(self) -> Mapping[str, float] | None:
@@ -286,7 +309,10 @@ class CellMapDatasetWriter(Dataset):
     def device(self) -> torch.device:
         """Returns the device for the dataset."""
         try:
-            return self._device
+            device = self._device
+            if isinstance(device, str):
+                return torch.device(device)
+            return device
         except AttributeError:
             if torch.cuda.is_available():
                 self._device = torch.device("cuda")
@@ -425,7 +451,18 @@ class CellMapDatasetWriter(Dataset):
                 }
         """
         self._current_idx = idx
-        self._current_center = self.get_center(self._current_idx)
+        # Handle different idx types - get_center expects int
+        if isinstance(idx, (torch.Tensor, np.ndarray)):
+            idx_int = int(idx.item())
+        elif isinstance(idx, (list, tuple, Sequence)):
+            idx_int = int(idx[0])  # Take first element if sequence
+        elif isinstance(idx, int):
+            idx_int = idx
+        else:
+            # Fallback for other types that can be converted to int
+            idx_int = int(idx)
+
+        self._current_center = self.get_center(idx_int)
         for array_name, array in arrays.items():
             if isinstance(array, int) or isinstance(array, float):
                 for c, label in enumerate(self.classes):
@@ -445,7 +482,7 @@ class CellMapDatasetWriter(Dataset):
 
     def __repr__(self) -> str:
         """Returns a string representation of the dataset."""
-        return f"CellMapDatasetWriter(\n\tRaw path: {self.raw_path}\n\tOutput path(s): {self.target_path}\n\tClasses: {self.classes})"
+        return f"CellMapDatasetWriter(\n\tInput path: {self.input_path}\n\tOutput path(s): {self.target_path}\n\tClasses: {self.classes})"
 
     def get_target_array_writer(
         self, array_name: str, array_info: Mapping[str, Sequence[int | float]]
@@ -561,16 +598,21 @@ class CellMapDatasetWriter(Dataset):
         if device is None:
             device = self.device
         self._device = torch.device(device)
-        for source in self.input_sources.values():
-            if isinstance(source, dict):
-                for source in source.values():
+        # Only proceed if device is specified
+        if device is not None:
+            # Convert device to appropriate type for tensor.to()
+            device_param = device if isinstance(device, str) else str(device)
+
+            for source in self.input_sources.values():
+                if isinstance(source, dict):
+                    for source in source.values():
+                        if not hasattr(source, "to"):
+                            continue
+                        source.to(device_param, non_blocking=non_blocking)
+                else:
                     if not hasattr(source, "to"):
                         continue
-                    source.to(device, non_blocking=non_blocking)
-            else:
-                if not hasattr(source, "to"):
-                    continue
-                source.to(device, non_blocking=non_blocking)
+                    source.to(device_param, non_blocking=non_blocking)
         return self
 
     def set_raw_value_transforms(self, transforms: Callable) -> None:

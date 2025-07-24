@@ -28,17 +28,17 @@ class CellMapDataset(Dataset):
 
     def __init__(
         self,
-        raw_path: str,  # TODO: Switch "raw_path" to "input_path"
-        target_path: str,
-        classes: Sequence[str] | None,
-        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
+        input_path: str | None = None,
+        target_path: str | None = None,
+        classes: Sequence[str] | None = None,
+        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]] | None = None,
         target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]] | None = None,
         spatial_transforms: Optional[Mapping[str, Mapping]] = None,  # type: ignore
         raw_value_transforms: Optional[Callable] = None,
         target_value_transforms: Optional[
             Callable | Sequence[Callable] | Mapping[str, Callable]
         ] = None,
-        class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
+        class_relationships: Optional[Mapping[str, Sequence[str]]] = None,
         is_train: bool = False,
         axis_order: str = "zyx",
         context: Optional[tensorstore.Context] = None,  # type: ignore
@@ -48,11 +48,14 @@ class CellMapDataset(Dataset):
         pad: bool = True,
         device: Optional[str | torch.device] = None,
         max_workers: Optional[int] = None,
+        # Deprecated parameters - for backward compatibility
+        raw_path: str | None = None,
+        class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
     ) -> None:
         """Initializes the CellMapDataset class.
 
         Args:
-            raw_path (str): The path to the raw data.
+            input_path (str): The path to the input data. Replaces the deprecated 'raw_path' parameter.
             target_path (str): The path to the ground truth data.
             classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with zeros.
             input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::
@@ -81,10 +84,55 @@ class CellMapDataset(Dataset):
             empty_value (float | int, optional): The value to fill in for empty data. Defaults to torch.nan.
             pad (bool, optional): Whether to pad the image data to match requested arrays. Defaults to False.
             device (Optional[str | torch.device], optional): The device for the dataset. Defaults to None. If None, the device will be set to "cuda" if available, "mps" if available, or "cpu" if neither are available.
+            raw_path (str, deprecated): Deprecated parameter name. Use 'input_path' instead. Will be removed in a future version.
 
         """
         super().__init__()
-        self.raw_path = raw_path
+
+        # Handle parameter migration with deprecation warning
+        import warnings
+
+        if raw_path is not None:
+            if input_path is not None:
+                raise ValueError(
+                    "Cannot specify both 'input_path' and deprecated 'raw_path'. "
+                    "Please use 'input_path' only. 'raw_path' will be removed in a future version."
+                )
+            warnings.warn(
+                "Parameter 'raw_path' is deprecated and will be removed in a future version. "
+                "Please use 'input_path' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            input_path = raw_path
+
+        if class_relation_dict is not None:
+            if class_relationships is not None:
+                raise ValueError(
+                    "Cannot specify both 'class_relationships' and deprecated 'class_relation_dict'. "
+                    "Please use 'class_relationships' only. 'class_relation_dict' will be removed in a future version."
+                )
+            warnings.warn(
+                "Parameter 'class_relation_dict' is deprecated and will be removed in a future version. "
+                "Please use 'class_relationships' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            class_relationships = class_relation_dict
+
+        # Validate required parameters
+        if input_path is None:
+            raise ValueError("'input_path' parameter is required")
+        if target_path is None:
+            raise ValueError("'target_path' parameter is required")
+        if input_arrays is None:
+            raise ValueError("'input_arrays' parameter is required")
+
+        # Set the normalized parameter names
+        self.raw_path = (
+            input_path  # Keep raw_path for backward compatibility in attributes
+        )
+        self.input_path = input_path
         self.target_path = target_path
         self.target_path_str, self.classes_with_path = split_target_path(target_path)
         self.classes = classes if classes is not None else []
@@ -94,7 +142,10 @@ class CellMapDataset(Dataset):
         self.spatial_transforms = spatial_transforms
         self.raw_value_transforms = raw_value_transforms
         self.target_value_transforms = target_value_transforms
-        self.class_relation_dict = class_relation_dict
+        self.class_relationships = class_relationships
+        self.class_relation_dict = (
+            class_relationships  # Keep old name for backward compatibility
+        )
         self.is_train = is_train
         self.axis_order = axis_order
         self.context = context
@@ -172,10 +223,10 @@ class CellMapDataset(Dataset):
 
     def __new__(
         cls,
-        raw_path: str,  # TODO: Switch "raw_path" to "input_path"
-        target_path: str,
-        classes: Sequence[str] | None,
-        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
+        input_path: str | None = None,
+        target_path: str | None = None,
+        classes: Sequence[str] | None = None,
+        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]] | None = None,
         target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]] | None = None,
         spatial_transforms: Optional[Mapping[str, Mapping]] = None,  # type: ignore
         raw_value_transforms: Optional[Callable] = None,
@@ -191,7 +242,35 @@ class CellMapDataset(Dataset):
         empty_value: float | int = torch.nan,
         pad: bool = True,
         device: Optional[str | torch.device] = None,
+        max_workers: Optional[int] = None,
+        # Deprecated parameters - for backward compatibility
+        raw_path: str | None = None,
     ):
+        # Handle parameter migration with deprecation warning
+        import warnings
+
+        if raw_path is not None:
+            if input_path is not None:
+                raise ValueError(
+                    "Cannot specify both 'input_path' and deprecated 'raw_path'. "
+                    "Please use 'input_path' only. 'raw_path' will be removed in a future version."
+                )
+            warnings.warn(
+                "Parameter 'raw_path' is deprecated and will be removed in a future version. "
+                "Please use 'input_path' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            input_path = raw_path
+
+        # Validate required parameters
+        if input_path is None:
+            raise ValueError("'input_path' parameter is required")
+        if target_path is None:
+            raise ValueError("'target_path' parameter is required")
+        if input_arrays is None:
+            raise ValueError("'input_arrays' parameter is required")
+
         # Need to determine if 2D arrays are requested without slicing axis specified
         # If so, turn into a multidataset with 3 datasets each 2D arrays sliced along one axis
         if is_array_2D(input_arrays) or is_array_2D(target_arrays):
@@ -225,11 +304,11 @@ class CellMapDataset(Dataset):
                 logger.debug(f"Target arrays for axis {axis}: {target_arrays_2d}")
                 datasets.append(
                     CellMapDataset(
-                        raw_path,
-                        target_path,
-                        classes,
-                        input_arrays_2d,
-                        target_arrays_2d,
+                        input_path=input_path,
+                        target_path=target_path,
+                        classes=classes,
+                        input_arrays=input_arrays_2d,
+                        target_arrays=target_arrays_2d,
                         spatial_transforms=spatial_transforms,
                         raw_value_transforms=raw_value_transforms,
                         target_value_transforms=target_value_transforms,
@@ -242,6 +321,7 @@ class CellMapDataset(Dataset):
                         empty_value=empty_value,
                         pad=pad,
                         device=device,
+                        max_workers=max_workers,
                     )
                 )
             return CellMapMultiDataset(
