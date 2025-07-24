@@ -9,6 +9,7 @@ import torch
 from torch.utils.data import Dataset
 import tensorstore
 
+from .exceptions import CoordinateTransformError, IndexError as CellMapIndexError
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils import min_redundant_inds, split_target_path, is_array_2D, get_sliced_shape
 from .image import CellMapImage
@@ -16,7 +17,6 @@ from .empty_image import EmptyImage
 import logging
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 # %%
@@ -494,29 +494,114 @@ class CellMapDataset(Dataset):
         try:
             return self._len
         except AttributeError:
-            size = np.prod([self.sampling_box_shape[c] for c in self.axis_order])
+            # Validate sampling box shape before calculating length
+            shape_values = [self.sampling_box_shape[c] for c in self.axis_order]
+
+            # Check for invalid shapes that would cause issues
+            for i, (axis, size) in enumerate(zip(self.axis_order, shape_values)):
+                if size <= 0:
+                    logger.warning(
+                        f"Sampling box has invalid size {size} for axis {axis}. "
+                        f"This indicates the dataset cannot be properly sampled. "
+                        f"Check your bounding box configuration and array sizes."
+                    )
+                    self._len = 0
+                    return self._len
+
+            size = np.prod(shape_values)
             self._len = int(size)
+            logger.debug(
+                f"Dataset length calculated as {self._len} from shape {dict(zip(self.axis_order, shape_values))}"
+            )
             return self._len
+
+    def _validate_index_bounds(self, idx: int) -> None:
+        """
+        Validate that an index is within bounds for coordinate transformation.
+
+        Args:
+            idx: Index to validate
+
+        Raises:
+            CellMapIndexError: If index is out of bounds
+        """
+        dataset_length = len(self)
+        if dataset_length == 0:
+            raise CellMapIndexError(
+                f"Cannot access index {idx}: dataset is empty (length=0). "
+                f"Check your data paths and configuration."
+            )
+
+        if idx < 0:
+            raise CellMapIndexError(
+                f"Index {idx} is negative. Only non-negative indices are supported."
+            )
+
+        if idx >= dataset_length:
+            shape_info = {c: self.sampling_box_shape[c] for c in self.axis_order}
+            raise CellMapIndexError(
+                f"Index {idx} is out of bounds for dataset of length {dataset_length}. "
+                f"Sampling box shape: {shape_info}. "
+                f"Valid indices are 0 to {dataset_length - 1}."
+            )
+
+    def _safe_unravel_index(self, idx: int) -> dict[str, float]:
+        """
+        Safely convert a flat index to coordinate center with proper bounds checking.
+
+        Args:
+            idx: Flat index to convert
+
+        Returns:
+            Dictionary mapping axis names to coordinate centers
+
+        Raises:
+            CellMapIndexError: If index is invalid
+            CoordinateTransformError: If coordinate transformation fails
+        """
+        # Validate bounds first
+        self._validate_index_bounds(idx)
+
+        try:
+            # Get shape array for np.unravel_index
+            shape_array = [self.sampling_box_shape[c] for c in self.axis_order]
+
+            # Perform the unravel operation
+            center_indices = np.unravel_index(idx, shape_array)
+
+            # Convert to world coordinates
+            center = {
+                c: float(
+                    center_indices[i] * self.largest_voxel_sizes[c]
+                    + self.sampling_box[c][0]
+                )
+                for i, c in enumerate(self.axis_order)
+            }
+
+            logger.debug(f"Converted index {idx} to center coordinates: {center}")
+            return center
+
+        except ValueError as e:
+            # This should not happen if bounds checking is correct, but provide detailed error
+            shape_info = {c: self.sampling_box_shape[c] for c in self.axis_order}
+            raise CoordinateTransformError(
+                f"Failed to convert index {idx} to coordinates. "
+                f"Sampling box shape: {shape_info}, dataset length: {len(self)}. "
+                f"Original error: {e}"
+            ) from e
+        except Exception as e:
+            raise CoordinateTransformError(
+                f"Unexpected error in coordinate transformation for index {idx}: {e}"
+            ) from e
 
     def __getitem__(self, idx: ArrayLike) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
         idx = np.array(idx)
         idx[idx < 0] = len(self) + idx[idx < 0]
-        try:
-            center = np.unravel_index(
-                idx, [self.sampling_box_shape[c] for c in self.axis_order]
-            )
-        except ValueError:
-            # TODO: This is a hacky temprorary fix. Need to figure out why this is happening
-            logger.error(
-                f"Index {idx} out of bounds for dataset {self} of length {len(self)}"
-            )
-            logger.warning(f"Returning closest index in bounds")
-            center = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
-        center = {
-            c: center[i] * self.largest_voxel_sizes[c] + self.sampling_box[c][0]
-            for i, c in enumerate(self.axis_order)
-        }
+
+        # Use the safe coordinate transformation method
+        center = self._safe_unravel_index(int(idx))
+
         self._current_idx = idx
         self._current_center = center
         spatial_transforms = self.generate_spatial_transforms()

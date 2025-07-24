@@ -27,3 +27,11 @@ from .subdataset import CellMapSubset
 from .mutable_sampler import MutableSubsetRandomSampler
 from . import transforms
 from . import utils
+from .exceptions import (
+    CellMapDataError,
+    DataLoadingError,
+    ValidationError,
+    ConfigurationError,
+    IndexError,
+    CoordinateTransformError,
+)

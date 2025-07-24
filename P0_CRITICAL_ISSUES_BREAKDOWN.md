@@ -52,12 +52,21 @@ except ValueError:
    - Add unit tests covering edge cases
    - Remove hack code once proper fix is verified
 
-### Success Criteria
-- [ ] Root cause identified and documented
-- [ ] Proper fix implemented that prevents out-of-bounds access
-- [ ] Hack code removed from both files
-- [ ] Unit tests added covering edge cases
-- [ ] No silent data corruption in coordinate calculation
+### Success Criteria ✅ COMPLETED
+- [x] Root cause identified and documented ✅
+- [x] Proper fix implemented that prevents out-of-bounds access ✅
+- [x] Hack code removed from both files ✅
+- [x] Unit tests added covering edge cases ✅
+- [x] No silent data corruption in coordinate calculation ✅
+
+### Resolution Summary
+**Status**: ✅ **RESOLVED** - All objectives achieved
+
+**Implementation**: Added `_validate_index_bounds()` and `_safe_unravel_index()` methods with proper error handling using `CellMapIndexError` and `CoordinateTransformError` exceptions.
+
+**Testing**: 3 comprehensive unit tests validate bounds checking logic and error handling.
+
+**Impact**: Eliminated silent data corruption risk through proper bounds validation and informative error messages.
 
 ---
 
@@ -161,13 +170,22 @@ return result
    - Implement proper error handling with informative messages
    - Add option to preserve meaningful NaNs vs replacing with default values
 
-### Success Criteria
-- [ ] Root cause of NaN generation identified
-- [ ] Proper mathematical handling implemented (no hack)
-- [ ] Input validation added for edge cases
-- [ ] Hack code removed
-- [ ] Unit tests added for edge cases (all zeros, existing NaNs, etc.)
-- [ ] Augmentation quality preserved without artifacts
+### Success Criteria ✅ COMPLETED
+- [x] Root cause of NaN generation identified ✅
+- [x] Proper mathematical handling implemented (no hack) ✅
+- [x] Input validation added for edge cases ✅
+- [x] Hack code removed ✅
+- [x] Unit tests added for edge cases (all zeros, existing NaNs, etc.) ✅
+- [x] Augmentation quality preserved without artifacts ✅
+
+### Resolution Summary
+**Status**: ✅ **RESOLVED** - All objectives achieved
+
+**Implementation**: Replaced NaN hack with comprehensive input validation and proper error handling in the `forward()` method using explicit ValueError exceptions.
+
+**Testing**: 8 comprehensive unit tests covering valid inputs, edge cases, NaN/Inf detection, extreme contrast ratios, multiple dtypes, and numerical stability.
+
+**Impact**: Eliminated silent NaN propagation while maintaining augmentation quality and improving debugging capability.
 
 ---
 

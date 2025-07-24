@@ -10,6 +10,7 @@ from upath import UPath
 from .image import CellMapImage
 from .image_writer import ImageWriter
 from .utils import split_target_path
+from .exceptions import CoordinateTransformError, IndexError as CellMapIndexError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -305,25 +306,89 @@ class CellMapDatasetWriter(Dataset):
             self._len = int(size)
             return self._len
 
-    def get_center(self, idx: int) -> dict[str, float]:
-        idx = np.array(idx)
-        idx[idx < 0] = len(self) + idx[idx < 0]
+    def _validate_index_bounds(self, idx: int) -> None:
+        """
+        Validate that an index is within bounds for coordinate transformation.
+
+        Args:
+            idx: Index to validate
+
+        Raises:
+            CellMapIndexError: If index is out of bounds
+        """
+        dataset_length = len(self)
+        if dataset_length == 0:
+            raise CellMapIndexError(
+                f"Cannot access index {idx}: dataset is empty (length=0). "
+                f"Check your data paths and configuration."
+            )
+
+        if idx < 0:
+            raise CellMapIndexError(
+                f"Index {idx} is negative. Only non-negative indices are supported."
+            )
+
+        if idx >= dataset_length:
+            shape_info = {c: self.sampling_box_shape[c] for c in self.axis_order}
+            raise CellMapIndexError(
+                f"Index {idx} is out of bounds for dataset of length {dataset_length}. "
+                f"Sampling box shape: {shape_info}. "
+                f"This indicates the dataset cannot be properly sampled. "
+                f"Check your bounding box configuration and array sizes."
+            )
+
+    def _safe_unravel_index(self, idx: int) -> dict[str, float]:
+        """
+        Safely convert a flat index to coordinate center with proper bounds checking.
+
+        Args:
+            idx: Flat index to convert
+
+        Returns:
+            Dictionary mapping axis names to coordinate centers
+
+        Raises:
+            CellMapIndexError: If index is invalid
+            CoordinateTransformError: If coordinate transformation fails
+        """
+        # Validate bounds first
+        self._validate_index_bounds(idx)
+
         try:
-            center = np.unravel_index(
-                idx, [self.sampling_box_shape[c] for c in self.axis_order]
-            )
-        except ValueError:
-            logger.error(
-                f"Index {idx} out of bounds for dataset {self} of length {len(self)}"
-            )
-            logger.warning(f"Returning closest index in bounds")
-            # TODO: This is a hacky temprorary fix. Need to figure out why this is happening
-            center = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
-        center = {
-            c: center[i] * self.smallest_voxel_sizes[c] + self.sampling_box[c][0]
-            for i, c in enumerate(self.axis_order)
-        }
-        return center
+            # Get shape array for np.unravel_index
+            shape_array = [self.sampling_box_shape[c] for c in self.axis_order]
+
+            # Perform the unravel operation
+            center_indices = np.unravel_index(idx, shape_array)
+
+            # Convert to world coordinates
+            center = {
+                c: float(
+                    center_indices[i] * self.smallest_voxel_sizes[c]
+                    + self.sampling_box[c][0]
+                )
+                for i, c in enumerate(self.axis_order)
+            }
+
+            logger.debug(f"Converted index {idx} to center coordinates: {center}")
+            return center
+
+        except ValueError as e:
+            # This should not happen if bounds checking is correct, but provide detailed error
+            shape_info = {c: self.sampling_box_shape[c] for c in self.axis_order}
+            raise CoordinateTransformError(
+                f"Failed to convert index {idx} to coordinates. "
+                f"Sampling box shape: {shape_info}, dataset length: {len(self)}. "
+                f"Original error: {e}"
+            ) from e
+        except Exception as e:
+            raise CoordinateTransformError(
+                f"Unexpected error in coordinate transformation for index {idx}: {e}"
+            ) from e
+
+    def get_center(self, idx: int) -> dict[str, float]:
+        """Get the center coordinates for a given index, with proper bounds checking."""
+        return self._safe_unravel_index(idx)
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
