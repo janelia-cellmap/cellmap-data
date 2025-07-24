@@ -17,9 +17,5 @@ You can select classes to load to construct targets separately from the labels y
 ## Installation
 
 ```bash
-micromamba create -n cellmap -y -c conda-forge -c pytorch python=3.11
-micromamba activate cellmap
-git clone https://github.com/janelia-cellmap/cellmap-data.git
-cd cellmap-data
-pip install -e .
+pip install cellmap-data
 ```
