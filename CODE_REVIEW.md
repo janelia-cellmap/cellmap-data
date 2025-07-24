@@ -21,7 +21,6 @@ This comprehensive review evaluates the cellmap-data codebase against best pract
 
 - **Missing validation module**: `src/cellmap_data/validation/` exists but isn't imported in `__init__.py`
 - **Inconsistent module naming**: Some modules use underscores (`dataset_writer.py`) while others don't (`dataloader.py`)
-- **Device management isolation**: `device/` module is separate but not clearly integrated
 
 #### 1.2 Dependency Management
 
