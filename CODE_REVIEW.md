@@ -93,11 +93,45 @@ logger = logging.getLogger(__name__)  # No level set
 
 ### Minor Issues ⚠️
 
-#### 2.4 Code Duplication
+#### 2.4 Monolithic Class Design
 
-- Similar parameter validation logic repeated across `CellMapDataset`, `CellMapDatasetWriter`
-- Duplicate device handling code in multiple classes
-- Similar array validation patterns in different modules
+**CellMapDataset is critically oversized (941 lines):**
+- **30+ methods** including complex nested functions within `__getitem__`
+- **20+ properties** handling diverse responsibilities
+- **Multiple concerns**: data loading, device management, validation, transformations, threading
+- **Complex inheritance patterns** with extensive state management
+
+**CellMapImage shows similar concerns (537 lines):**
+- **20+ methods** with 15 properties handling diverse functionality
+- **Mixed responsibilities**: coordinate transformations, metadata access, array operations, device handling
+- **Extensive property-based API** that obscures core functionality
+
+#### 2.5 Code Duplication Patterns
+
+**Device handling logic repeated across classes:**
+
+```python
+# In CellMapDataset
+if torch.cuda.is_available():
+    self._device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    self._device = torch.device("mps")
+else:
+    self._device = torch.device("cpu")
+
+# Similar patterns in CellMapImage and other classes
+def to(self, device: str, *args, **kwargs) -> None:
+    # Duplicate device conversion logic
+```
+
+**Parameter validation patterns repeated:**
+- Array info validation logic in `CellMapDataset`, `CellMapDatasetWriter`, and `CellMapImage`
+- Bounding box calculations duplicated across multiple classes
+- Path handling and validation repeated in dataset and image classes
+
+**Coordinate transformation logic:**
+- Similar coordinate mapping functions in both `CellMapDataset` and `CellMapImage`
+- Duplicate scale level handling and resolution calculations
 
 ## 3. Documentation Analysis
 
@@ -255,11 +289,16 @@ with open(out_path, "w") as f:  # Good
 
 ### Medium Priority (Important) 🟡
 
-6. **Code deduplication** - Extract common patterns into utilities
-7. **Standardize naming conventions** - Resolve parameter name inconsistencies
-8. **Improve test coverage** - Add integration and error path tests
-9. **Security review** - Validate path handling and input sanitization
-10. **Performance profiling** - Validate claimed performance improvements
+6. **Refactor monolithic classes** - Break down CellMapDataset (941 lines) and CellMapImage (537 lines):
+   - Extract device management into a separate utility class
+   - Separate coordinate transformation logic into dedicated modules
+   - Split data loading concerns from validation logic
+   - Reduce property-heavy interfaces in favor of explicit methods
+7. **Code deduplication** - Extract common patterns into utilities
+8. **Standardize naming conventions** - Resolve parameter name inconsistencies
+9. **Improve test coverage** - Add integration and error path tests
+10. **Security review** - Validate path handling and input sanitization
+11. **Performance profiling** - Validate claimed performance improvements
 
 ### Low Priority (Enhancement) 🟢
 
@@ -270,18 +309,28 @@ with open(out_path, "w") as f:  # Good
 
 ## 8. Conclusion
 
-The cellmap-data codebase demonstrates solid architectural foundations and impressive technical capabilities, particularly in performance optimization and PyTorch integration. However, it suffers from incomplete implementation (numerous TODOs), inconsistent documentation, and maintenance debt that impacts code quality and maintainability.
+The cellmap-data codebase demonstrates solid architectural foundations and impressive technical capabilities, particularly in performance optimization and PyTorch integration. However, it suffers from **significant architectural issues with monolithic classes**, incomplete implementation (numerous TODOs), inconsistent documentation, and maintenance debt that impacts code quality and maintainability.
+
+**Critical Architectural Concerns:**
+
+- **CellMapDataset (941 lines)** and **CellMapImage (537 lines)** are severely oversized and violate single responsibility principle
+- **Extensive property usage** (15+ properties per class) creates complex, hard-to-test interfaces
+- **Duplicate device handling and coordinate transformation logic** across multiple classes indicates poor separation of concerns
 
 **Immediate Actions Required:**
-1. Complete all TODO items before next release
-2. Implement comprehensive error handling strategy  
-3. Standardize documentation format across all modules
-4. Add dependency version constraints
+
+1. **Refactor monolithic classes** - CellMapDataset and CellMapImage are too large and complex
+2. Complete all TODO items before next release
+3. Implement comprehensive error handling strategy  
+4. Standardize documentation format across all modules
+5. Add dependency version constraints
 
 **Long-term Improvements:**
-1. Refactor common patterns to reduce duplication
-2. Implement comprehensive integration testing
-3. Establish consistent coding standards and enforce with tooling
-4. Regular code quality reviews and technical debt reduction
 
-The codebase shows promise and has strong technical foundations, but requires focused effort on code quality, documentation, and consistency to reach production-ready standards.
+1. **Extract common functionality** - Device management, coordinate transformations, validation logic
+2. Refactor common patterns to reduce duplication
+3. Implement comprehensive integration testing
+4. Establish consistent coding standards and enforce with tooling
+5. Regular code quality reviews and technical debt reduction
+
+The codebase shows promise and has strong technical foundations, but **requires significant refactoring to address monolithic design patterns** and focused effort on code quality, documentation, and consistency to reach production-ready standards.
