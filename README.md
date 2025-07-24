@@ -77,9 +77,42 @@ dataset = CellMapDataset(
 
 ```python
 from cellmap_data import CellMapDataLoader
-from cellmap_data.transforms import Normalize, RandomContrast, GaussianNoise
+from cellmap_data.transforms import Normalize, RandomContrast, GaussianNoise, Binarize
+import torchvision.transforms.v2 as T
 
-# Configure data loader with augmentations
+# Define spatial transformations
+spatial_transforms = {
+    "mirror": {"axes": {"x": 0.5, "y": 0.5, "z": 0.2}},
+    "rotate": {"axes": {"z": [-30, 30]}},
+    "transpose": {"axes": ["x", "y"]}
+}
+
+# Define value transformations
+raw_value_transforms = T.Compose([
+    Normalize(scale=1/255),           # Normalize to [0,1]
+    GaussianNoise(std=0.05),          # Add noise for augmentation
+    RandomContrast((0.8, 1.2)),       # Vary contrast
+])
+
+target_value_transforms = T.Compose([
+    Binarize(threshold=0.5),          # Convert to binary masks
+    T.ToDtype(torch.float32)          # Ensure correct dtype
+])
+
+# Create dataset with transforms
+dataset = CellMapDataset(
+    raw_path="/path/to/raw/data.zarr",
+    target_path="/path/to/labels/data.zarr",
+    classes=["mitochondria", "endoplasmic_reticulum", "nucleus"],
+    input_arrays=input_arrays,
+    target_arrays=target_arrays,
+    spatial_transforms=spatial_transforms,
+    raw_value_transforms=raw_value_transforms,
+    target_value_transforms=target_value_transforms,
+    is_train=True
+)
+
+# Configure data loader
 loader = CellMapDataLoader(
     dataset,
     batch_size=4,
@@ -144,11 +177,8 @@ dataset = CellMapDataset(
     classes=["class1", "class2"],
     input_arrays=input_arrays,
     target_arrays=target_arrays,
-    spatial_transforms=transforms,
-    raw_value_transforms=normalize,
-    target_value_transforms=binarize,
     is_train=True,
-    pad=True,  # Pad arrays to requested size
+    pad=True,  # Pad arrays to requested size if needed
     device="cuda"
 )
 ```
@@ -307,7 +337,7 @@ for epoch in range(num_epochs):
     loader.refresh()  # New random subset
     for batch in loader:
         # Training code
-        pass
+        ...
 ```
 
 ### Writing Predictions
@@ -338,7 +368,6 @@ for idx in range(len(writer)):
 ### Input Formats
 
 - **OME-NGFF/Zarr**: Primary format with multiscale support and full read/write capabilities
-- **N5**: Limited support via TensorStore (primarily for viewing/reading existing data)
 - **Local/S3/GCS**: Various storage backends via TensorStore
 
 ### Multiscale Support
@@ -353,12 +382,15 @@ dataset = CellMapDataset(
     # ... other parameters ...
 )
 
-# Manual scale level selection
+# Multiscale input arrays can be specified
 input_arrays = {
-    "raw": {
+    "raw_4nm": {
         "shape": (128, 128, 128),
         "scale": (4, 4, 4),
-        "scale_level": 1  # Use scale level 1
+    },
+    "raw_8nm": {
+        "shape": (64, 64, 64),
+        "scale": (8, 8, 8),
     }
 }
 ```
@@ -452,7 +484,6 @@ for idx in writer.writer_indices:  # Non-overlapping tiles
 
 ### Dataset Configuration
 
-- Use consistent voxel scales across input/target arrays
 - Choose patch sizes that fit comfortably in GPU memory
 - Enable padding for datasets smaller than patch size
 
