@@ -375,5 +375,5 @@ class TestLoggingConfiguration:
             exc_info=None,
         )
         formatted = formatter.format(record)
-        expected = f"{record.name} - {logging.getLevelName(record.level)} - {record.getMessage()}"
+        expected = f"{record.name} - {logging.getLevelName(record.levelno)} - {record.getMessage()}"
         assert formatted == expected
