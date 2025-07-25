@@ -1,5 +1,6 @@
 import os
 import logging
+import warnings
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 logger = logging.getLogger(__name__)
@@ -104,14 +105,16 @@ class CellMapImage:
             for c in self.axes:
                 if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
                     # raise ValueError(
-                    UserWarning(
-                        f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
+                    warnings.warn(
+                        f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}",
+                        UserWarning,
                     )
                     # center[c] = self.bounding_box[c][0] + self.output_size[c] / 2
                 if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
                     # raise ValueError(
-                    UserWarning(
-                        f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
+                    warnings.warn(
+                        f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}",
+                        UserWarning,
                     )
                     # center[c] = self.bounding_box[c][1] - self.output_size[c] / 2
                 coords[c] = np.linspace(
@@ -266,8 +269,10 @@ class CellMapImage:
                 try:
                     array = array_future.result()
                 except ValueError as e:
-                    Warning(e)
-                    UserWarning("Falling back to zarr3 driver")
+                    import warnings
+
+                    warnings.warn(str(e), UserWarning)
+                    warnings.warn("Falling back to zarr3 driver", UserWarning)
                     spec["driver"] = "zarr3"
                     array_future = tensorstore.open(
                         spec, read=True, write=False, context=self.context

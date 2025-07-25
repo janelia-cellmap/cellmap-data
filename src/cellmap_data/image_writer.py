@@ -118,8 +118,10 @@ class ImageWriter:
                     raise FileExistsError(
                         f"Image already exists at {self.path}. Set overwrite=True to overwrite the image."
                     )
-                Warning(e)
-                UserWarning("Falling back to zarr3 driver")
+                import warnings
+
+                warnings.warn(str(e), UserWarning)
+                warnings.warn("Falling back to zarr3 driver", UserWarning)
                 spec["driver"] = "zarr3"
                 array_future = tensorstore.open(spec, **open_kwargs)
                 array = array_future.result()

@@ -273,7 +273,9 @@ class CellMapDataSplit:
             return self._validation_datasets_combined
         except AttributeError:
             if len(self.validation_datasets) == 0:
-                UserWarning("Validation datasets not loaded.")
+                import warnings
+
+                warnings.warn("Validation datasets not loaded.", UserWarning)
                 self._validation_datasets_combined = CellMapMultiDataset.empty()
             else:
                 self._validation_datasets_combined = CellMapMultiDataset(

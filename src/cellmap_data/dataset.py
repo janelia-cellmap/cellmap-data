@@ -13,6 +13,7 @@ from .exceptions import CoordinateTransformError, IndexError as CellMapIndexErro
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils import min_redundant_inds, split_target_path, is_array_2D, get_sliced_shape
 from .image import CellMapImage
+from .utils.error_handling import ErrorMessages
 from .empty_image import EmptyImage
 import logging
 
@@ -95,7 +96,7 @@ class CellMapDataset(Dataset):
         if raw_path is not None:
             if input_path is not None:
                 raise ValueError(
-                    "Cannot specify both 'input_path' and deprecated 'raw_path'. "
+                    f"{ErrorMessages.format_conflicting_parameters('input_path', 'raw_path')}. "
                     "Please use 'input_path' only. 'raw_path' will be removed in a future version."
                 )
             warnings.warn(
@@ -122,11 +123,11 @@ class CellMapDataset(Dataset):
 
         # Validate required parameters
         if input_path is None:
-            raise ValueError("'input_path' parameter is required")
+            raise ValueError(ErrorMessages.format_required_parameter("input_path"))
         if target_path is None:
-            raise ValueError("'target_path' parameter is required")
+            raise ValueError(ErrorMessages.format_required_parameter("target_path"))
         if input_arrays is None:
-            raise ValueError("'input_arrays' parameter is required")
+            raise ValueError(ErrorMessages.format_required_parameter("input_arrays"))
 
         # Set the normalized parameter names
         self.raw_path = (
@@ -252,7 +253,7 @@ class CellMapDataset(Dataset):
         if raw_path is not None:
             if input_path is not None:
                 raise ValueError(
-                    "Cannot specify both 'input_path' and deprecated 'raw_path'. "
+                    f"{ErrorMessages.format_conflicting_parameters('input_path', 'raw_path')}. "
                     "Please use 'input_path' only. 'raw_path' will be removed in a future version."
                 )
             warnings.warn(
@@ -265,11 +266,11 @@ class CellMapDataset(Dataset):
 
         # Validate required parameters
         if input_path is None:
-            raise ValueError("'input_path' parameter is required")
+            raise ValueError(ErrorMessages.format_required_parameter("input_path"))
         if target_path is None:
-            raise ValueError("'target_path' parameter is required")
+            raise ValueError(ErrorMessages.format_required_parameter("target_path"))
         if input_arrays is None:
-            raise ValueError("'input_arrays' parameter is required")
+            raise ValueError(ErrorMessages.format_required_parameter("input_arrays"))
 
         # Need to determine if 2D arrays are requested without slicing axis specified
         # If so, turn into a multidataset with 3 datasets each 2D arrays sliced along one axis
