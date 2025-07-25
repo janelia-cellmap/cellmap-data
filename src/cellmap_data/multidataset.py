@@ -4,13 +4,13 @@ import numpy as np
 import torch
 from torch.utils.data import ConcatDataset, WeightedRandomSampler
 from tqdm import tqdm
-import logging
 
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils.sampling import min_redundant_inds
+from .utils.logging_config import get_logger
 from .dataset import CellMapDataset
 
-logger = logging.getLogger(__name__)
+logger = get_logger("multidataset")
 
 
 class CellMapMultiDataset(ConcatDataset):

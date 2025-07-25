@@ -8,6 +8,10 @@ to improve debugging and user experience across the CellMap-Data library.
 import warnings
 from typing import Any, Optional
 
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class ErrorMessages:
     """Standardized error message templates for consistent error reporting."""
@@ -21,6 +25,9 @@ class ErrorMessages:
     )
     PARAMETER_INVALID_VALUE = (
         "Parameter '{parameter}' has invalid value '{value}'. Expected: {expected}"
+    )
+    PARAMETER_INVALID_CHOICE = (
+        "Parameter '{parameter}' has invalid value '{value}'. Must be one of: {choices}"
     )
 
     # File and path validation messages
@@ -37,11 +44,17 @@ class ErrorMessages:
     DATA_EMPTY = "Dataset is empty or contains no valid data"
     DATA_CORRUPTED = "Data appears to be corrupted: {details}"
 
+    # Tensor validation messages
+    TENSOR_CONTAINS_NAN = "Input tensor contains NaN values"
+    TENSOR_CONTAINS_INF = "Input tensor contains infinite values"
+    TENSOR_INVALID_RATIO = "Invalid {ratio_type} ratio: {ratio}. Must be positive."
+
     # Array and coordinate messages
     COORDINATE_OUT_OF_BOUNDS = "Coordinate {coordinate} is out of bounds for axis {axis}. Valid range: [{min_val}, {max_val}]"
     ARRAY_SIZE_MISMATCH = (
         "Array size mismatch for '{array_name}': expected {expected}, got {actual}"
     )
+    ARRAY_INFO_MISSING_KEY = "Array info for '{array_name}' must include '{key}'"
     INDEX_INVALID = "Invalid index {index} for array of length {length}"
 
     # Configuration and setup messages
@@ -63,10 +76,12 @@ class StandardWarnings:
         parameter: str, replacement: str, stacklevel: int = 2
     ) -> None:
         """Issue a deprecation warning for a parameter."""
+        message = ErrorMessages.PARAMETER_DEPRECATED.format(
+            parameter=parameter, replacement=replacement
+        )
+        logger.warning(f"Deprecation warning: {message}")
         warnings.warn(
-            ErrorMessages.PARAMETER_DEPRECATED.format(
-                parameter=parameter, replacement=replacement
-            ),
+            message,
             DeprecationWarning,
             stacklevel=stacklevel,
         )
@@ -74,10 +89,12 @@ class StandardWarnings:
     @staticmethod
     def fallback_driver(fallback_driver: str, error: str, stacklevel: int = 2) -> None:
         """Issue a warning about falling back to a different driver."""
+        message = ErrorMessages.FALLBACK_DRIVER.format(
+            fallback_driver=fallback_driver, error=error
+        )
+        logger.warning(f"Fallback driver warning: {message}")
         warnings.warn(
-            ErrorMessages.FALLBACK_DRIVER.format(
-                fallback_driver=fallback_driver, error=error
-            ),
+            message,
             UserWarning,
             stacklevel=stacklevel,
         )
@@ -85,8 +102,10 @@ class StandardWarnings:
     @staticmethod
     def performance_warning(details: str, stacklevel: int = 2) -> None:
         """Issue a performance-related warning."""
+        message = ErrorMessages.PERFORMANCE_WARNING.format(details=details)
+        logger.warning(f"Performance warning: {message}")
         warnings.warn(
-            ErrorMessages.PERFORMANCE_WARNING.format(details=details),
+            message,
             UserWarning,
             stacklevel=stacklevel,
         )
@@ -142,3 +161,25 @@ def create_shape_mismatch_error(expected_shape: tuple, actual_shape: tuple) -> s
     return ErrorMessages.DATA_SHAPE_MISMATCH.format(
         expected_shape=expected_shape, actual_shape=actual_shape
     )
+
+
+def validate_tensor_finite(tensor, tensor_name: str = "tensor") -> None:
+    """Validate that a tensor contains only finite values (no NaN or inf)."""
+    try:
+        import torch
+
+        if torch.any(torch.isnan(tensor)):
+            raise ValidationError(ErrorMessages.TENSOR_CONTAINS_NAN)
+        if torch.any(torch.isinf(tensor)):
+            raise ValidationError(ErrorMessages.TENSOR_CONTAINS_INF)
+    except ImportError:
+        # If torch not available, skip validation
+        pass
+
+
+def validate_positive_ratio(ratio: float, ratio_type: str = "contrast") -> None:
+    """Validate that a ratio is positive."""
+    if ratio <= 0:
+        raise ValidationError(
+            ErrorMessages.TENSOR_INVALID_RATIO, ratio_type=ratio_type, ratio=ratio
+        )

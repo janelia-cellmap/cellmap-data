@@ -1,9 +1,9 @@
 import os
-import logging
 import warnings
 from typing import Any, Callable, Mapping, Optional, Sequence
+from .utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("image")
 
 import numpy as np
 import tensorstore

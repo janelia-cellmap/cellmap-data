@@ -1,5 +1,4 @@
 import json
-import logging
 import operator
 import os
 import re
@@ -18,7 +17,9 @@ from IPython import get_ipython
 from IPython.display import IFrame, display
 from upath import UPath
 
-logger = logging.getLogger(__name__)
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
 
 # S3 bucket names and paths for Janelia COSEM datasets
 GT_S3_BUCKET = "janelia-cosem-datasets"

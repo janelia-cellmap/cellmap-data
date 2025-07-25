@@ -18,6 +18,7 @@ __email__ = "rhoadesj@hhmi.org"
 from .multidataset import CellMapMultiDataset
 from .dataloader import CellMapDataLoader
 from .datasplit import CellMapDataSplit
+from .utils.logging_config import configure_logging, get_logger, set_log_level
 from .dataset import CellMapDataset
 from .dataset_writer import CellMapDatasetWriter
 from .image import CellMapImage

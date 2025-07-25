@@ -1,6 +1,12 @@
 from typing import Sequence
 import torch
 from cellmap_data.utils import torch_max_value
+from ...utils.error_handling import (
+    ValidationError,
+    ErrorMessages,
+    validate_tensor_finite,
+    validate_positive_ratio,
+)
 
 
 class RandomContrast(torch.nn.Module):
@@ -31,11 +37,7 @@ class RandomContrast(torch.nn.Module):
             return x  # Return empty tensor as-is
 
         # Check for invalid input values
-        if torch.any(torch.isnan(x)):
-            raise ValueError("Input tensor contains NaN values")
-
-        if torch.any(torch.isinf(x)):
-            raise ValueError("Input tensor contains infinite values")
+        validate_tensor_finite(x, "input tensor")
 
         # Generate contrast ratio
         ratio = float(
@@ -44,16 +46,16 @@ class RandomContrast(torch.nn.Module):
         )
 
         # Validate contrast ratio
-        if ratio <= 0:
-            raise ValueError(f"Invalid contrast ratio: {ratio}. Must be positive.")
+        validate_positive_ratio(ratio, "contrast")
 
         # Calculate mean with numerical stability
         x_mean = x.mean(dim=0, keepdim=True)
 
         # Check if mean calculation produced NaN (shouldn't happen with valid input)
         if torch.any(torch.isnan(x_mean)):
-            raise RuntimeError(
-                "Mean calculation produced NaN - this indicates corrupted input data"
+            raise ValidationError(
+                ErrorMessages.DATA_CORRUPTED,
+                details="Mean calculation produced NaN - this indicates corrupted input data",
             )
 
         # Apply contrast transformation
@@ -68,10 +70,11 @@ class RandomContrast(torch.nn.Module):
 
         # Final validation - this should never trigger with proper implementation
         if torch.any(torch.isnan(result)):
-            raise RuntimeError(
-                f"Contrast transformation produced NaN values. "
+            raise ValidationError(
+                ErrorMessages.DATA_CORRUPTED,
+                details=f"Contrast transformation produced NaN values. "
                 f"Input stats: min={x.min()}, max={x.max()}, mean={x_mean.mean()}, "
-                f"contrast_ratio={ratio}, dtype={x.dtype}"
+                f"contrast_ratio={ratio}, dtype={x.dtype}",
             )
 
         return result

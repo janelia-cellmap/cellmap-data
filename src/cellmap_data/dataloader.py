@@ -3,7 +3,6 @@ import os
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Sampler
-import logging
 
 import multiprocessing as mp
 import sys
@@ -13,9 +12,11 @@ from .subdataset import CellMapSubset
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .dataset_writer import CellMapDatasetWriter
+from .utils.logging_config import get_logger
+from .utils.error_handling import ValidationError, ErrorMessages
 from typing import Callable, Optional, Sequence
 
-logger = logging.getLogger(__name__)
+logger = get_logger("dataloader")
 
 # Stream optimization settings
 MIN_BATCH_MEMORY_FOR_STREAMS_MB = float(
@@ -218,8 +219,10 @@ class CellMapDataLoader:
             # Calculate input array elements
             for array_name, array_info in input_arrays.items():
                 if "shape" not in array_info:
-                    raise ValueError(
-                        f"Input array info for {array_name} must include 'shape'"
+                    raise ValidationError(
+                        ErrorMessages.ARRAY_INFO_MISSING_KEY,
+                        array_name=array_name,
+                        key="shape",
                     )
                 # Input arrays: batch_size * elements_per_sample
                 total_elements += self.batch_size * np.prod(array_info["shape"])
@@ -227,8 +230,10 @@ class CellMapDataLoader:
             # Calculate target array elements
             for array_name, array_info in target_arrays.items():
                 if "shape" not in array_info:
-                    raise ValueError(
-                        f"Target array info for {array_name} must include 'shape'"
+                    raise ValidationError(
+                        ErrorMessages.ARRAY_INFO_MISSING_KEY,
+                        array_name=array_name,
+                        key="shape",
                     )
                 # Target arrays: batch_size * elements_per_sample * num_classes
                 elements_per_sample = np.prod(array_info["shape"])

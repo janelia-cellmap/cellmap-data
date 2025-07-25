@@ -2,6 +2,10 @@ import warnings
 from typing import Optional, Sequence
 import torch
 
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 def min_redundant_inds(
     size: int, num_samples: int, rng: Optional[torch.Generator] = None
@@ -11,10 +15,12 @@ def min_redundant_inds(
     If `num_samples` is greater than `size`, it will sample with replacement.
     """
     if num_samples > size:
-        warnings.warn(
+        message = (
             f"Requested num_samples={num_samples} exceeds available samples={size}. "
             "Sampling with replacement using repeated permutations to minimize duplicates."
         )
+        logger.warning(f"Sampling with replacement: {message}")
+        warnings.warn(message)
     # Determine how many full permutations and remainder are needed
     full_iters = num_samples // size
     remainder = num_samples % size

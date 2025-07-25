@@ -10,9 +10,14 @@ from .transforms import NaNtoNum, Normalize, Binarize
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .subdataset import CellMapSubset
-import logging
+from .utils.logging_config import get_logger
+from .utils.error_handling import (
+    ValidationError,
+    ErrorMessages,
+    validate_parameter_conflict,
+)
 
-logger = logging.getLogger(__name__)
+logger = get_logger("datasplit")
 
 
 class CellMapDataSplit:
@@ -220,11 +225,12 @@ class CellMapDataSplit:
 
         # Handle deprecated class_relation_dict parameter
         if class_relation_dict is not None:
-            if class_relationships is not None:
-                raise ValueError(
-                    "Cannot specify both 'class_relationships' and deprecated 'class_relation_dict'. "
-                    "Please use 'class_relationships' only. 'class_relation_dict' will be removed in a future version."
-                )
+            validate_parameter_conflict(
+                "class_relationships",
+                class_relationships,
+                "class_relation_dict",
+                class_relation_dict,
+            )
             warnings.warn(
                 "Parameter 'class_relation_dict' is deprecated and will be removed in a future version. "
                 "Please use 'class_relationships' instead.",
@@ -477,7 +483,12 @@ class CellMapDataSplit:
             elif type == "target":
                 dataset.target_arrays = arrays
             else:
-                raise ValueError("Type must be 'inputs' or 'target'.")
+                raise ValidationError(
+                    ErrorMessages.PARAMETER_INVALID_CHOICE,
+                    parameter="type",
+                    value=type,
+                    choices="['inputs', 'target']",
+                )
             dataset.reset_arrays(type)
 
         if usage == "train":

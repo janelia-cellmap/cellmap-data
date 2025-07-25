@@ -10,11 +10,15 @@ from upath import UPath
 from .image import CellMapImage
 from .image_writer import ImageWriter
 from .utils import split_target_path
+from .utils.logging_config import get_logger
+from .utils.error_handling import (
+    ValidationError,
+    validate_parameter_required,
+    validate_parameter_conflict,
+)
 from .exceptions import CoordinateTransformError, IndexError as CellMapIndexError
-import logging
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger("dataset_writer")
 
 
 # %%
@@ -61,12 +65,9 @@ class CellMapDatasetWriter(Dataset):
         """
 
         # Handle parameter migration: raw_path -> input_path
-        if raw_path is not None and input_path is not None:
-            raise ValueError(
-                "Cannot specify both 'raw_path' and 'input_path'. "
-                "Use 'input_path' (raw_path is deprecated)."
-            )
-        elif raw_path is not None:
+        validate_parameter_conflict("raw_path", raw_path, "input_path", input_path)
+
+        if raw_path is not None:
             import warnings
 
             warnings.warn(
@@ -76,20 +77,16 @@ class CellMapDatasetWriter(Dataset):
                 stacklevel=2,
             )
             input_path = raw_path
-        elif input_path is None:
-            raise ValueError("Must specify 'input_path' parameter.")
+
+        # Validate input_path is provided
+        validate_parameter_required("input_path", input_path)
 
         # Validate required parameters
-        if target_path is None:
-            raise ValueError("Must specify 'target_path' parameter.")
-        if classes is None:
-            raise ValueError("Must specify 'classes' parameter.")
-        if input_arrays is None:
-            raise ValueError("Must specify 'input_arrays' parameter.")
-        if target_arrays is None:
-            raise ValueError("Must specify 'target_arrays' parameter.")
-        if target_bounds is None:
-            raise ValueError("Must specify 'target_bounds' parameter.")
+        validate_parameter_required("target_path", target_path)
+        validate_parameter_required("classes", classes)
+        validate_parameter_required("input_arrays", input_arrays)
+        validate_parameter_required("target_arrays", target_arrays)
+        validate_parameter_required("target_bounds", target_bounds)
 
         # Store validated parameters
         self.raw_path = input_path  # Keep internal name for compatibility

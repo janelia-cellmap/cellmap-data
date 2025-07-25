@@ -14,10 +14,10 @@ from .mutable_sampler import MutableSubsetRandomSampler
 from .utils import min_redundant_inds, split_target_path, is_array_2D, get_sliced_shape
 from .image import CellMapImage
 from .utils.error_handling import ErrorMessages
+from .utils.logging_config import get_logger
 from .empty_image import EmptyImage
-import logging
 
-logger = logging.getLogger(__name__)
+logger = get_logger("dataset")
 
 
 # %%

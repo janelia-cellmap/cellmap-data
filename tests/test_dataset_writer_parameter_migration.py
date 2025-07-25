@@ -23,8 +23,11 @@ class TestDatasetWriterParameterMigration:
     def test_both_parameters_specified_raises_error(self):
         """Test that specifying both raw_path and input_path raises an error."""
         # Mock the minimum required parameters to test parameter validation
+        from cellmap_data.utils.error_handling import ValidationError
+
         with pytest.raises(
-            ValueError, match="Cannot specify both 'raw_path' and 'input_path'"
+            ValidationError,
+            match="Cannot specify both 'raw_path' and 'input_path' parameters",
         ):
             try:
                 CellMapDatasetWriter(
@@ -48,7 +51,11 @@ class TestDatasetWriterParameterMigration:
 
     def test_neither_parameter_specified_raises_error(self):
         """Test that specifying neither parameter raises an error."""
-        with pytest.raises(ValueError, match="Must specify 'input_path' parameter"):
+        from cellmap_data.utils.error_handling import ValidationError
+
+        with pytest.raises(
+            ValidationError, match="Parameter 'input_path' is required but not provided"
+        ):
             try:
                 CellMapDatasetWriter(
                     target_path="/test/target",
@@ -62,8 +69,8 @@ class TestDatasetWriterParameterMigration:
                     target_bounds={"array1": {"class1": [0, 100, 0, 100, 0, 100]}},
                 )
             except Exception as e:
-                # Re-raise only the ValueError we're looking for, suppress others
-                if "Must specify 'input_path' parameter" in str(e):
+                # Re-raise ValidationError for input_path parameter
+                if "Parameter 'input_path' is required but not provided" in str(e):
                     raise
                 # Other errors are expected due to incomplete test setup
 
@@ -72,16 +79,16 @@ class TestDatasetWriterParameterMigration:
 
         source = inspect.getsource(CellMapDatasetWriter.__init__)
 
-        # Check for migration logic
-        assert "if raw_path is not None and input_path is not None:" in source
-        assert "Cannot specify both 'raw_path' and 'input_path'" in source
-        assert "elif raw_path is not None:" in source
+        # Check for migration logic using the new error handling approach
+        assert "validate_parameter_conflict" in source
+        assert "raw_path" in source
+        assert "input_path" in source
+        assert "if raw_path is not None:" in source  # New structure
         assert "raw_path' is deprecated" in source
         assert "Use 'input_path' instead" in source
         assert "DeprecationWarning" in source
         assert "input_path = raw_path" in source
-        assert "elif input_path is None:" in source
-        assert "Must specify 'input_path' parameter" in source
+        assert "validate_parameter_required" in source
 
     def test_internal_usage_uses_input_path(self):
         """Test that internal code uses input_path instead of raw_path."""

@@ -2,9 +2,9 @@ from typing import Sequence
 import torch
 from torchvision.transforms.v2 import ToDtype
 
-import logging
+from ...utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("transforms.random_gamma")
 
 
 class RandomGamma(torch.nn.Module):
