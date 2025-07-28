@@ -115,7 +115,6 @@ class ValidationError(ValueError):
     """Enhanced ValueError with standardized error message formatting."""
 
     def __init__(self, template: str, **kwargs):
-        """Initialize with a template and format arguments."""
         message = template.format(**kwargs)
         super().__init__(message)
 

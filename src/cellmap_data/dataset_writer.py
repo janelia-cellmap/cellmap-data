@@ -478,7 +478,6 @@ class CellMapDatasetWriter(Dataset):
                     ] = array[:, c, ...]
 
     def __repr__(self) -> str:
-        """Returns a string representation of the dataset."""
         return f"CellMapDatasetWriter(\n\tInput path: {self.input_path}\n\tOutput path(s): {self.target_path}\n\tClasses: {self.classes})"
 
     def get_target_array_writer(

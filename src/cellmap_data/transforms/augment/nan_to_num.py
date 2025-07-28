@@ -41,7 +41,6 @@ class NaNtoNum(T.Transform):
         return inpt.nan_to_num(**self.params)
 
     def __repr__(self) -> str:
-        """Return a string representation of the transformation."""
         return f"{self.__class__.__name__}(params={self.params})"
 
     def transform(self, inpt: Any, params: Dict[str, Any] | None = None) -> Any:

@@ -46,11 +46,6 @@ class Normalize(T.Transform):
         return (x + self.shift) * self.scale
 
     def __repr__(self) -> str:
-        """Return string representation of the transformation.
-
-        Returns:
-            Class name for debugging and logging purposes.
-        """
         return self.__class__.__name__
 
     def transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:

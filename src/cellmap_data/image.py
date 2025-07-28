@@ -256,7 +256,6 @@ class CellMapImage:
         return data
 
     def __repr__(self) -> str:
-        """Returns a string representation of the CellMapImage object."""
         return f"CellMapImage({self.array_path})"
 
     @property

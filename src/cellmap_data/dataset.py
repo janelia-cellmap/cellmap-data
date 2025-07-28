@@ -856,7 +856,6 @@ class CellMapDataset(Dataset):
         return metadata
 
     def __repr__(self) -> str:
-        """Returns a string representation of the dataset."""
         return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.target_path}\n\tClasses: {self.classes})"
 
     def get_empty_store(
