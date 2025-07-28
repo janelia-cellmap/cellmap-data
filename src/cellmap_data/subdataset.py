@@ -11,8 +11,63 @@ from .multidataset import CellMapMultiDataset
 
 
 class CellMapSubset(Subset):
-    """
-    This subclasses PyTorch Subset to wrap a CellMapDataset or CellMapMultiDataset object under a common API, which can be used for dataloading. It maintains the same API as the Subset class. It retrieves raw and groundtruth data from a CellMapDataset or CellMapMultiDataset object.
+    """A PyTorch Subset wrapper for CellMap datasets with consistent API.
+
+    This class subclasses PyTorch Subset to provide a unified interface for working
+    with subsets of CellMapDataset or CellMapMultiDataset objects. It maintains
+    compatibility with PyTorch's Subset API while preserving access to CellMap-specific
+    properties and methods like class information and class counts.
+
+    The subset allows efficient access to a selected portion of a larger dataset
+    without duplicating data in memory, making it suitable for train/validation
+    splits and other data partitioning workflows.
+
+    Parameters
+    ----------
+    dataset : CellMapDataset or CellMapMultiDataset
+        The parent dataset to create a subset from.
+        Must be an instance of CellMapDataset or CellMapMultiDataset.
+    indices : sequence of int
+        Indices from the parent dataset to include in this subset.
+        Must be valid indices within the range of the parent dataset.
+
+    Attributes
+    ----------
+    dataset : CellMapDataset or CellMapMultiDataset
+        Reference to the parent dataset.
+    indices : sequence of int
+        The subset indices being used.
+
+    Properties
+    ----------
+    classes : sequence of str
+        List of class names from the parent dataset.
+    class_counts : dict of str to float
+        Normalized class counts from the parent dataset.
+
+    Examples
+    --------
+    Creating a subset for validation:
+
+    >>> from cellmap_data import CellMapDataset, CellMapSubset
+    >>> dataset = CellMapDataset(...)  # Full dataset
+    >>> validation_indices = list(range(0, 100))  # First 100 samples
+    >>> val_subset = CellMapSubset(dataset, validation_indices)
+    >>> print(len(val_subset))  # 100
+    >>> print(val_subset.classes)  # Same classes as parent dataset
+
+    Using with DataLoader:
+
+    >>> from torch.utils.data import DataLoader
+    >>> train_indices = list(range(100, len(dataset)))
+    >>> train_subset = CellMapSubset(dataset, train_indices)
+    >>> train_loader = DataLoader(train_subset, batch_size=4, shuffle=True)
+
+    See Also
+    --------
+    torch.utils.data.Subset : Base PyTorch Subset class
+    CellMapDataset : Main dataset class
+    CellMapMultiDataset : Multi-dataset wrapper
     """
 
     def __init__(
@@ -20,12 +75,23 @@ class CellMapSubset(Subset):
         dataset: CellMapDataset | CellMapMultiDataset,
         indices: Sequence[int],
     ) -> None:
-        """
-        Args:
-            dataset: CellMapDataset | CellMapMultiDataset
-                The dataset to be subsetted.
-            indices: Sequence[int]
-                The indices of the dataset to be used as the subset.
+        """Initialize a CellMapSubset with specified dataset and indices.
+
+        Parameters
+        ----------
+        dataset : CellMapDataset or CellMapMultiDataset
+            The parent dataset from which to create the subset.
+            Must implement the standard dataset interface.
+        indices : sequence of int
+            List or array of indices to include in the subset.
+            All indices must be valid for the parent dataset.
+
+        Raises
+        ------
+        IndexError
+            If any index in indices is out of range for the parent dataset.
+        TypeError
+            If dataset is not a CellMapDataset or CellMapMultiDataset instance.
         """
         super().__init__(dataset, indices)
 

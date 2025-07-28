@@ -23,10 +23,100 @@ from xarray_ome_ngff.v04.multiscale import coords_from_transforms
 
 
 class CellMapImage:
-    """
-    A class for handling image data from a CellMap dataset.
+    """Handle individual image data loading and transformations for CellMap datasets.
 
-    This class is used to load image data from a CellMap dataset, and can apply spatial transformations to the data. It also handles the loading of the image data from the dataset, and can apply value transformations to the data. The image data is returned as a PyTorch tensor formatted for use in training, and can be loaded onto a specified device.
+    This class manages loading of individual image data from CellMap datasets with
+    support for spatial transformations, value transformations, and device placement.
+    It provides efficient tensor-based data loading with configurable interpolation,
+    padding, and coordinate system handling for training and inference workflows.
+
+    The class handles multi-dimensional image data with configurable axis ordering,
+    applies both spatial and value transformations consistently, and returns
+    PyTorch tensors formatted for network training with proper device placement.
+
+    Attributes
+    ----------
+    path : str
+        File path to the image data source.
+    label_class : str
+        Class label identifier for this image.
+    scale : dict
+        Scale factors for each spatial axis in physical units.
+    output_shape : dict
+        Target voxel dimensions for each spatial axis.
+    output_size : dict
+        Physical size for each axis (shape * scale).
+    axes : str or sequence
+        Active spatial axes in order.
+    device : str or torch.device
+        Target device for tensor operations.
+
+    Methods
+    -------
+    __getitem__(center)
+        Extract image data centered at specified coordinate.
+    to(device)
+        Move image operations to specified device.
+    get_spatial_transforms()
+        Get current spatial transformation configuration.
+
+    Examples
+    --------
+    Basic image loading:
+
+    >>> image = CellMapImage(
+    ...     path="/data/volume.zarr",
+    ...     target_class="mitochondria",
+    ...     target_scale=[4.0, 4.0, 4.0],
+    ...     target_voxel_shape=[128, 128, 128]
+    ... )
+    >>> center = {"z": 1000, "y": 2000, "x": 3000}
+    >>> data = image[center]
+    >>> print(data.shape)
+    torch.Size([128, 128, 128])
+
+    With value transformation and padding:
+
+    >>> def normalize(x):
+    ...     return (x - x.mean()) / x.std()
+    >>>
+    >>> image = CellMapImage(
+    ...     path="/data/raw.n5",
+    ...     target_class="raw",
+    ...     target_scale=[8.0, 8.0, 8.0],
+    ...     target_voxel_shape=[64, 64, 64],
+    ...     value_transform=normalize,
+    ...     pad=True,
+    ...     pad_value=0.0,
+    ...     device="cuda"
+    ... )
+
+    Custom axis ordering and interpolation:
+
+    >>> image = CellMapImage(
+    ...     path="/data/labels.zarr",
+    ...     target_class="nuclei",
+    ...     target_scale=[2.0, 2.0],
+    ...     target_voxel_shape=[256, 256],
+    ...     axis_order="yx",
+    ...     interpolation="linear",
+    ...     pad=True
+    ... )
+
+    Notes
+    -----
+    The class automatically handles axis order mismatches by padding scales and
+    shapes with appropriate default values. Spatial transformations are applied
+    consistently during data extraction.
+
+    TensorStore context can be provided for optimized concurrent data access.
+    Device selection follows PyTorch conventions with automatic fallback to
+    available hardware.
+
+    See Also
+    --------
+    CellMapDataset : Dataset-level data management
+    CellMapDataLoader : Batch loading with optimization
     """
 
     def __init__(
@@ -43,17 +133,111 @@ class CellMapImage:
         context: Optional[tensorstore.Context] = None,  # type: ignore
         device: Optional[str | torch.device] = None,
     ) -> None:
-        """Initializes a CellMapImage object.
+        """Initialize a CellMapImage for loading and transforming image data.
 
-        Args:
-            path (str): The path to the image file.
-            target_class (str): The label class of the image.
-            target_scale (Sequence[float]): The scale of the image data to return in physical space.
-            target_voxel_shape (Sequence[int]): The shape of the image data to return in voxels.
-            axis_order (str, optional): The order of the axes in the image. Defaults to "zyx".
-            value_transform (Optional[callable], optional): A function to transform the image pixel data. Defaults to None.
-            context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
-            device (Optional[str | torch.device], optional): The device to load the image data onto. Defaults to "cuda" if available, then "mps", then "cpu".
+        Creates an image handler that loads data from specified file path with
+        configurable output scale, shape, and transformations. Supports various
+        data formats through TensorStore backend with device-aware tensor operations.
+
+        Parameters
+        ----------
+        path : str
+            File path to the image data source. Supports formats like Zarr, N5,
+            HDF5, and other TensorStore-compatible formats.
+        target_class : str
+            Class label identifier for this image. Used for dataset organization
+            and class-specific processing workflows.
+        target_scale : sequence of float
+            Scale factors for spatial axes in physical units (e.g., nanometers).
+            Order must match axis_order specification.
+        target_voxel_shape : sequence of int
+            Target output dimensions in voxels for each spatial axis.
+            Order must match axis_order specification.
+        pad : bool, optional
+            Whether to pad image data when requested region exceeds bounds,
+            by default False. If False, clips to available data boundaries.
+        pad_value : float or int, optional
+            Fill value for padding when pad=True, by default np.nan.
+            Used for regions outside available data coverage.
+        interpolation : str, optional
+            Interpolation method for spatial transformations, by default "nearest".
+            Options include "nearest", "linear", "cubic" depending on data type.
+        axis_order : str or sequence of str, optional
+            Order of spatial axes in data arrays, by default "zyx".
+            Defines coordinate system for transformations and indexing.
+        value_transform : callable, optional
+            Function to transform pixel/voxel values after loading, by default None.
+            Applied element-wise to loaded data before tensor conversion.
+        context : tensorstore.Context, optional
+            TensorStore context for optimized data loading, by default None.
+            Enables concurrent operations and caching strategies.
+        device : str or torch.device, optional
+            Target device for tensor operations, by default None.
+            If None, automatically selects: "cuda" > "mps" > "cpu".
+
+        Raises
+        ------
+        FileNotFoundError
+            If the specified path does not exist or is not accessible.
+        ValidationError
+            If axis_order length doesn't match scale/shape dimensions.
+        TensorStoreError
+            If the data format is not supported or corrupted.
+
+        Examples
+        --------
+        Basic 3D image loading:
+
+        >>> image = CellMapImage(
+        ...     path="/data/em_volume.zarr",
+        ...     target_class="raw",
+        ...     target_scale=[4.0, 4.0, 4.0],
+        ...     target_voxel_shape=[128, 128, 128]
+        ... )
+        >>> center = {"z": 1000, "y": 2000, "x": 3000}
+        >>> data = image[center]
+        >>> print(data.shape, data.device)
+        torch.Size([128, 128, 128]) cuda:0
+
+        With normalization and padding:
+
+        >>> def normalize_intensity(x):
+        ...     return (x - x.mean()) / x.std()
+        >>>
+        >>> image = CellMapImage(
+        ...     path="/data/labels.n5",
+        ...     target_class="mitochondria",
+        ...     target_scale=[8.0, 8.0, 8.0],
+        ...     target_voxel_shape=[64, 64, 64],
+        ...     value_transform=normalize_intensity,
+        ...     pad=True,
+        ...     pad_value=0.0,
+        ...     device="cuda"
+        ... )
+
+        2D image with custom axis order:
+
+        >>> image = CellMapImage(
+        ...     path="/data/slice.tiff",
+        ...     target_class="cell_membrane",
+        ...     target_scale=[2.0, 2.0],
+        ...     target_voxel_shape=[512, 512],
+        ...     axis_order="yx",
+        ...     interpolation="linear"
+        ... )
+
+        Notes
+        -----
+        The class automatically handles mismatches between axis_order length and
+        scale/shape sequences by padding with appropriate default values. This
+        enables flexible handling of 2D slices from 3D volumes.
+
+        Spatial transformations applied during data extraction are cached for
+        efficiency. Value transformations are applied after spatial operations
+        to maintain numerical stability.
+
+        Device placement follows PyTorch conventions with automatic hardware
+        detection and fallback strategies for optimal performance.
         """
 
         self.path = path

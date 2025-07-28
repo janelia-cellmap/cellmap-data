@@ -15,20 +15,73 @@ def get_image_grid(
     clim: Optional[Sequence] = None,
     cmap: Optional[str] = None,
 ) -> plt.Figure:  # type: ignore
-    """
-    Create a grid of images for input, target, and output data.
-    Args:
-        input_data (torch.Tensor): Input data.
-        target_data (torch.Tensor): Target data.
-        outputs (torch.Tensor): Model outputs.
-        classes (list): List of class labels.
-        batch_size (int, optional): Number of images to display. Defaults to the length of the first axis of 'input_data'.
-        fig_size (int, optional): Size of the figure. Defaults to 3.
-        clim (tuple, optional): Color limits for the images. Defaults to be scaled by the image's intensity.
-        cmap (str, optional): Colormap for the images. Defaults to None.
+    """Create a visualization grid comparing input, target, and output data.
 
-    Returns:
-        fig (matplotlib.figure.Figure): Figure object.
+    This function generates a matplotlib figure containing a grid layout that
+    displays input data alongside target (ground truth) and model output data
+    for visual comparison. The grid shows raw input, ground truth labels, and
+    predicted outputs for each class in the dataset.
+
+    The layout organizes images in rows (one per batch sample) and columns
+    (input, target, and outputs for each class). For 3D data, the middle slice
+    is automatically selected for visualization.
+
+    Parameters
+    ----------
+    input_data : torch.Tensor
+        Raw input data tensor with shape (batch, channels, [depth], height, width).
+        Represents the original input to the model.
+    target_data : torch.Tensor
+        Ground truth target data tensor with same spatial dimensions as input.
+        Should have shape (batch, classes, [depth], height, width).
+    outputs : torch.Tensor
+        Model prediction tensor with same shape as target_data.
+        Contains the model's predicted segmentation or classification outputs.
+    classes : sequence of str
+        List of class label names in order corresponding to the class dimension.
+        Used for subplot labeling and organization.
+    batch_size : int, optional
+        Number of batch samples to visualize, by default None.
+        If None, uses the full batch size from input_data.shape[0].
+    fig_size : int, optional
+        Size multiplier for individual subplot dimensions, by default 3.
+        Total figure size scales with number of images and this multiplier.
+    clim : sequence, optional
+        Color intensity limits as [vmin, vmax] for consistent scaling, by default None.
+        If None, each image is scaled independently by its own intensity range.
+    cmap : str, optional
+        Matplotlib colormap name for image display, by default None.
+        If None, uses matplotlib's default colormap.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        Complete figure object containing the visualization grid.
+        Can be saved, displayed, or further customized.
+
+    Examples
+    --------
+    Basic usage with model outputs:
+
+    >>> import torch
+    >>> from cellmap_data.utils.figs import get_image_grid
+    >>> input_data = torch.rand(2, 1, 64, 64)  # 2 samples, 1 channel
+    >>> target_data = torch.rand(2, 3, 64, 64)  # 2 samples, 3 classes
+    >>> outputs = torch.rand(2, 3, 64, 64)  # Model predictions
+    >>> classes = ["background", "cell", "nucleus"]
+    >>> fig = get_image_grid(input_data, target_data, outputs, classes)
+    >>> fig.savefig("comparison.png")
+
+    With custom parameters:
+
+    >>> fig = get_image_grid(
+    ...     input_data, target_data, outputs, classes,
+    ...     batch_size=1, fig_size=4, clim=[0, 1], cmap="viridis"
+    ... )
+
+    See Also
+    --------
+    matplotlib.pyplot.subplots : Underlying subplot creation
     """
     if batch_size is None:
         batch_size = input_data.shape[0]

@@ -3,17 +3,116 @@ import torch.nn.functional as F
 
 
 class GaussianBlur(torch.nn.Module):
+    """Apply Gaussian blur filter to input tensors for smoothing augmentation.
+
+    This transformation applies a Gaussian blur filter using convolution operations
+    for 2D or 3D input tensors. The blur is implemented via separable Gaussian kernels
+    with configurable kernel size and standard deviation, providing efficient smoothing
+    augmentation suitable for neural network training.
+
+    The module creates a fixed Gaussian kernel and applies it via grouped convolution
+    to preserve channel independence. Supports both 2D and 3D inputs with automatic
+    device placement and batch dimension handling.
+
+    Inherits from torch.nn.Module for PyTorch compatibility and parameter management.
+
+    Parameters
+    ----------
+    kernel_size : int, optional
+        Size of the Gaussian kernel in pixels/voxels, by default 3.
+        Must be an odd positive integer to ensure symmetric filtering.
+    sigma : float, optional
+        Standard deviation of the Gaussian distribution, by default 0.1.
+        Controls the blur intensity - larger values create stronger blur.
+    dim : int, optional
+        Spatial dimensionality for blur operation, by default 2.
+        Supports 2 (for images) or 3 (for volumes).
+    channels : int, optional
+        Number of input channels to process, by default 1.
+        Each channel is blurred independently using grouped convolution.
+
+    Attributes
+    ----------
+    kernel_size : int
+        Size of the Gaussian kernel.
+    kernel_shape : tuple
+        Shape of the kernel for the specified dimensionality.
+    sigma : float
+        Standard deviation of the Gaussian distribution.
+    dim : int
+        Spatial dimensionality.
+    kernel : torch.Tensor
+        The computed Gaussian kernel values.
+    conv : torch.nn.Conv2d or torch.nn.Conv3d
+        Convolution layer for applying the blur.
+
+    Methods
+    -------
+    _create_gaussian_kernel()
+        Generate normalized Gaussian kernel for convolution.
+    forward(x)
+        Apply Gaussian blur to input tensor.
+
+    Raises
+    ------
+    AssertionError
+        If dim is not 2 or 3, or if kernel_size is not odd.
+
+    Examples
+    --------
+    Basic 2D image blurring:
+
+    >>> import torch
+    >>> from cellmap_data.transforms.augment import GaussianBlur
+    >>> blur_transform = GaussianBlur(kernel_size=5, sigma=1.0, dim=2)
+    >>> x = torch.rand(1, 64, 64)  # Single-channel 2D image
+    >>> blurred = blur_transform(x)
+    >>> print(blurred.shape)
+    torch.Size([1, 64, 64])
+
+    3D volume processing with multiple channels:
+
+    >>> blur_3d = GaussianBlur(kernel_size=3, sigma=0.5, dim=3, channels=2)
+    >>> volume = torch.rand(2, 32, 32, 32)  # Two-channel 3D volume
+    >>> smoothed = blur_3d(volume)
+
+    See Also
+    --------
+    GaussianNoise : Additive noise augmentation
+    RandomContrast : Contrast-based augmentation
+    """
+
     def __init__(
         self, kernel_size: int = 3, sigma: float = 0.1, dim: int = 2, channels: int = 1
     ):
-        """
-        Initialize a Gaussian Blur module.
+        """Initialize Gaussian blur transform with specified parameters.
 
-        Args:
-            kernel_size (int): Size of the Gaussian kernel (should be odd).
-            sigma (float): Standard deviation of the Gaussian distribution.
-            dim (int): Dimensionality (2 or 3) for applying the blur.
-            channels (int): Number of input channels (default is 1).
+        Parameters
+        ----------
+        kernel_size : int, optional
+            Size of the Gaussian kernel, by default 3.
+            Must be an odd positive integer for symmetric filtering.
+        sigma : float, optional
+            Standard deviation of the Gaussian distribution, by default 0.1.
+            Larger values produce stronger blur effects.
+        dim : int, optional
+            Spatial dimensionality (2 or 3), by default 2.
+            Determines whether to use 2D or 3D convolution.
+        channels : int, optional
+            Number of input channels, by default 1.
+            Each channel is processed independently.
+
+        Raises
+        ------
+        AssertionError
+            If dim is not 2 or 3.
+            If kernel_size is not an odd number.
+
+        Notes
+        -----
+        The Gaussian kernel is pre-computed and frozen (no gradient computation).
+        Convolution uses 'replicate' padding to minimize edge artifacts and
+        grouped convolution to maintain channel independence.
         """
         super().__init__()
         assert dim in (2, 3), "Only 2D or 3D Gaussian blur is supported."
@@ -39,7 +138,25 @@ class GaussianBlur(torch.nn.Module):
         self.conv.weight.requires_grad = False  # Freeze the kernel weights
 
     def _create_gaussian_kernel(self):
-        """Create a Gaussian kernel for 2D or 3D convolution."""
+        """Create normalized Gaussian kernel for convolution filtering.
+
+        Generates a multi-dimensional Gaussian kernel based on the configured
+        kernel size, sigma, and dimensionality. The kernel is normalized to
+        sum to 1.0 for proper filtering behavior.
+
+        Returns
+        -------
+        torch.Tensor
+            Normalized Gaussian kernel with shape matching kernel_shape.
+            Values represent the Gaussian distribution discretized over
+            the kernel grid centered at zero.
+
+        Notes
+        -----
+        The kernel is computed using the formula:
+        K(x) = exp(-||x||^2 / (2 * sigma^2)) / normalization_factor
+        where x represents the coordinate offsets from kernel center.
+        """
         coords = torch.arange(self.kernel_size) - self.kernel_size // 2
         axes_coords = torch.meshgrid(*[[coords] * self.dim], indexing="ij")
         kernel = torch.exp(
@@ -51,7 +168,40 @@ class GaussianBlur(torch.nn.Module):
         return kernel
 
     def forward(self, x: torch.Tensor):
-        """Apply Gaussian blur to the input tensor."""
+        """Apply Gaussian blur to input tensor.
+
+        Performs Gaussian blurring via convolution with the pre-computed kernel.
+        Automatically handles device placement and batch dimension management
+        for both 2D and 3D inputs.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor to blur. Expected shapes:
+            - 2D: (height, width) or (channels, height, width) or (batch, channels, height, width)
+            - 3D: (depth, height, width) or (channels, depth, height, width) or (batch, channels, depth, height, width)
+
+        Returns
+        -------
+        torch.Tensor
+            Blurred tensor with same shape and device as input.
+            Dtype is converted to float for convolution, then back to original dtype.
+
+        Examples
+        --------
+        >>> import torch
+        >>> blur = GaussianBlur(kernel_size=5, sigma=1.0, dim=2)
+        >>> x = torch.rand(64, 64)  # 2D input without batch/channel dims
+        >>> result = blur.forward(x)
+        >>> print(result.shape)
+        torch.Size([64, 64])
+
+        Notes
+        -----
+        - Convolution layer is automatically moved to input tensor's device
+        - Input is converted to float32 for convolution operations
+        - Batch dimension is added/removed automatically when needed
+        """
         self.conv.to(x.device, non_blocking=True)
         if len(x.shape) == self.dim:
             # For 2D or 3D input without batch dimension
