@@ -102,28 +102,21 @@ ruff check src tests --fix
 
 ### Docstring Style
 
-We use NumPy-style docstrings:
+We use concise Google-style docstrings:
 
 ```python
 def process_data(data: np.ndarray, scale: float = 1.0) -> np.ndarray:
     """Process input data with optional scaling.
     
-    Parameters
-    ----------
-    data : np.ndarray
-        Input array to process.
-    scale : float, optional
-        Scaling factor to apply, by default 1.0.
+    Args:
+        data: Input array to process.
+        scale: Scaling factor to apply. Defaults to 1.0.
         
-    Returns
-    -------
-    np.ndarray
+    Returns:
         Processed data array.
         
-    Raises
-    ------
-    ValueError
-        If data is empty or scale is negative.
+    Raises:
+        ValueError: If data is empty or scale is negative.
     """
     if data.size == 0:
         raise ValueError("Data array cannot be empty")

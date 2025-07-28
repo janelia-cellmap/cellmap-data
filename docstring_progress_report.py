@@ -3,7 +3,7 @@
 Week 4 Day 3-4 Docstring Standardization Progress Report
 
 This script analyzes the current state of docstring standardization across
-the CellMap-Data codebase and generates a progress report.
+the CellMap-Data codebase and generates a progress report for Google-style conversion.
 """
 
 import os
@@ -104,12 +104,12 @@ def generate_progress_report() -> str:
                     total_numpy += numpy_count
                     total_examples += examples_count
 
-                    # Determine status
-                    if google_count == 0 and numpy_count > 0:
-                        status = "✅ COMPLETED (NumPy-style)"
-                    elif google_count > 0 and numpy_count == 0:
-                        status = "🔄 NEEDS CONVERSION (Google-style)"
-                    elif google_count > 0 and numpy_count > 0:
+                                        # Determine status
+                    if numpy_count == 0 and google_count > 0:
+                        status = "✅ COMPLETED (Google-style)"
+                    elif numpy_count > 0 and google_count == 0:
+                        status = "🔄 NEEDS CONVERSION (NumPy-style)"
+                    elif numpy_count > 0 and google_count > 0:
                         status = "⚠️ MIXED FORMAT"
                     else:
                         status = "❓ MINIMAL DOCS"
@@ -142,41 +142,39 @@ def generate_progress_report() -> str:
     report.append(f"- **Total Google-style docstrings**: {total_google}")
     report.append(f"- **Total NumPy-style docstrings**: {total_numpy}")
     report.append(f"- **Total with Examples sections**: {total_examples}")
-    report.append(
-        f"- **Conversion progress**: {total_numpy}/{total_google + total_numpy} ({100 * total_numpy / max(1, total_google + total_numpy):.1f}%)"
-    )
+    report.append(f"- **Conversion progress**: {total_google}/{total_google + total_numpy} ({100 * total_google / max(1, total_google + total_numpy):.1f}%)")
 
     report.append("\n## Completion Status\n")
 
-    if core_g == 0:
+    if core_n == 0:
         report.append("✅ **Phase 1 (Core Classes)**: COMPLETED")
     else:
-        report.append(f"🔄 **Phase 1 (Core Classes)**: {core_g} Google-style remaining")
+        report.append(f"🔄 **Phase 1 (Core Classes)**: {core_n} NumPy-style remaining")
 
-    if trans_g == 0:
+    if trans_n == 0:
         report.append("✅ **Phase 2 (Transform Modules)**: COMPLETED")
     else:
         report.append(
-            f"🔄 **Phase 2 (Transform Modules)**: {trans_g} Google-style remaining"
+            f"🔄 **Phase 2 (Transform Modules)**: {trans_n} NumPy-style remaining"
         )
 
-    if sec_g == 0:
-        report.append("✅ **Phase 3 (Secondary Modules)**: COMPLETED")
+    if sec_n == 0:
+        report.append("✅ **Phase 3 (Secondary Modules)**: COMPLETED")  
     else:
         report.append(
-            f"🔄 **Phase 3 (Secondary Modules)**: {sec_g} Google-style remaining"
+            f"🔄 **Phase 3 (Secondary Modules)**: {sec_n} NumPy-style remaining"
         )
 
     # Next steps
     report.append("\n## Next Steps\n")
-    if total_google > 0:
+    if total_numpy > 0:
         report.append(
-            "1. Continue converting remaining Google-style docstrings to NumPy format"
+            "1. Continue converting remaining NumPy-style docstrings to Google format"
         )
         report.append("2. Add missing Examples sections to public APIs")
-        report.append("3. Verify all parameter types match function signatures")
+        report.append("3. Verify all parameter descriptions are concise and clear")
     else:
-        report.append("1. ✅ All docstrings converted to NumPy-style format!")
+        report.append("1. ✅ All docstrings converted to Google-style format!")
         report.append("2. Run documentation generation tests")
         report.append("3. Verify all examples execute correctly")
 
