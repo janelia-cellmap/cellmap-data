@@ -937,6 +937,10 @@ class CellMapDataset(Dataset):
     def get_indices(self, chunk_size: Mapping[str, int]) -> Sequence[int]:
         """Returns the indices of the dataset that will tile the dataset according to the chunk_size."""
         # TODO: ADD TEST
+        # Handle empty chunk_size case
+        if not chunk_size:
+            return [0]
+
         # Get padding per axis
         indices_dict = {}
         for c, size in chunk_size.items():

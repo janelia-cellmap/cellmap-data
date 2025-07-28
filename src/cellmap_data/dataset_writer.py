@@ -572,13 +572,23 @@ class CellMapDatasetWriter(Dataset):
 
         indices_dict = {}
         for c, size in chunk_size.items():
-            indices_dict[c] = np.arange(0, self.sampling_box_shape[c], size, dtype=int)
-
-            # Make sure the last index is included
-            if indices_dict[c][-1] != self.sampling_box_shape[c] - 1:
-                indices_dict[c] = np.append(
-                    indices_dict[c], self.sampling_box_shape[c] - 1
+            # Handle zero or negative chunk sizes gracefully
+            if size <= 0:
+                # For zero or negative chunk sizes, create a single index at the start
+                indices_dict[c] = np.array([0], dtype=int)
+            else:
+                indices_dict[c] = np.arange(
+                    0, self.sampling_box_shape[c], size, dtype=int
                 )
+
+                # Make sure the last index is included
+                if (
+                    len(indices_dict[c]) > 0
+                    and indices_dict[c][-1] != self.sampling_box_shape[c] - 1
+                ):
+                    indices_dict[c] = np.append(
+                        indices_dict[c], self.sampling_box_shape[c] - 1
+                    )
 
         indices = []
         # Generate linear indices by unraveling all combinations of axes indices
