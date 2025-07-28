@@ -12,38 +12,13 @@ def torch_max_value(dtype: torch.dtype) -> int:
     This is used for proper value clamping and range validation in data processing
     operations.
 
-    Parameters
-    ----------
-    dtype : torch.dtype
-        PyTorch data type to query for maximum value.
-        Supports uint8, int8, int16, int32, int64, and floating point types.
+    Args:
+        dtype: PyTorch data type to query for maximum value.
+            Supports uint8, int8, int16, int32, int64, and floating point types.
 
-    Returns
-    -------
-    int
+    Returns:
         Maximum representable value for the specified dtype.
         For floating point types, returns a default maximum of 255.
-
-    Examples
-    --------
-    >>> import torch
-    >>> from cellmap_data.utils.misc import torch_max_value
-    >>> torch_max_value(torch.uint8)
-    255
-    >>> torch_max_value(torch.int16)
-    32767
-    >>> torch_max_value(torch.float32)  # Default for floating types
-    255
-
-    Notes
-    -----
-    For floating point data types, this function returns 255 as a default maximum.
-    This value is commonly used throughout the codebase for image data normalization
-    and should be changed with caution as it may affect other components.
-
-    See Also
-    --------
-    torch.iinfo : PyTorch function for integer type information
     """
     if dtype == torch.uint8:
         return 255
@@ -68,7 +43,14 @@ def longest_common_substring(a: str, b: str) -> str:
 
 
 def split_target_path(path: str) -> tuple[str, list[str]]:
-    """Splits a path to groundtruth data into the main path string, and the classes supplied for it."""
+    """Splits a path to groundtruth data into the main path string, and the classes supplied for it.
+
+    Args:
+        path: Path string that may contain class specifications in brackets.
+
+    Returns:
+        Tuple containing the processed path string and list of classes.
+    """
     try:
         path_prefix, path_rem = path.split("[")
         classes, path_suffix = path_rem.split("]")

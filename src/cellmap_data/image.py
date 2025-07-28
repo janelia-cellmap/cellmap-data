@@ -139,107 +139,35 @@ class CellMapImage:
         configurable output scale, shape, and transformations. Supports various
         data formats through TensorStore backend with device-aware tensor operations.
 
-        Parameters
-        ----------
-        path : str
-            File path to the image data source. Supports formats like Zarr, N5,
-            HDF5, and other TensorStore-compatible formats.
-        target_class : str
-            Class label identifier for this image. Used for dataset organization
-            and class-specific processing workflows.
-        target_scale : sequence of float
-            Scale factors for spatial axes in physical units (e.g., nanometers).
-            Order must match axis_order specification.
-        target_voxel_shape : sequence of int
-            Target output dimensions in voxels for each spatial axis.
-            Order must match axis_order specification.
-        pad : bool, optional
-            Whether to pad image data when requested region exceeds bounds,
-            by default False. If False, clips to available data boundaries.
-        pad_value : float or int, optional
-            Fill value for padding when pad=True, by default np.nan.
-            Used for regions outside available data coverage.
-        interpolation : str, optional
-            Interpolation method for spatial transformations, by default "nearest".
-            Options include "nearest", "linear", "cubic" depending on data type.
-        axis_order : str or sequence of str, optional
-            Order of spatial axes in data arrays, by default "zyx".
-            Defines coordinate system for transformations and indexing.
-        value_transform : callable, optional
-            Function to transform pixel/voxel values after loading, by default None.
-            Applied element-wise to loaded data before tensor conversion.
-        context : tensorstore.Context, optional
-            TensorStore context for optimized data loading, by default None.
-            Enables concurrent operations and caching strategies.
-        device : str or torch.device, optional
-            Target device for tensor operations, by default None.
-            If None, automatically selects: "cuda" > "mps" > "cpu".
+        Args:
+            path: File path to the image data source. Supports formats like Zarr, N5,
+                HDF5, and other TensorStore-compatible formats.
+            target_class: Class label identifier for this image. Used for dataset organization
+                and class-specific processing workflows.
+            target_scale: Scale factors for spatial axes in physical units (e.g., nanometers).
+                Order must match axis_order specification.
+            target_voxel_shape: Target output dimensions in voxels for each spatial axis.
+                Order must match axis_order specification.
+            pad: Whether to pad image data when requested region exceeds bounds. Defaults to False.
+                If False, clips to available data boundaries.
+            pad_value: Fill value for padding when pad=True. Defaults to np.nan.
+                Used for regions outside available data coverage.
+            interpolation: Interpolation method for spatial transformations. Defaults to "nearest".
+                Options include "nearest", "linear", "cubic" depending on data type.
+            axis_order: Order of spatial axes in data arrays. Defaults to "zyx".
+                Defines coordinate system for transformations and indexing.
+            value_transform: Function to transform pixel/voxel values after loading. Defaults to None.
+                Applied element-wise to loaded data before tensor conversion.
+            context: TensorStore context for optimized data loading. Defaults to None.
+                Enables concurrent operations and caching strategies.
+            device: Target device for tensor operations. Defaults to None.
+                If None, automatically selects: "cuda" > "mps" > "cpu".
 
-        Raises
-        ------
-        FileNotFoundError
-            If the specified path does not exist or is not accessible.
-        ValidationError
-            If axis_order length doesn't match scale/shape dimensions.
-        TensorStoreError
-            If the data format is not supported or corrupted.
-
-        Examples
-        --------
-        Basic 3D image loading:
-
-        >>> image = CellMapImage(
-        ...     path="/data/em_volume.zarr",
-        ...     target_class="raw",
-        ...     target_scale=[4.0, 4.0, 4.0],
-        ...     target_voxel_shape=[128, 128, 128]
-        ... )
-        >>> center = {"z": 1000, "y": 2000, "x": 3000}
-        >>> data = image[center]
-        >>> print(data.shape, data.device)
-        torch.Size([128, 128, 128]) cuda:0
-
-        With normalization and padding:
-
-        >>> def normalize_intensity(x):
-        ...     return (x - x.mean()) / x.std()
-        >>>
-        >>> image = CellMapImage(
-        ...     path="/data/labels.n5",
-        ...     target_class="mitochondria",
-        ...     target_scale=[8.0, 8.0, 8.0],
-        ...     target_voxel_shape=[64, 64, 64],
-        ...     value_transform=normalize_intensity,
-        ...     pad=True,
-        ...     pad_value=0.0,
-        ...     device="cuda"
-        ... )
-
-        2D image with custom axis order:
-
-        >>> image = CellMapImage(
-        ...     path="/data/slice.tiff",
-        ...     target_class="cell_membrane",
-        ...     target_scale=[2.0, 2.0],
-        ...     target_voxel_shape=[512, 512],
-        ...     axis_order="yx",
-        ...     interpolation="linear"
-        ... )
-
-        Notes
-        -----
-        The class automatically handles mismatches between axis_order length and
-        scale/shape sequences by padding with appropriate default values. This
-        enables flexible handling of 2D slices from 3D volumes.
-
-        Spatial transformations applied during data extraction are cached for
-        efficiency. Value transformations are applied after spatial operations
-        to maintain numerical stability.
-
-        Device placement follows PyTorch conventions with automatic hardware
-        detection and fallback strategies for optimal performance.
+        Raises:
+            FileNotFoundError: If the specified path does not exist or is not accessible.
+            ValidationError: If axis_order length doesn't match scale/shape dimensions.
+            TensorStoreError: If the data format is not supported or corrupted.
         """
-
         self.path = path
         self.label_class = target_class
         # Below makes assumptions about image scale, and also locks which axis is sliced to 2D (this should only be encountered if bypassing dataset)

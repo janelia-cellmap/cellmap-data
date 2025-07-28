@@ -150,115 +150,34 @@ class CellMapDataLoader:
         CUDA stream management, weighted sampling for imbalanced datasets, and
         automatic device placement with multiprocessing support.
 
-        Parameters
-        ----------
-        dataset : CellMapDataset or CellMapMultiDataset or CellMapSubset or CellMapDatasetWriter
-            The dataset instance providing data samples. Supports single datasets,
-            multi-dataset training, subsets, and dataset writers.
-        classes : sequence of str, optional
-            List of segmentation classes to load, by default None.
-            If None, uses all classes defined in the dataset.
-        batch_size : int, optional
-            Number of samples per batch, by default 1.
-            Larger batches enable CUDA stream optimization for GPU acceleration.
-        num_workers : int, optional
-            Number of worker processes for parallel data loading, by default 0.
-            Set to 0 for single-threaded loading, >0 for multiprocessing.
-        weighted_sampler : bool, optional
-            Whether to use weighted sampling for class balancing, by default False.
-            Automatically weights samples based on class frequency in dataset.
-        sampler : Sampler or callable or None, optional
-            Custom sampling strategy for batch generation, by default None.
-            Can be PyTorch Sampler instance or callable returning sampler.
-        is_train : bool, optional
-            Whether this loader is for training (enables shuffling), by default True.
-            Training mode enables data shuffling and augmentation-friendly settings.
-        rng : torch.Generator, optional
-            Random number generator for reproducible sampling, by default None.
-            If None, uses default PyTorch random state.
-        device : str or torch.device, optional
-            Target device for tensor operations, by default None.
-            If None, automatically selects: "cuda" > "mps" > "cpu".
-        iterations_per_epoch : int, optional
-            Number of iterations per epoch for large datasets with weighted sampling,
-            by default None. Required when dataset size exceeds 2^24 samples.
-        **kwargs
-            Additional keyword arguments passed to PyTorch DataLoader constructor.
-            Common options include pin_memory, persistent_workers, prefetch_factor.
+        Args:
+            dataset: The dataset instance providing data samples. Supports single datasets,
+                multi-dataset training, subsets, and dataset writers.
+            classes: List of segmentation classes to load. Defaults to None.
+                If None, uses all classes defined in the dataset.
+            batch_size: Number of samples per batch. Defaults to 1.
+                Larger batches enable CUDA stream optimization for GPU acceleration.
+            num_workers: Number of worker processes for parallel data loading. Defaults to 0.
+                Set to 0 for single-threaded loading, >0 for multiprocessing.
+            weighted_sampler: Whether to use weighted sampling for class balancing. Defaults to False.
+                Automatically weights samples based on class frequency in dataset.
+            sampler: Custom sampling strategy for batch generation. Defaults to None.
+                Can be PyTorch Sampler instance or callable returning sampler.
+            is_train: Whether this loader is for training (enables shuffling). Defaults to True.
+                Training mode enables data shuffling and augmentation-friendly settings.
+            rng: Random number generator for reproducible sampling. Defaults to None.
+                If None, uses default PyTorch random state.
+            device: Target device for tensor operations. Defaults to None.
+                If None, automatically selects: "cuda" > "mps" > "cpu".
+            iterations_per_epoch: Number of iterations per epoch for large datasets with weighted sampling.
+                Defaults to None. Required when dataset size exceeds 2^24 samples.
+            **kwargs: Additional keyword arguments passed to PyTorch DataLoader constructor.
+                Common options include pin_memory, persistent_workers, prefetch_factor.
 
-        Raises
-        ------
-        ValidationError
-            If dataset type is not supported or configuration is invalid.
-        RuntimeError
-            If multiprocessing context cannot be initialized.
-        MemoryError
-            If weighted sampling requires too much memory without iterations_per_epoch limit.
-
-        Examples
-        --------
-        Basic training configuration:
-
-        >>> dataset = CellMapDataset(...)
-        >>> loader = CellMapDataLoader(
-        ...     dataset=dataset,
-        ...     batch_size=4,
-        ...     num_workers=2,
-        ...     is_train=True,
-        ...     device="cuda"
-        ... )
-
-        Balanced sampling for imbalanced classes:
-
-        >>> loader = CellMapDataLoader(
-        ...     dataset=dataset,
-        ...     classes=["background", "mitochondria", "nucleus"],
-        ...     batch_size=8,
-        ...     weighted_sampler=True,
-        ...     num_workers=4,
-        ...     iterations_per_epoch=1000
-        ... )
-
-        Inference configuration with custom sampler:
-
-        >>> from torch.utils.data import SequentialSampler
-        >>> loader = CellMapDataLoader(
-        ...     dataset=dataset,
-        ...     sampler=SequentialSampler(dataset),
-        ...     batch_size=1,
-        ...     is_train=False,
-        ...     pin_memory=True,
-        ...     persistent_workers=True
-        ... )
-
-        Multi-dataset training:
-
-        >>> multi_dataset = CellMapMultiDataset([dataset1, dataset2, dataset3])
-        >>> loader = CellMapDataLoader(
-        ...     dataset=multi_dataset,
-        ...     batch_size=6,
-        ...     weighted_sampler=True,
-        ...     num_workers=8,
-        ...     device="cuda",
-        ...     prefetch_factor=2
-        ... )
-
-        Notes
-        -----
-        The loader automatically configures multiprocessing context based on platform:
-        - Windows: spawn context for process isolation
-        - Linux/macOS: forkserver for efficient memory sharing
-
-        CUDA stream optimization is enabled automatically for batches exceeding
-        100MB memory usage (configurable via MIN_BATCH_MEMORY_FOR_STREAMS_MB).
-
-        For datasets with num_workers > 0, the dataset is not moved to device
-        during initialization to avoid serialization issues. Device placement
-        occurs during batch processing instead.
-
-        Weighted sampling calculates class weights based on dataset class counts
-        and automatically handles class imbalance. For very large datasets,
-        specify iterations_per_epoch to limit memory usage.
+        Raises:
+            ValidationError: If dataset type is not supported or configuration is invalid.
+            RuntimeError: If multiprocessing context cannot be initialized.
+            MemoryError: If weighted sampling requires too much memory without iterations_per_epoch limit.
         """
         self.dataset = dataset
         self.classes = classes if classes is not None else dataset.classes

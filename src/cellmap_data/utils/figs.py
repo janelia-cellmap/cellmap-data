@@ -26,36 +26,25 @@ def get_image_grid(
     (input, target, and outputs for each class). For 3D data, the middle slice
     is automatically selected for visualization.
 
-    Parameters
-    ----------
-    input_data : torch.Tensor
-        Raw input data tensor with shape (batch, channels, [depth], height, width).
-        Represents the original input to the model.
-    target_data : torch.Tensor
-        Ground truth target data tensor with same spatial dimensions as input.
-        Should have shape (batch, classes, [depth], height, width).
-    outputs : torch.Tensor
-        Model prediction tensor with same shape as target_data.
-        Contains the model's predicted segmentation or classification outputs.
-    classes : sequence of str
-        List of class label names in order corresponding to the class dimension.
-        Used for subplot labeling and organization.
-    batch_size : int, optional
-        Number of batch samples to visualize, by default None.
-        If None, uses the full batch size from input_data.shape[0].
-    fig_size : int, optional
-        Size multiplier for individual subplot dimensions, by default 3.
-        Total figure size scales with number of images and this multiplier.
-    clim : sequence, optional
-        Color intensity limits as [vmin, vmax] for consistent scaling, by default None.
-        If None, each image is scaled independently by its own intensity range.
-    cmap : str, optional
-        Matplotlib colormap name for image display, by default None.
-        If None, uses matplotlib's default colormap.
+    Args:
+        input_data: Raw input data tensor with shape (batch, channels, [depth], height, width).
+            Represents the original input to the model.
+        target_data: Ground truth target data tensor with same spatial dimensions as input.
+            Should have shape (batch, classes, [depth], height, width).
+        outputs: Model prediction tensor with same shape as target_data.
+            Contains the model's predicted segmentation or classification outputs.
+        classes: List of class label names in order corresponding to the class dimension.
+            Used for subplot labeling and organization.
+        batch_size: Number of batch samples to visualize. Defaults to None.
+            If None, uses the full batch size from input_data.shape[0].
+        fig_size: Size multiplier for individual subplot dimensions. Defaults to 3.
+            Total figure size scales with number of images and this multiplier.
+        clim: Color intensity limits as [vmin, vmax] for consistent scaling. Defaults to None.
+            If None, each image is scaled independently by its own intensity range.
+        cmap: Matplotlib colormap name for image display. Defaults to None.
+            If None, uses matplotlib's default colormap.
 
-    Returns
-    -------
-    matplotlib.figure.Figure
+    Returns:
         Complete figure object containing the visualization grid.
         Can be saved, displayed, or further customized.
 

@@ -104,7 +104,7 @@ def generate_progress_report() -> str:
                     total_numpy += numpy_count
                     total_examples += examples_count
 
-                                        # Determine status
+                    # Determine status
                     if numpy_count == 0 and google_count > 0:
                         status = "✅ COMPLETED (Google-style)"
                     elif numpy_count > 0 and google_count == 0:
@@ -142,7 +142,9 @@ def generate_progress_report() -> str:
     report.append(f"- **Total Google-style docstrings**: {total_google}")
     report.append(f"- **Total NumPy-style docstrings**: {total_numpy}")
     report.append(f"- **Total with Examples sections**: {total_examples}")
-    report.append(f"- **Conversion progress**: {total_google}/{total_google + total_numpy} ({100 * total_google / max(1, total_google + total_numpy):.1f}%)")
+    report.append(
+        f"- **Conversion progress**: {total_google}/{total_google + total_numpy} ({100 * total_google / max(1, total_google + total_numpy):.1f}%)"
+    )
 
     report.append("\n## Completion Status\n")
 
@@ -159,7 +161,7 @@ def generate_progress_report() -> str:
         )
 
     if sec_n == 0:
-        report.append("✅ **Phase 3 (Secondary Modules)**: COMPLETED")  
+        report.append("✅ **Phase 3 (Secondary Modules)**: COMPLETED")
     else:
         report.append(
             f"🔄 **Phase 3 (Secondary Modules)**: {sec_n} NumPy-style remaining"

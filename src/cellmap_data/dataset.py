@@ -29,86 +29,13 @@ class CellMapDataset(Dataset):
     applies spatial and value transformations, and provides efficient data loading
     with configurable class relationships and array specifications.
 
-    The dataset maintains information about data sources including paths, classes for
-    segmentation, and array specifications for network inputs and targets. It constructs
-    image sources for raw and ground truth data, retrieves data with appropriate
-    transformations, and provides methods for class pixel counting and random crop
-    generation for training workflows.
-
-    Attributes
-    ----------
-    input_path : str
-        Path to the input/raw data files.
-    target_path : str
-        Path to the ground truth/target data files.
-    classes : list of str
-        List of segmentation classes in preserved order.
-    input_arrays : dict
-        Specification of input arrays with shape and scale information.
-    target_arrays : dict
-        Specification of target arrays with shape and scale information.
-    device : str or torch.device
-        Device for data loading ('cuda', 'mps', or 'cpu').
-
-    Methods
-    -------
-    __getitem__(index)
-        Retrieve a data sample by index with applied transformations.
-    __len__()
-        Return the total number of valid data indices.
-    get_class_counts()
-        Get normalized pixel counts for each class in ground truth data.
-    to(device)
-        Move dataset operations to specified device.
-
-    Examples
-    --------
-    Basic dataset creation for training:
-
-    >>> dataset = CellMapDataset(
-    ...     input_path="/path/to/raw/data",
-    ...     target_path="/path/to/gt/data",
-    ...     classes=["background", "mitochondria", "nucleus"],
-    ...     input_arrays={"raw": {"shape": (128, 128, 128), "scale": (4, 4, 4)}},
-    ...     target_arrays={"labels": {"shape": (128, 128, 128), "scale": (4, 4, 4)}},
-    ...     is_train=True
-    ... )
-    >>> len(dataset)
-    1000
-    >>> sample = dataset[0]
-    >>> print(sample.keys())
-    dict_keys(['raw', 'labels'])
-
-    With spatial transformations:
-
-    >>> spatial_transforms = {
-    ...     "rotation": {"axes": ["z", "y"], "angle": 15},
-    ...     "scale": {"factor": [0.8, 1.2]}
-    ... }
-    >>> dataset = CellMapDataset(
-    ...     input_path="/path/to/data",
-    ...     target_path="/path/to/gt",
-    ...     classes=["cell", "membrane"],
-    ...     input_arrays={"raw": {"shape": (64, 64, 64), "scale": (8, 8, 8)}},
-    ...     target_arrays={"gt": {"shape": (64, 64, 64), "scale": (8, 8, 8)}},
-    ...     spatial_transforms=spatial_transforms
-    ... )
-
-    Notes
-    -----
-    The dataset supports efficient parallel data loading using ThreadPoolExecutor
-    with configurable worker threads. Class relationships can be specified to
-    handle hierarchical segmentation tasks. Both raw and target data undergo
-    appropriate transformations before being returned as PyTorch tensors.
-
-    Deprecated parameter names ('raw_path', 'class_relation_dict') are supported
-    for backward compatibility but will be removed in future versions.
-
-    See Also
-    --------
-    CellMapDataLoader : DataLoader wrapper with optimized batching
-    CellMapImage : Individual image handling and transformations
-    CellMapMultiDataset : Multi-dataset training support
+    Args:
+        input_path: Path to the input/raw data files.
+        target_path: Path to the ground truth/target data files.
+        classes: List of segmentation classes in preserved order.
+        input_arrays: Specification of input arrays with shape and scale information.
+        target_arrays: Specification of target arrays with shape and scale information.
+        device: Device for data loading ('cuda', 'mps', or 'cpu').
     """
 
     def __init__(
@@ -144,149 +71,58 @@ class CellMapDataset(Dataset):
         inference. Supports multiclass segmentation with configurable class relationships
         and hierarchical data structures.
 
-        Parameters
-        ----------
-        input_path : str, optional
-            Path to the input/raw data files. Replaces deprecated 'raw_path' parameter.
-            Must be provided either directly or via 'raw_path' for backward compatibility.
-        target_path : str, optional
-            Path to the ground truth/target data files. Required for training datasets.
-        classes : sequence of str, optional
-            List of segmentation classes in preserved order for output arrays.
-            Classes not present in dataset will be filled with zeros. If None,
-            operates in raw-only mode without class-specific processing.
-        input_arrays : mapping, optional
-            Dictionary specifying input arrays with shape and scale information.
-            Structure: {"array_name": {"shape": tuple, "scale": sequence}}.
-            Required for proper data loading and array configuration.
-        target_arrays : mapping, optional
-            Dictionary specifying target arrays with same structure as input_arrays.
-            Used for ground truth data configuration and network target preparation.
-        spatial_transforms : mapping, optional
-            Dictionary containing spatial transformations to apply to data.
-            Structure: {"transform_name": {"transform_args": values}}.
-            Applied to both input and target data consistently.
-        raw_value_transforms : callable, optional
-            Function to transform raw/input data values, by default None.
-            Common example is normalization of raw intensity data.
-        target_value_transforms : callable or sequence or mapping, optional
-            Function(s) to convert ground truth data to target arrays, by default None.
-            Can be single function, list (one per class), or dict (keyed by class name).
-            Applied after spatial transforms to prepare network targets.
-        class_relationships : mapping, optional
-            Dictionary mapping class names to sequences of related classes.
-            Defines hierarchical relationships for complex segmentation tasks.
-            Replaces deprecated 'class_relation_dict' parameter.
-        is_train : bool, optional
-            Whether dataset is used for training vs inference, by default False.
-            Affects data loading behavior and random sampling strategies.
-        axis_order : str, optional
-            Order of spatial axes in data arrays, by default "zyx".
-            Defines coordinate system interpretation for transformations.
-        context : tensorstore.Context, optional
-            TensorStore context for optimized data loading, by default None.
-            Enables concurrent read operations and caching strategies.
-        rng : torch.Generator, optional
-            Random number generator for reproducible transformations, by default None.
-            If None, uses default PyTorch random state.
-        force_has_data : bool, optional
-            Force dataset to report data availability regardless of actual state,
-            by default False. Used for specialized loading scenarios.
-        empty_value : float or int, optional
-            Fill value for empty/missing data regions, by default torch.nan.
-            Used when padding or handling sparse data coverage.
-        pad : bool, optional
-            Whether to pad image data to match requested array shapes,
-            by default True. Enables consistent batch dimensions.
-        device : str or torch.device, optional
-            Target device for data loading ('cuda', 'mps', 'cpu'), by default None.
-            If None, automatically selects best available device.
-        max_workers : int, optional
-            Maximum worker threads for parallel data loading, by default None.
-            If None, uses minimum of CPU count and CELLMAP_MAX_WORKERS environment
-            variable (default 4).
-        raw_path : str, optional
-            **Deprecated.** Use 'input_path' instead. Will be removed in future version.
-            Provided for backward compatibility only.
-        class_relation_dict : mapping, optional
-            **Deprecated.** Use 'class_relationships' instead. Will be removed in future version.
-            Provided for backward compatibility only.
+        Args:
+            input_path: Path to the input/raw data files. Replaces deprecated 'raw_path' parameter.
+                Must be provided either directly or via 'raw_path' for backward compatibility.
+            target_path: Path to the ground truth/target data files. Required for training datasets.
+            classes: List of segmentation classes in preserved order for output arrays.
+                Classes not present in dataset will be filled with zeros. If None,
+                operates in raw-only mode without class-specific processing.
+            input_arrays: Dictionary specifying input arrays with shape and scale information.
+                Structure: {"array_name": {"shape": tuple, "scale": sequence}}.
+                Required for proper data loading and array configuration.
+            target_arrays: Dictionary specifying target arrays with same structure as input_arrays.
+                Used for ground truth data configuration and network target preparation.
+            spatial_transforms: Dictionary containing spatial transformations to apply to data.
+                Structure: {"transform_name": {"transform_args": values}}.
+                Applied to both input and target data consistently.
+            raw_value_transforms: Function to transform raw/input data values. Defaults to None.
+                Common example is normalization of raw intensity data.
+            target_value_transforms: Function(s) to convert ground truth data to target arrays. Defaults to None.
+                Can be single function, list (one per class), or dict (keyed by class name).
+                Applied after spatial transforms to prepare network targets.
+            class_relationships: Dictionary mapping class names to sequences of related classes.
+                Defines hierarchical relationships for complex segmentation tasks.
+                Replaces deprecated 'class_relation_dict' parameter.
+            is_train: Whether dataset is used for training vs inference. Defaults to False.
+                Affects data loading behavior and random sampling strategies.
+            axis_order: Order of spatial axes in data arrays. Defaults to "zyx".
+                Defines coordinate system interpretation for transformations.
+            context: TensorStore context for optimized data loading. Defaults to None.
+                Enables concurrent read operations and caching strategies.
+            rng: Random number generator for reproducible transformations. Defaults to None.
+                If None, uses default PyTorch random state.
+            force_has_data: Force dataset to report data availability regardless of actual state.
+                Defaults to False. Used for specialized loading scenarios.
+            empty_value: Fill value for empty/missing data regions. Defaults to torch.nan.
+                Used when padding or handling sparse data coverage.
+            pad: Whether to pad image data to match requested array shapes. Defaults to True.
+                Enables consistent batch dimensions.
+            device: Target device for data loading ('cuda', 'mps', 'cpu'). Defaults to None.
+                If None, automatically selects best available device.
+            max_workers: Maximum worker threads for parallel data loading. Defaults to None.
+                If None, uses minimum of CPU count and CELLMAP_MAX_WORKERS environment
+                variable (default 4).
+            raw_path: **Deprecated.** Use 'input_path' instead. Will be removed in future version.
+                Provided for backward compatibility only.
+            class_relation_dict: **Deprecated.** Use 'class_relationships' instead.
+                Will be removed in future version. Provided for backward compatibility only.
 
-        Raises
-        ------
-        ValueError
-            If both new and deprecated parameter names are provided simultaneously.
-            If required parameters (input_path, target_path, input_arrays) are missing.
-        ValidationError
-            If array specifications are malformed or incompatible.
-        DataLoadingError
-            If data files cannot be accessed or loaded from specified paths.
-
-        Examples
-        --------
-        Basic dataset for binary segmentation:
-
-        >>> dataset = CellMapDataset(
-        ...     input_path="/data/raw.zarr",
-        ...     target_path="/data/labels.zarr",
-        ...     classes=["background", "cell"],
-        ...     input_arrays={"raw": {"shape": (64, 64, 64), "scale": (8, 8, 8)}},
-        ...     target_arrays={"labels": {"shape": (64, 64, 64), "scale": (8, 8, 8)}},
-        ...     is_train=True
-        ... )
-
-        With value transformations and spatial augmentation:
-
-        >>> import torch
-        >>> from cellmap_data.transforms import Normalize
-        >>>
-        >>> def normalize_raw(x):
-        ...     return (x - x.mean()) / x.std()
-        >>>
-        >>> dataset = CellMapDataset(
-        ...     input_path="/data/em.zarr",
-        ...     target_path="/data/gt.zarr",
-        ...     classes=["background", "mitochondria", "nucleus"],
-        ...     input_arrays={"em": {"shape": (128, 128, 128), "scale": (4, 4, 4)}},
-        ...     target_arrays={"gt": {"shape": (128, 128, 128), "scale": (4, 4, 4)}},
-        ...     raw_value_transforms=normalize_raw,
-        ...     spatial_transforms={
-        ...         "rotation": {"axes": ["z", "y"], "angle": 15},
-        ...         "elastic": {"sigma": 10, "alpha": 100}
-        ...     },
-        ...     is_train=True,
-        ...     device="cuda"
-        ... )
-
-        Multi-class with hierarchical relationships:
-
-        >>> class_relations = {
-        ...     "cell": ["cytoplasm", "nucleus"],
-        ...     "organelle": ["mitochondria", "er", "golgi"]
-        ... }
-        >>> dataset = CellMapDataset(
-        ...     input_path="/data/volume.n5",
-        ...     target_path="/data/annotations.n5",
-        ...     classes=["background", "cell", "organelle"],
-        ...     class_relationships=class_relations,
-        ...     input_arrays={"volume": {"shape": (256, 256, 256), "scale": (2, 2, 2)}},
-        ...     target_arrays={"labels": {"shape": (256, 256, 256), "scale": (2, 2, 2)}},
-        ...     is_train=True
-        ... )
-
-        Notes
-        -----
-        The dataset automatically handles parameter migration from deprecated names
-        ('raw_path', 'class_relation_dict') with deprecation warnings. Both old and
-        new parameter names cannot be specified simultaneously.
-
-        Spatial transformations are applied consistently to both input and target data
-        to maintain alignment. Value transformations are applied separately, with raw
-        transforms affecting input data and target transforms preparing ground truth.
-
-        For optimal performance with large datasets, consider using a TensorStore context
-        and appropriate device placement. The dataset supports concurrent data loading
-        with configurable worker thread limits.
+        Raises:
+            ValueError: If both new and deprecated parameter names are provided simultaneously,
+                or if required parameters (input_path, target_path, input_arrays) are missing.
+            ValidationError: If array specifications are malformed or incompatible.
+            DataLoadingError: If data files cannot be accessed or loaded from specified paths.
         """
         super().__init__()
 
@@ -799,22 +635,11 @@ class CellMapDataset(Dataset):
     def _validate_index_bounds(self, idx: int) -> None:
         """Validate that an index is within bounds for coordinate transformation.
 
-        Parameters
-        ----------
-        idx : int
-            Index to validate against dataset length.
+        Args:
+            idx: Index to validate against dataset length.
 
-        Raises
-        ------
-        CellMapIndexError
-            If index is out of bounds, negative, or dataset is empty.
-
-        Notes
-        -----
-        This method ensures safe access to dataset indices by checking:
-        - Dataset is not empty (length > 0)
-        - Index is non-negative
-        - Index is less than dataset length
+        Raises:
+            CellMapIndexError: If index is out of bounds, negative, or dataset is empty.
         """
         dataset_length = len(self)
         if dataset_length == 0:
@@ -839,29 +664,16 @@ class CellMapDataset(Dataset):
     def _safe_unravel_index(self, idx: int) -> dict[str, float]:
         """Safely convert a flat index to coordinate center with proper bounds checking.
 
-        Parameters
-        ----------
-        idx : int
-            Flat index to convert to multi-dimensional coordinates.
+        Args:
+            idx: Flat index to convert to multi-dimensional coordinates.
 
-        Returns
-        -------
-        dict of str to float
+        Returns:
             Dictionary mapping axis names to coordinate centers.
             Keys correspond to axis_order, values are spatial coordinates.
 
-        Raises
-        ------
-        CellMapIndexError
-            If index is invalid or out of bounds.
-        CoordinateTransformError
-            If coordinate transformation fails due to malformed sampling box.
-
-        Notes
-        -----
-        This method first validates the index bounds, then performs numpy-style
-        unravel_index operation to convert from flat to multi-dimensional indexing,
-        and finally computes the spatial center coordinates.
+        Raises:
+            CellMapIndexError: If index is invalid or out of bounds.
+            CoordinateTransformError: If coordinate transformation fails due to malformed sampling box.
         """
         # Validate bounds first
         self._validate_index_bounds(idx)
