@@ -23,8 +23,47 @@ logger = get_logger("dataset_writer")
 
 # %%
 class CellMapDatasetWriter(Dataset):
-    """
-    This class is used to write a dataset to disk in a format that can be read by the CellMapDataset class. It is useful, for instance, for writing predictions from a model to disk.
+    """Dataset writer for CellMap data compatible with CellMapDataset reader.
+
+    This class writes datasets to disk in a format that can be read by the
+    CellMapDataset class. It is particularly useful for writing model
+    predictions to disk with proper spatial organization and metadata.
+
+    Args:
+        input_path: Path to input data directory.
+        target_path: Path where target data will be written.
+        classes: List of class labels for the dataset.
+        input_arrays: Configuration for input data arrays with shape and scale info.
+        target_arrays: Configuration for target data arrays with shape and scale info.
+        target_bounds: Bounding boxes for each target array in world coordinates.
+        raw_value_transforms: Optional transforms to apply to raw input data.
+        raw_path: Deprecated, use input_path instead.
+        axis_order: Order of spatial axes. Defaults to "zyx".
+        context: Optional TensorStore context for data operations.
+        rng: Optional random number generator for reproducible operations.
+        empty_value: Fill value for empty data regions. Defaults to 0.
+        overwrite: Whether to overwrite existing data. Defaults to False.
+        device: Computation device for tensor operations.
+
+    Attributes:
+        input_path: Path to input data directory.
+        target_path: Path where target data will be written.
+        classes: List of class labels for the dataset.
+        bounding_box: Combined bounding box of all target images.
+        sampling_box: Region where centers can be sampled for complete coverage.
+        device: Current computation device.
+
+    Examples:
+        >>> writer = CellMapDatasetWriter(
+        ...     input_path="/data/input",
+        ...     target_path="/data/output",
+        ...     classes=["background", "mitochondria"],
+        ...     input_arrays={"raw": {"shape": [64, 64, 64], "scale": [8, 8, 8]}},
+        ...     target_arrays={"labels": {"shape": [64, 64, 64], "scale": [8, 8, 8]}},
+        ...     target_bounds={"labels": {"z": [0, 1000], "y": [0, 1000], "x": [0, 1000]}}
+        ... )
+        >>> len(writer)  # Number of possible sampling locations
+        125
     """
 
     def __init__(
@@ -128,7 +167,11 @@ class CellMapDatasetWriter(Dataset):
 
     @property
     def center(self) -> Mapping[str, float] | None:
-        """Returns the center of the dataset in world units."""
+        """Get center coordinates of the dataset bounding box in world units.
+
+        Returns:
+            Dictionary mapping axis names to center coordinates, or None if no bounds.
+        """
         try:
             return self._center
         except AttributeError:
@@ -321,7 +364,11 @@ class CellMapDatasetWriter(Dataset):
             return self._device
 
     def __len__(self) -> int:
-        """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for an array request."""
+        """Get the number of possible sampling locations in the dataset.
+
+        Returns:
+            Number of coordinates that can be sampled as centers for array requests.
+        """
         try:
             return self._len
         except AttributeError:
@@ -410,7 +457,18 @@ class CellMapDatasetWriter(Dataset):
             ) from e
 
     def get_center(self, idx: int) -> dict[str, float]:
-        """Get the center coordinates for a given index, with proper bounds checking."""
+        """Get center coordinates for a dataset index with bounds validation.
+
+        Args:
+            idx: Dataset index to convert to spatial coordinates.
+
+        Returns:
+            Dictionary mapping axis names to center coordinates in world units.
+
+        Raises:
+            CellMapIndexError: If index is out of bounds for the dataset.
+            CoordinateTransformError: If coordinate transformation fails.
+        """
         return self._safe_unravel_index(idx)
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:

@@ -13,7 +13,7 @@ from .exceptions import CoordinateTransformError, IndexError as CellMapIndexErro
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils import min_redundant_inds, split_target_path, is_array_2D, get_sliced_shape
 from .image import CellMapImage
-from .utils.error_handling import ErrorMessages
+from .utils.error_handling import ErrorMessages, validate_parameter_required
 from .utils.logging_config import get_logger
 from .empty_image import EmptyImage
 
@@ -22,20 +22,55 @@ logger = get_logger("dataset")
 
 # %%
 class CellMapDataset(Dataset):
-    """A PyTorch Dataset for loading CellMap data for training and inference.
+    """PyTorch Dataset for CellMap multiclass segmentation data loading.
 
-    This class subclasses PyTorch Dataset to handle CellMap data loading with support
-    for multiclass segmentation training. It manages raw and ground truth data sources,
-    applies spatial and value transformations, and provides efficient data loading
-    with configurable class relationships and array specifications.
+    This dataset subclasses PyTorch Dataset to handle CellMap data loading with
+    support for multiclass segmentation training. It manages raw and ground truth
+    data sources, applies spatial and value transformations, and provides efficient
+    data loading with configurable class relationships and array specifications.
 
     Args:
-        input_path: Path to the input/raw data files.
+        input_path: Path to the input/raw data files. Replaces deprecated raw_path.
         target_path: Path to the ground truth/target data files.
         classes: List of segmentation classes in preserved order.
-        input_arrays: Specification of input arrays with shape and scale information.
-        target_arrays: Specification of target arrays with shape and scale information.
-        device: Device for data loading ('cuda', 'mps', or 'cpu').
+        input_arrays: Input array specifications with shape and scale information.
+        target_arrays: Target array specifications with shape and scale information.
+        spatial_transforms: Spatial transformation configurations for data augmentation.
+        raw_value_transforms: Value transforms to apply to raw input data.
+        target_value_transforms: Value transforms to apply to target data.
+        class_relationships: Class relationship mappings. Replaces deprecated class_relation_dict.
+        is_train: Whether dataset should use training mode behaviors. Defaults to False.
+        axis_order: Order of spatial axes in data arrays. Defaults to "zyx".
+        context: Optional TensorStore context for advanced data operations.
+        rng: Random number generator for reproducible transformations.
+        force_has_data: Force data availability even if validation fails. Defaults to False.
+        empty_value: Fill value for empty data regions. Defaults to NaN.
+        pad: Whether to pad data to maintain consistent shapes. Defaults to True.
+        device: Computation device for tensor operations. Auto-detected if None.
+        max_workers: Maximum worker threads for concurrent data loading.
+        raw_path: Deprecated parameter, use input_path instead.
+
+    Attributes:
+        input_path: Path to input data directory.
+        target_path: Path to target data directory.
+        classes: List of segmentation class labels.
+        bounding_box: Combined spatial bounding box of all data sources.
+        sampling_box: Region where centers can be sampled for complete data coverage.
+        device: Current computation device for tensor operations.
+
+    Examples:
+        >>> dataset = CellMapDataset(
+        ...     input_path="/data/raw",
+        ...     target_path="/data/labels",
+        ...     classes=["background", "mitochondria", "nucleus"],
+        ...     input_arrays={"raw": {"shape": [128, 128, 128], "scale": [4, 4, 4]}},
+        ...     target_arrays={"labels": {"shape": [128, 128, 128], "scale": [4, 4, 4]}}
+        ... )
+        >>> len(dataset)  # Number of possible data samples
+        1000
+        >>> sample = dataset[0]  # Get first data sample
+        >>> sample.keys()  # Available data arrays
+        dict_keys(['raw', 'labels'])
     """
 
     def __init__(
@@ -301,12 +336,9 @@ class CellMapDataset(Dataset):
             input_path = raw_path
 
         # Validate required parameters
-        if input_path is None:
-            raise ValueError(ErrorMessages.format_required_parameter("input_path"))
-        if target_path is None:
-            raise ValueError(ErrorMessages.format_required_parameter("target_path"))
-        if input_arrays is None:
-            raise ValueError(ErrorMessages.format_required_parameter("input_arrays"))
+        validate_parameter_required("input_path", input_path)
+        validate_parameter_required("target_path", target_path)
+        validate_parameter_required("input_arrays", input_arrays)
 
         # Need to determine if 2D arrays are requested without slicing axis specified
         # If so, turn into a multidataset with 3 datasets each 2D arrays sliced along one axis

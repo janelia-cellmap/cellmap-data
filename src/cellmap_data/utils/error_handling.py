@@ -67,6 +67,11 @@ class ErrorMessages:
     PERFORMANCE_WARNING = "Performance warning: {details}"
     COMPATIBILITY_WARNING = "Compatibility warning: {details}"
 
+    @staticmethod
+    def format_conflicting_parameters(param1: str, param2: str) -> str:
+        """Format a conflicting parameters error message."""
+        return ErrorMessages.PARAMETER_CONFLICT.format(param1=param1, param2=param2)
+
 
 class StandardWarnings:
     """Utilities for issuing standardized warnings."""
