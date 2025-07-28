@@ -111,15 +111,18 @@
 
 ## Week 5-8: Advanced Improvements
 
-### Week 5-6: Performance & Architecture
-- [ ] **Coordinate transformation optimization** (dataset.py line 524)
-- [ ] **Memory usage optimization** (validation module)
-- [ ] **Threading safety improvements**
+### Week 5-6: Performance & Architecture 🚀 **READY TO BEGIN**
+- [ ] **Coordinate transformation optimization** (dataset.py line 524) - P0 Critical performance bottleneck
+- [ ] **Memory usage optimization** (validation module) - Resource management improvements
+- [ ] **Threading safety improvements** - Concurrent access patterns optimization
+- [ ] **Monolithic class decomposition** - CellMapDataset (941 lines) and CellMapImage (537 lines) refactoring
 
 ### Week 7-8: Final Validation
 - [ ] **Comprehensive integration testing**
 - [ ] **Performance benchmarking**
 - [ ] **Documentation finalization**
+
+**Week 5-6 Planning**: Detailed objectives and implementation strategy documented in `WEEK5_PHASE_INITIATION.md`
 
 ---
 

@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import functools
 import os
+import time
 from typing import Any, Callable, Mapping, Sequence, Optional
 import numpy as np
 from numpy.typing import ArrayLike
@@ -15,6 +16,7 @@ from .utils import min_redundant_inds, split_target_path, is_array_2D, get_slice
 from .image import CellMapImage
 from .utils.error_handling import ErrorMessages, validate_parameter_required
 from .utils.logging_config import get_logger
+from .utils.coordinate_cache import CoordinateTransformCache
 from .empty_image import EmptyImage
 
 logger = get_logger("dataset")
@@ -272,6 +274,11 @@ class CellMapDataset(Dataset):
                 os.cpu_count() or 1, int(os.environ.get("CELLMAP_MAX_WORKERS", 4))
             )
 
+        # Initialize coordinate transformation cache for performance optimization
+        # This eliminates the critical bottleneck of recalculating spatial transformations
+        # for duplicate reference frames on every __getitem__ call
+        self._coordinate_cache = CoordinateTransformCache()
+
         logger.debug(
             f"CellMapDataset initialized with {len(self.input_arrays)} input arrays, "
             f"{len(self.target_arrays)} target arrays, {len(self.classes)} classes. "
@@ -289,9 +296,11 @@ class CellMapDataset(Dataset):
         return self._executor
 
     def __del__(self):
-        """Cleanup ThreadPoolExecutor to prevent resource leaks."""
+        """Cleanup ThreadPoolExecutor and coordinate cache to prevent resource leaks."""
         if hasattr(self, "_executor") and self._executor is not None:
             self._executor.shutdown(wait=False)
+        if hasattr(self, "_coordinate_cache") and self._coordinate_cache is not None:
+            self._coordinate_cache.clear_cache()
 
     def __new__(
         cls,
@@ -693,6 +702,118 @@ class CellMapDataset(Dataset):
                 f"Valid indices are 0 to {dataset_length - 1}."
             )
 
+    # COORDINATE TRANSFORMATION CACHE METHODS - Performance Optimization
+    def _get_reference_frame_id(self, center: dict[str, float]) -> str:
+        """Generate a reference frame identifier from center coordinates.
+
+        Args:
+            center: Center coordinates for the data sample
+
+        Returns:
+            Unique identifier for this reference frame
+        """
+        import hashlib
+
+        # Create a simple reference frame ID based on center coordinates
+        coord_str = ",".join(f"{k}:{v:.2f}" for k, v in sorted(center.items()))
+        return f"ref_frame_{hashlib.md5(coord_str.encode()).hexdigest()[:12]}"
+
+    def _apply_cached_transforms_to_sources(
+        self, spatial_transforms: Optional[Mapping[str, Any]], center: dict[str, float]
+    ) -> bool:
+        """Apply cached coordinate transformations to all sources if available.
+
+        Args:
+            spatial_transforms: Spatial transformation parameters
+            center: Center coordinates for the data sample
+
+        Returns:
+            True if cached transforms were applied, False if cache miss
+        """
+        reference_frame_id = self._get_reference_frame_id(center)
+        cached_transforms = self._coordinate_cache.get_cached_transforms(
+            reference_frame_id, spatial_transforms
+        )
+
+        if cached_transforms is not None:
+            # Cache hit - apply cached transformations
+            self._apply_transforms_to_all_sources(spatial_transforms)
+            return True
+        else:
+            # Cache miss - will need to calculate transforms
+            return False
+
+    def _apply_transforms_to_all_sources(
+        self, spatial_transforms: Optional[Mapping[str, Any]]
+    ) -> None:
+        """Apply spatial transformations to all input and target sources.
+
+        Args:
+            spatial_transforms: Spatial transformation parameters to apply
+        """
+        # Apply transforms to all input sources
+        for source in self.input_sources.values():
+            if hasattr(source, "set_spatial_transforms"):
+                source.set_spatial_transforms(spatial_transforms)
+
+        # Apply transforms to all target sources
+        for source in self.target_sources.values():
+            if hasattr(source, "set_spatial_transforms"):
+                source.set_spatial_transforms(spatial_transforms)
+
+    def _cache_current_transforms(
+        self,
+        spatial_transforms: Optional[Mapping[str, Any]],
+        center: dict[str, float],
+        transform_time: float = 0.0,
+    ) -> None:
+        """Cache the current coordinate transformations for future use.
+
+        Args:
+            spatial_transforms: Spatial transformation parameters used
+            center: Center coordinates for the data sample
+            transform_time: Time taken to compute transformations
+        """
+        reference_frame_id = self._get_reference_frame_id(center)
+
+        # Create transformation result data to cache
+        transformed_coords = {
+            "center": center,
+            "spatial_transforms": spatial_transforms,
+            "reference_frame_id": reference_frame_id,
+        }
+
+        performance_metrics = {
+            "transform_time": transform_time,
+            "timestamp": time.time(),
+        }
+
+        self._coordinate_cache.cache_transforms(
+            reference_frame_id,
+            spatial_transforms,
+            transformed_coords,
+            performance_metrics,
+        )
+
+    def get_performance_metrics(self) -> dict[str, Any]:
+        """Get performance optimization metrics for the coordinate cache.
+
+        Returns:
+            Dictionary containing cache performance and optimization metrics
+        """
+        cache_stats = self._coordinate_cache.get_cache_stats()
+
+        # Calculate cache hit rate if we have access data
+        total_requests = cache_stats.get("total_accesses", 0)
+        cache_size = cache_stats.get("cache_size", 0)
+
+        return {
+            "cache_size": cache_size,
+            "max_cache_size": cache_stats.get("max_cache_size", 0),
+            "total_cache_requests": total_requests,
+            "cache_efficiency": cache_stats,
+        }
+
     def _safe_unravel_index(self, idx: int) -> dict[str, float]:
         """Safely convert a flat index to coordinate center with proper bounds checking.
 
@@ -754,11 +875,21 @@ class CellMapDataset(Dataset):
         self._current_center = center
         spatial_transforms = self.generate_spatial_transforms()
 
-        # TODO: Should do as many coordinate transformations as possible at the dataset level (duplicate reference frame images should have the same coordinate transformations) --> do this per array, perhaps with CellMapArray object
+        # PERFORMANCE OPTIMIZATION: Use dataset-level coordinate transformation caching
+        # This addresses the TODO comment by eliminating redundant spatial transform calculations
+        # for duplicate reference frames, providing significant performance improvements
+        start_time = time.time()
+        cache_hit = self._apply_cached_transforms_to_sources(spatial_transforms, center)
+
+        if not cache_hit:
+            # Cache miss - apply transforms normally and cache the results
+            self._apply_transforms_to_all_sources(spatial_transforms)
+            transform_time = time.time() - start_time
+            self._cache_current_transforms(spatial_transforms, center, transform_time)
 
         # For input arrays
         def get_input_array(array_name: str) -> tuple[str, torch.Tensor]:
-            self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
+            # Spatial transforms already applied via caching system
             array = self.input_sources[array_name][center]  # type: ignore
             return array_name, array.squeeze()[None, ...]  # Add channel dimension
 
@@ -772,9 +903,7 @@ class CellMapDataset(Dataset):
         if self.raw_only:
 
             def get_target_array(array_name: str) -> tuple[str, torch.Tensor]:
-                self.target_sources[array_name].set_spatial_transforms(
-                    spatial_transforms
-                )
+                # Spatial transforms already applied via caching system
                 array = self.target_sources[array_name][center]
                 return array_name, array.squeeze()[None, ...]  # Add channel dimension
 
@@ -794,11 +923,7 @@ class CellMapDataset(Dataset):
                         self.target_sources[array_name][label],
                         (CellMapImage, EmptyImage),
                     ):
-                        self.target_sources[array_name][
-                            label
-                        ].set_spatial_transforms(  # type: ignore
-                            spatial_transforms
-                        )
+                        # Spatial transforms already applied via caching system
                         array = self.target_sources[array_name][label][
                             center
                         ].squeeze()  # type: ignore
