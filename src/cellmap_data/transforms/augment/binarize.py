@@ -49,5 +49,4 @@ class Binarize(T.Transform):
         return f"{self.__class__.__name__}(threshold={self.threshold})"
 
     def transform(self, x: Any, params: Dict[str, Any] | None = None) -> Any:
-        """Transform the input."""
         return self._transform(x, params)

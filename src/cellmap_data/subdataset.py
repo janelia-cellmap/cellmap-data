@@ -50,26 +50,21 @@ class CellMapSubset(Subset):
 
     @property
     def classes(self) -> Sequence[str]:
-        """The classes in the dataset."""
         return self.dataset.classes
 
     @property
     def class_counts(self) -> dict[str, float]:
-        """The number of samples in each class in the dataset normalized by resolution."""
         return self.dataset.class_counts
 
     @property
     def class_weights(self) -> dict[str, float]:
-        """The class weights for the dataset based on the number of samples in each class."""
         return self.dataset.class_weights
 
     @property
     def validation_indices(self) -> Sequence[int]:
-        """The indices of the validation set."""
         return self.dataset.validation_indices
 
     def to(self, device, non_blocking: bool = True) -> "CellMapSubset":
-        """Move the dataset to the specified device."""
         self.dataset.to(device, non_blocking=non_blocking)
         return self
 
