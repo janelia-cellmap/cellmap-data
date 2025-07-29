@@ -1,5 +1,6 @@
 import functools
 import os
+import logging
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Sampler
@@ -14,6 +15,18 @@ from .multidataset import CellMapMultiDataset
 from .dataset_writer import CellMapDatasetWriter
 from .utils.logging_config import get_logger
 from .utils.error_handling import ValidationError, ErrorMessages
+from .utils.memory_manager import (
+    MemoryProfiler,
+    MemoryOptimizedResourceManager,
+    memory_profiled_execution,
+    optimize_cuda_memory_allocation,
+    get_memory_optimization_recommendations,
+)
+from .utils.memory_optimization import (
+    MemoryOptimizationConfig,
+    AdvancedMemoryManager,
+    StreamingDataBuffer,
+)
 from typing import Callable, Optional, Sequence
 
 logger = get_logger("dataloader")
@@ -142,13 +155,15 @@ class CellMapDataLoader:
         rng: Optional[torch.Generator] = None,
         device: Optional[str | torch.device] = None,
         iterations_per_epoch: Optional[int] = None,
+        enable_memory_profiling: bool = False,
+        memory_limit_mb: Optional[float] = None,
         **kwargs,
     ):
         """Initialize CellMapDataLoader with optimized configuration for batch loading.
 
         Creates a DataLoader wrapper with CellMap-specific optimizations including
-        CUDA stream management, weighted sampling for imbalanced datasets, and
-        automatic device placement with multiprocessing support.
+        CUDA stream management, weighted sampling for imbalanced datasets, automatic
+        device placement, multiprocessing support, and enhanced memory management.
 
         Args:
             dataset: The dataset instance providing data samples. Supports single datasets,
@@ -171,6 +186,10 @@ class CellMapDataLoader:
                 If None, automatically selects: "cuda" > "mps" > "cpu".
             iterations_per_epoch: Number of iterations per epoch for large datasets with weighted sampling.
                 Defaults to None. Required when dataset size exceeds 2^24 samples.
+            enable_memory_profiling: Whether to enable memory usage profiling. Defaults to False.
+                When enabled, tracks memory usage patterns for optimization analysis.
+            memory_limit_mb: Optional memory limit in MB for resource allocation. Defaults to None.
+                When set, prevents allocation that would exceed this limit.
             **kwargs: Additional keyword arguments passed to PyTorch DataLoader constructor.
                 Common options include pin_memory, persistent_workers, prefetch_factor.
 
@@ -196,6 +215,29 @@ class CellMapDataLoader:
                 device = "cpu"
         self.device = device
         self.iterations_per_epoch = iterations_per_epoch
+
+        # Initialize memory management
+        self.enable_memory_profiling = enable_memory_profiling
+        self.memory_limit_mb = memory_limit_mb
+        self.memory_profiler = MemoryProfiler() if enable_memory_profiling else None
+        self.memory_manager = (
+            MemoryOptimizedResourceManager(memory_limit_mb) if memory_limit_mb else None
+        )
+
+        # Initialize advanced memory management if needed
+        if enable_memory_profiling or memory_limit_mb:
+            memory_config = MemoryOptimizationConfig(
+                max_memory_mb=memory_limit_mb,
+                enable_gpu_memory_optimization=str(device).startswith("cuda"),
+                enable_detailed_profiling=enable_memory_profiling,
+            )
+            self.advanced_memory_manager = AdvancedMemoryManager(memory_config)
+        else:
+            self.advanced_memory_manager = None
+
+        # Apply CUDA memory optimizations if using GPU
+        if str(device).startswith("cuda"):
+            optimize_cuda_memory_allocation()
 
         # Initialize stream optimization settings
         self._use_streams = None  # Determined once, cached
@@ -305,8 +347,12 @@ class CellMapDataLoader:
             self.loader = DataLoader(**kwargs)
 
     def _calculate_batch_memory_mb(self) -> float:
-        """Calculate the expected memory usage for a batch in MB."""
+        """Calculate the expected memory usage for a batch in MB with enhanced precision."""
         try:
+            # Record memory profiling snapshot if enabled
+            if self.memory_profiler:
+                self.memory_profiler.record_snapshot("batch_memory_calculation_start")
+
             input_arrays = getattr(self.dataset, "input_arrays", {})
             target_arrays = getattr(self.dataset, "target_arrays", {})
 
@@ -314,8 +360,9 @@ class CellMapDataLoader:
                 return 0.0
 
             total_elements = 0
+            memory_breakdown = {}
 
-            # Calculate input array elements
+            # Calculate input array elements with detailed tracking
             for array_name, array_info in input_arrays.items():
                 if "shape" not in array_info:
                     raise ValidationError(
@@ -324,9 +371,12 @@ class CellMapDataLoader:
                         key="shape",
                     )
                 # Input arrays: batch_size * elements_per_sample
-                total_elements += self.batch_size * np.prod(array_info["shape"])
+                elements_per_sample = np.prod(array_info["shape"])
+                batch_elements = self.batch_size * elements_per_sample
+                total_elements += batch_elements
+                memory_breakdown[f"input_{array_name}"] = batch_elements
 
-            # Calculate target array elements
+            # Calculate target array elements with class multiplier
             for array_name, array_info in target_arrays.items():
                 if "shape" not in array_info:
                     raise ValidationError(
@@ -337,17 +387,39 @@ class CellMapDataLoader:
                 # Target arrays: batch_size * elements_per_sample * num_classes
                 elements_per_sample = np.prod(array_info["shape"])
                 num_classes = len(self.classes) if self.classes else 1
-                total_elements += self.batch_size * elements_per_sample * num_classes
+                batch_elements = self.batch_size * elements_per_sample * num_classes
+                total_elements += batch_elements
+                memory_breakdown[f"target_{array_name}"] = batch_elements
 
-            # Convert to MB (assume float32 = 4 bytes per element)
-            bytes_total = total_elements * 4  # float32
-            mb_total = bytes_total / (1024 * 1024)  # Convert bytes to MB
+            # Enhanced memory calculation with dtype consideration
+            dtype_info = getattr(self.dataset, "dtype", torch.float32)
+            if isinstance(dtype_info, torch.dtype):
+                element_size = torch.tensor(0, dtype=dtype_info).element_size()
+            else:
+                element_size = 4  # Default to float32 = 4 bytes
+
+            # Calculate memory with overhead factor for PyTorch operations
+            overhead_factor = 1.2  # 20% overhead for intermediate operations
+            bytes_total = total_elements * element_size * overhead_factor
+            mb_total = bytes_total / (1024 * 1024)
+
+            if self.enable_memory_profiling:
+                logger.debug(
+                    f"Batch memory calculation: {mb_total:.1f}MB total "
+                    f"({total_elements:,} elements * {element_size} bytes * {overhead_factor:.1f} overhead)"
+                )
+                logger.debug(f"Memory breakdown: {memory_breakdown}")
+
             return mb_total
 
         except (AttributeError, KeyError, TypeError) as e:
             # Fallback: if we can't calculate, return 0 to disable memory-based decision
             logger.debug(f"Could not calculate batch memory size: {e}")
             return 0.0
+        finally:
+            # Record completion snapshot if profiling enabled
+            if self.memory_profiler:
+                self.memory_profiler.record_snapshot("batch_memory_calculation_end")
 
     def _initialize_stream_optimization(self, sample_batch: dict) -> None:
         """Initialize stream optimization settings once based on dataset characteristics."""
@@ -402,6 +474,10 @@ class CellMapDataLoader:
 
     def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
         """Combine a list of dictionaries from different sources into a single dictionary for output."""
+        # Start memory profiling if enabled
+        if self.memory_profiler:
+            self.memory_profiler.record_snapshot("collate_start")
+
         outputs = {}
         for b in batch:
             for key, value in b.items():
@@ -411,6 +487,10 @@ class CellMapDataLoader:
 
         # Initialize stream optimization on first batch
         self._initialize_stream_optimization(outputs)
+
+        # Profile tensor allocation phase
+        if self.memory_profiler:
+            self.memory_profiler.record_snapshot("tensor_allocation_start")
 
         if (
             self._use_streams
@@ -423,17 +503,217 @@ class CellMapDataLoader:
                     stream_idx = self._stream_assignments.get(key, 0)
                     stream = self._streams[stream_idx]
                     with torch.cuda.stream(stream):
-                        outputs[key] = torch.stack(value).to(
-                            self.device, non_blocking=True
-                        )
+                        # Use memory manager for tensor allocation if available
+                        if self.memory_manager and isinstance(value[0], torch.Tensor):
+                            try:
+                                # Calculate expected tensor shape
+                                batch_shape = (len(value),) + value[0].shape
+                                tensor_name = f"batch_{key}"
+
+                                # Allocate using memory manager
+                                device_obj = (
+                                    torch.device(self.device)
+                                    if isinstance(self.device, str)
+                                    else self.device
+                                )
+                                outputs[key] = self.memory_manager.allocate_tensor(
+                                    shape=batch_shape,
+                                    dtype=value[0].dtype,
+                                    device=device_obj,
+                                    name=tensor_name,
+                                )
+
+                                # Copy data into allocated tensor
+                                for i, v in enumerate(value):
+                                    outputs[key][i] = v.to(
+                                        self.device, non_blocking=True
+                                    )
+
+                            except MemoryError as e:
+                                logger.warning(
+                                    f"Memory limit exceeded for tensor '{key}': {e}"
+                                )
+                                # Fallback to standard allocation
+                                outputs[key] = torch.stack(value).to(
+                                    self.device, non_blocking=True
+                                )
+                        else:
+                            outputs[key] = torch.stack(value).to(
+                                self.device, non_blocking=True
+                            )
 
             # Synchronization barrier
             for stream in self._streams:
                 stream.synchronize()
         else:
-            # Sequential processing
+            # Sequential processing with memory management
             for key, value in outputs.items():
                 if key != "__metadata__":
-                    outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
+                    if self.memory_manager and isinstance(value[0], torch.Tensor):
+                        try:
+                            # Calculate expected tensor shape
+                            batch_shape = (len(value),) + value[0].shape
+                            tensor_name = f"batch_{key}"
+
+                            # Allocate using memory manager
+                            device_obj = (
+                                torch.device(self.device)
+                                if isinstance(self.device, str)
+                                else self.device
+                            )
+                            outputs[key] = self.memory_manager.allocate_tensor(
+                                shape=batch_shape,
+                                dtype=value[0].dtype,
+                                device=device_obj,
+                                name=tensor_name,
+                            )
+
+                            # Copy data into allocated tensor
+                            for i, v in enumerate(value):
+                                outputs[key][i] = v.to(self.device, non_blocking=True)
+
+                        except MemoryError as e:
+                            logger.warning(
+                                f"Memory limit exceeded for tensor '{key}': {e}"
+                            )
+                            # Fallback to standard allocation
+                            outputs[key] = torch.stack(value).to(
+                                self.device, non_blocking=True
+                            )
+                    else:
+                        outputs[key] = torch.stack(value).to(
+                            self.device, non_blocking=True
+                        )
+
+        # Complete memory profiling
+        if self.memory_profiler:
+            self.memory_profiler.record_snapshot("collate_end")
+
+            # Generate memory recommendations if needed
+            current_usage = self.memory_profiler._get_memory_info()
+            recommendations = get_memory_optimization_recommendations(current_usage)
+
+            if recommendations and self.enable_memory_profiling:
+                logger.info("Memory optimization recommendations:")
+                for rec in recommendations:
+                    logger.info(f"  - {rec}")
 
         return outputs
+
+    def get_memory_report(self) -> str:
+        """Generate a comprehensive memory usage report.
+
+        Returns:
+            Formatted memory usage report including profiling data and resource allocation
+        """
+        if not self.memory_profiler:
+            return (
+                "Memory profiling is disabled. Enable with enable_memory_profiling=True"
+            )
+
+        report_lines = [
+            "=== CellMapDataLoader Memory Report ===",
+            f"Batch Size: {self.batch_size}",
+            f"Device: {self.device}",
+            (
+                f"Memory Limit: {self.memory_limit_mb} MB"
+                if self.memory_limit_mb
+                else "Memory Limit: None"
+            ),
+            "",
+            self.memory_profiler.generate_report(),
+        ]
+
+        # Add resource manager info if available
+        if self.memory_manager:
+            usage_summary = self.memory_manager.get_memory_usage_summary()
+            report_lines.extend(
+                [
+                    "",
+                    "=== Resource Manager Summary ===",
+                    f"Tracked Resources: {usage_summary['total_tracked_resources']}",
+                    f"Allocated Memory: {usage_summary['total_allocated_mb']:.1f} MB",
+                    f"Resource Breakdown: {usage_summary['resource_breakdown']}",
+                ]
+            )
+
+        return "\n".join(report_lines)
+
+    def cleanup_memory_resources(self) -> int:
+        """Clean up memory resources and perform garbage collection.
+
+        Returns:
+            Number of resources cleaned up
+        """
+        cleanup_count = 0
+
+        if self.memory_manager:
+            cleanup_count = self.memory_manager.cleanup_resources(force_gc=True)
+            logger.info(f"Cleaned up {cleanup_count} tracked memory resources")
+
+        # Clear CUDA cache if using GPU
+        if str(self.device).startswith("cuda") and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            logger.debug("Cleared CUDA memory cache")
+
+        return cleanup_count
+
+    def __del__(self):
+        """Cleanup resources when dataloader is destroyed."""
+        try:
+            if hasattr(self, "memory_manager") and self.memory_manager:
+                self.memory_manager.cleanup_resources(force_gc=False)
+        except Exception as e:
+            # Don't raise exceptions in destructor
+            logger.debug(f"Error during memory cleanup in destructor: {e}")
+
+    # Add iterator support with memory profiling
+    def __iter__(self):
+        """Return an iterator with optional memory profiling."""
+        if self.memory_profiler:
+            return self._memory_profiled_iterator()
+        else:
+            return iter(self.loader)
+
+    def _memory_profiled_iterator(self):
+        """Iterator with memory profiling enabled."""
+        if not self.memory_profiler:
+            # Fallback to regular iterator if profiler not available
+            for batch in self.loader:
+                yield batch
+            return
+
+        self.memory_profiler.record_snapshot("epoch_start")
+
+        try:
+            for batch_idx, batch in enumerate(self.loader):
+                self.memory_profiler.record_snapshot(f"batch_{batch_idx}_processed")
+                yield batch
+
+                # Periodic memory cleanup for long epochs
+                if batch_idx > 0 and batch_idx % 100 == 0:
+                    current_usage = self.memory_profiler._get_memory_info()
+                    if current_usage.get("percent", 0) > 85:  # High memory usage
+                        logger.warning(
+                            f"High memory usage detected ({current_usage['percent']:.1f}%), performing cleanup"
+                        )
+                        self.cleanup_memory_resources()
+
+        finally:
+            if self.memory_profiler:
+                self.memory_profiler.record_snapshot("epoch_end")
+
+                # Log epoch memory summary if in debug mode
+                if logger.isEnabledFor(logging.DEBUG):
+                    try:
+                        delta = self.memory_profiler.get_memory_delta("epoch_start")
+                        delta_mb = (
+                            delta.get("delta_rss_mb", 0)
+                            if isinstance(delta, dict)
+                            else 0
+                        )
+                        logger.debug(
+                            f"Epoch completed with memory delta: {delta_mb:+.1f} MB"
+                        )
+                    except Exception as e:
+                        logger.debug(f"Could not calculate memory delta: {e}")

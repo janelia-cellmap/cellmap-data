@@ -108,12 +108,16 @@ def test_memory_calculation_accuracy():
     target1_elements = batch_size * 32 * 32 * 32 * num_classes
 
     total_elements = input1_elements + input2_elements + target1_elements
-    expected_mb = (total_elements * 4) / (1024 * 1024)  # float32 = 4 bytes
+    # Account for 20% overhead factor included in the implementation
+    overhead_factor = 1.2  # 20% overhead for PyTorch operations
+    expected_mb = (total_elements * 4 * overhead_factor) / (
+        1024 * 1024
+    )  # float32 = 4 bytes
 
     # Should be approximately equal (allowing for small floating point differences)
     assert (
         abs(memory_mb - expected_mb) < 0.01
-    ), f"Memory calculation mismatch: {memory_mb:.3f} vs {expected_mb:.3f}"
+    ), f"Memory calculation mismatch: {memory_mb:.3f} vs {expected_mb:.3f} (expected includes {overhead_factor}x overhead)"
 
     # Verify reasonable range (should be around 1-2 MB for this test case)
     assert (
