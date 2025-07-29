@@ -460,12 +460,12 @@ class ConcurrentDataLoadingManager:
             # Use batch queues as the primary source of truth for active loaders
             # This is more reliable than weak references which may be garbage collected
             active_loaders = len(self._batch_queues)
-            
+
             # Also clean up any dead weak references while we're here
             self._active_loaders = {
                 ref for ref in self._active_loaders if ref() is not None
             }
-            
+
             return {
                 "active_loaders": active_loaders,
                 "total_batch_queues": len(self._batch_queues),
