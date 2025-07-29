@@ -17,6 +17,11 @@ from .image import CellMapImage
 from .utils.error_handling import ErrorMessages, validate_parameter_required
 from .utils.logging_config import get_logger
 from .utils.coordinate_cache import CoordinateTransformCache
+from .utils.thread_safety import (
+    get_global_executor_manager,
+    ThreadSafetyConfig,
+    thread_safe,
+)
 from .empty_image import EmptyImage
 
 logger = get_logger("dataset")

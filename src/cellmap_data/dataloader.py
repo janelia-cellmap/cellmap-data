@@ -1,6 +1,7 @@
 import functools
 import os
 import logging
+import time
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Sampler
@@ -26,6 +27,18 @@ from .utils.memory_optimization import (
     MemoryOptimizationConfig,
     AdvancedMemoryManager,
     StreamingDataBuffer,
+)
+from .utils.thread_safety import (
+    get_global_executor_manager,
+    get_global_cuda_manager,
+    thread_safe_execution,
+    ThreadSafetyConfig,
+    thread_safe,
+)
+from .utils.enhanced_thread_safety import (
+    get_global_thread_safety_enhancements,
+    EnhancedThreadSafetyConfig,
+    enhanced_thread_safety_execution,
 )
 from typing import Callable, Optional, Sequence
 
@@ -234,6 +247,37 @@ class CellMapDataLoader:
             self.advanced_memory_manager = AdvancedMemoryManager(memory_config)
         else:
             self.advanced_memory_manager = None
+
+        # Initialize enhanced thread safety framework
+        enhanced_thread_config = EnhancedThreadSafetyConfig(
+            max_workers=num_workers if num_workers > 0 else 2,
+            enable_concurrent_profiling=enable_memory_profiling,
+            max_concurrent_operations=max(4, batch_size),
+            enable_memory_aware_threading=True,
+            integrate_with_memory_manager=self.advanced_memory_manager is not None,
+            enable_cuda_memory_threading=str(device).startswith("cuda"),
+            enable_detailed_profiling=enable_memory_profiling,
+        )
+
+        # Original thread safety manager for compatibility
+        thread_safety_config = ThreadSafetyConfig(
+            max_workers=num_workers if num_workers > 0 else 2,
+            enable_concurrent_profiling=enable_memory_profiling,
+            max_concurrent_operations=max(4, batch_size),
+        )
+        self._thread_safety_manager = get_global_executor_manager(thread_safety_config)
+        self._cuda_stream_manager = get_global_cuda_manager(MAX_CONCURRENT_CUDA_STREAMS)
+
+        # Enhanced thread safety manager
+        self._enhanced_thread_safety = get_global_thread_safety_enhancements(
+            enhanced_thread_config
+        )
+
+        # Register this dataloader for resource tracking
+        self._thread_safety_manager.register_resource(f"dataloader_{id(self)}", self)
+
+        # Register with enhanced concurrent loader manager
+        self._enhanced_thread_safety.concurrent_loader_manager.register_dataloader(self)
 
         # Apply CUDA memory optimizations if using GPU
         if str(device).startswith("cuda"):
@@ -472,6 +516,7 @@ class CellMapDataLoader:
             self._streams = None
             self._stream_assignments = None
 
+    @thread_safe(lock_name="dataloader_collate")
     def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
         """Combine a list of dictionaries from different sources into a single dictionary for output."""
         # Start memory profiling if enabled
@@ -492,30 +537,34 @@ class CellMapDataLoader:
         if self.memory_profiler:
             self.memory_profiler.record_snapshot("tensor_allocation_start")
 
-        if (
-            self._use_streams
-            and self._streams is not None
-            and self._stream_assignments is not None
-        ):
-            # Use pre-allocated streams with cached assignments
-            for key, value in outputs.items():
-                if key != "__metadata__":
-                    stream_idx = self._stream_assignments.get(key, 0)
-                    stream = self._streams[stream_idx]
-                    with torch.cuda.stream(stream):
-                        # Use memory manager for tensor allocation if available
-                        if self.memory_manager and isinstance(value[0], torch.Tensor):
+        # Process all keys and convert lists to tensors
+        try:
+            # Use thread-safe CUDA stream context if available
+            with self._cuda_stream_manager.cuda_stream_context() as cuda_stream:
+                for key, value in outputs.items():
+                    if key != "__metadata__":
+                        # Skip non-tensor values
+                        if not value or not isinstance(value[0], torch.Tensor):
+                            continue
+
+                        # Try advanced memory management if available and streams are enabled
+                        tensor_created = False
+
+                        if (
+                            cuda_stream is not None
+                            and self._use_streams
+                            and self.memory_manager
+                        ):
                             try:
-                                # Calculate expected tensor shape
+                                # Advanced memory-managed allocation with CUDA streams
                                 batch_shape = (len(value),) + value[0].shape
                                 tensor_name = f"batch_{key}"
-
-                                # Allocate using memory manager
                                 device_obj = (
                                     torch.device(self.device)
                                     if isinstance(self.device, str)
                                     else self.device
                                 )
+
                                 outputs[key] = self.memory_manager.allocate_tensor(
                                     shape=batch_shape,
                                     dtype=value[0].dtype,
@@ -523,67 +572,39 @@ class CellMapDataLoader:
                                     name=tensor_name,
                                 )
 
-                                # Copy data into allocated tensor
+                                # Copy data into allocated tensor with non-blocking transfers
                                 for i, v in enumerate(value):
                                     outputs[key][i] = v.to(
                                         self.device, non_blocking=True
                                     )
 
-                            except MemoryError as e:
-                                logger.warning(
-                                    f"Memory limit exceeded for tensor '{key}': {e}"
+                                tensor_created = True
+                                logger.debug(
+                                    f"Created tensor '{key}' using memory manager with CUDA stream"
                                 )
-                                # Fallback to standard allocation
-                                outputs[key] = torch.stack(value).to(
-                                    self.device, non_blocking=True
+
+                            except Exception as e:
+                                logger.debug(
+                                    f"Memory manager allocation failed for '{key}': {e}"
                                 )
-                        else:
+                                # Fall back to standard allocation
+
+                        # Standard tensor stacking (fallback or default path)
+                        if not tensor_created:
                             outputs[key] = torch.stack(value).to(
                                 self.device, non_blocking=True
                             )
 
-            # Synchronization barrier
-            for stream in self._streams:
-                stream.synchronize()
-        else:
-            # Sequential processing with memory management
+        except Exception as e:
+            # If any advanced processing fails, fall back to basic tensor stacking
+            logger.warning(f"Advanced collate processing failed, using fallback: {e}")
             for key, value in outputs.items():
-                if key != "__metadata__":
-                    if self.memory_manager and isinstance(value[0], torch.Tensor):
-                        try:
-                            # Calculate expected tensor shape
-                            batch_shape = (len(value),) + value[0].shape
-                            tensor_name = f"batch_{key}"
-
-                            # Allocate using memory manager
-                            device_obj = (
-                                torch.device(self.device)
-                                if isinstance(self.device, str)
-                                else self.device
-                            )
-                            outputs[key] = self.memory_manager.allocate_tensor(
-                                shape=batch_shape,
-                                dtype=value[0].dtype,
-                                device=device_obj,
-                                name=tensor_name,
-                            )
-
-                            # Copy data into allocated tensor
-                            for i, v in enumerate(value):
-                                outputs[key][i] = v.to(self.device, non_blocking=True)
-
-                        except MemoryError as e:
-                            logger.warning(
-                                f"Memory limit exceeded for tensor '{key}': {e}"
-                            )
-                            # Fallback to standard allocation
-                            outputs[key] = torch.stack(value).to(
-                                self.device, non_blocking=True
-                            )
-                    else:
-                        outputs[key] = torch.stack(value).to(
-                            self.device, non_blocking=True
-                        )
+                if (
+                    key != "__metadata__"
+                    and value
+                    and isinstance(value[0], torch.Tensor)
+                ):
+                    outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
 
         # Complete memory profiling
         if self.memory_profiler:
@@ -661,11 +682,19 @@ class CellMapDataLoader:
     def __del__(self):
         """Cleanup resources when dataloader is destroyed."""
         try:
+            # Clean up memory manager resources
             if hasattr(self, "memory_manager") and self.memory_manager:
                 self.memory_manager.cleanup_resources(force_gc=False)
+
+            # Clean up thread safety resources
+            self.cleanup_thread_safety_resources()
+
         except Exception as e:
-            # Don't raise exceptions in destructor
-            logger.debug(f"Error during memory cleanup in destructor: {e}")
+            # Don't raise exceptions in destructor, but log for debugging
+            try:
+                logger.debug(f"Error during dataloader cleanup: {e}")
+            except:
+                pass  # Even logging might fail during shutdown
 
     # Add iterator support with memory profiling
     def __iter__(self):
@@ -717,3 +746,99 @@ class CellMapDataLoader:
                         )
                     except Exception as e:
                         logger.debug(f"Could not calculate memory delta: {e}")
+
+    def load_batches_concurrently(self, batch_indices: list, timeout: float = 30.0):
+        """Load multiple batches concurrently using enhanced thread safety.
+
+        Args:
+            batch_indices: List of batch indices to load
+            timeout: Maximum time to wait for all batches
+
+        Returns:
+            Dictionary mapping batch indices to loaded batch data
+
+        Raises:
+            TimeoutError: If loading takes longer than timeout
+            RuntimeError: If concurrent loading fails
+        """
+        if not hasattr(self, "_enhanced_thread_safety"):
+            raise RuntimeError("Enhanced thread safety not initialized")
+
+        try:
+            with enhanced_thread_safety_execution(
+                context_name="concurrent_batch_loading"
+            ) as context:
+                # Use the concurrent batch loading manager
+                with context["concurrent_batch_loading"](
+                    self, batch_indices
+                ) as batch_generator:
+                    results = {}
+
+                    start_time = time.time()
+                    for batch_idx, batch_data in batch_generator():
+                        if time.time() - start_time > timeout:
+                            raise TimeoutError(
+                                f"Concurrent batch loading exceeded {timeout}s timeout"
+                            )
+                        results[batch_idx] = batch_data
+
+                    logger.debug(
+                        f"Successfully loaded {len(results)} batches concurrently"
+                    )
+                    return results
+
+        except Exception as e:
+            logger.error(f"Concurrent batch loading failed: {e}")
+            raise
+
+    def get_thread_safety_performance_report(self) -> dict:
+        """Get comprehensive thread safety performance report.
+
+        Returns:
+            Dictionary containing performance metrics and recommendations
+        """
+        if not hasattr(self, "_enhanced_thread_safety"):
+            return {"error": "Enhanced thread safety not initialized"}
+
+        try:
+            return self._enhanced_thread_safety.get_comprehensive_performance_report()
+        except Exception as e:
+            logger.error(f"Failed to generate performance report: {e}")
+            return {"error": str(e)}
+
+    def optimize_thread_safety_settings(self) -> dict:
+        """Optimize thread safety settings based on current performance.
+
+        Returns:
+            Dictionary containing optimization recommendations and changes
+        """
+        if not hasattr(self, "_enhanced_thread_safety"):
+            return {"error": "Enhanced thread safety not initialized"}
+
+        try:
+            optimizations = self._enhanced_thread_safety.optimize_all_components()
+            logger.info(f"Thread safety optimization completed: {optimizations}")
+            return optimizations
+        except Exception as e:
+            logger.error(f"Failed to optimize thread safety settings: {e}")
+            return {"error": str(e)}
+
+    def cleanup_thread_safety_resources(self):
+        """Clean up thread safety resources when dataloader is no longer needed."""
+        try:
+            # Unregister from enhanced thread safety manager
+            if hasattr(self, "_enhanced_thread_safety"):
+                self._enhanced_thread_safety.concurrent_loader_manager.unregister_dataloader(
+                    self
+                )
+
+            # Clean up original thread safety resources
+            if hasattr(self, "_thread_safety_manager"):
+                self._thread_safety_manager.cleanup_orphaned_resources()
+
+            logger.debug(
+                f"Thread safety resources cleaned up for dataloader {id(self)}"
+            )
+
+        except Exception as e:
+            logger.warning(f"Error during thread safety cleanup: {e}")
