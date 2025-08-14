@@ -103,7 +103,7 @@ class CellMapDatasetWriter(Dataset):
             )
         if device is not None:
             self._device = device
-        self.to(device, non_blocking=True)
+            self.to(device, non_blocking=True)
 
     @property
     def center(self) -> Mapping[str, float] | None:
@@ -260,26 +260,18 @@ class CellMapDatasetWriter(Dataset):
         num_workers: int = 0,
         **kwargs,
     ):
-        """Returns a DataLoader for the dataset."""
-        return DataLoader(
-            self.blocks,
+        """Returns a CellMapDataLoader for the dataset with GPU transfer support."""
+        from .dataloader import CellMapDataLoader
+
+        # Don't pass collate_fn, let CellMapDataLoader handle GPU transfer
+        return CellMapDataLoader(
+            self,
             batch_size=batch_size,
             num_workers=num_workers,
-            collate_fn=self.collate_fn,
+            device=self.device,
+            is_train=False,  # Writer datasets are typically not for training
             **kwargs,
         )
-
-    def collate_fn(self, batch: list[dict]) -> dict[str, torch.Tensor]:
-        """Combine a list of dictionaries from different sources into a single dictionary for output."""
-        outputs = {}
-        for b in batch:
-            for key, value in b.items():
-                if key not in outputs:
-                    outputs[key] = []
-                outputs[key].append(value)
-        for key, value in outputs.items():
-            outputs[key] = torch.stack(value)
-        return outputs
 
     @property
     def device(self) -> torch.device:
@@ -505,7 +497,7 @@ class CellMapDatasetWriter(Dataset):
             else:
                 if not hasattr(source, "to"):
                     continue
-                source.to(device, non_blocking=non_blocking)
+                source.to(str(device), non_blocking=non_blocking)
         return self
 
     def set_raw_value_transforms(self, transforms: Callable) -> None:
@@ -513,6 +505,20 @@ class CellMapDatasetWriter(Dataset):
         self.raw_value_transforms = transforms
         for source in self.input_sources.values():
             source.value_transform = transforms
+
+    def get_weighted_sampler(
+        self, batch_size: int = 1, rng: Optional[torch.Generator] = None
+    ):
+        raise NotImplementedError(
+            "Weighted sampling is not typically used for writer datasets."
+        )
+
+    def get_subset_random_sampler(
+        self, num_samples: int, rng: Optional[torch.Generator] = None
+    ):
+        raise NotImplementedError(
+            "Random sampling is not typically used for writer datasets."
+        )
 
 
 # %%
