@@ -298,7 +298,7 @@ class CellMapDatasetWriter(Dataset):
             return self._len
 
     def get_center(self, idx: int) -> dict[str, float]:
-        idx = np.array(idx)
+        idx = np.array(idx.item()) if isinstance(idx, torch.Tensor) else np.array(idx)
         idx[idx < 0] = len(self) + idx[idx < 0]
         try:
             center = np.unravel_index(
