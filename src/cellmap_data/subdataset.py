@@ -30,6 +30,16 @@ class CellMapSubset(Subset):
         super().__init__(dataset, indices)
 
     @property
+    def input_arrays(self) -> dict[str, dict[str, Any]]:
+        """The input arrays in the dataset."""
+        return self.dataset.input_arrays
+
+    @property
+    def target_arrays(self) -> dict[str, dict[str, Any]]:
+        """The target arrays in the dataset."""
+        return self.dataset.target_arrays
+
+    @property
     def classes(self) -> Sequence[str]:
         """The classes in the dataset."""
         return self.dataset.classes
