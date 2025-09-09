@@ -194,7 +194,9 @@ class CellMapDataset(Dataset):
     ):
         # Need to determine if 2D arrays are requested without slicing axis specified
         # If so, turn into a multidataset with 3 datasets each 2D arrays sliced along one axis
-        if is_array_2D(input_arrays) or is_array_2D(target_arrays):
+        if is_array_2D(input_arrays, summary=any) or is_array_2D(
+            target_arrays, summary=any
+        ):
             from cellmap_data.multidataset import CellMapMultiDataset
 
             logger.warning(
@@ -223,27 +225,28 @@ class CellMapDataset(Dataset):
                 )
                 logger.debug(f"Input arrays for axis {axis}: {input_arrays_2d}")
                 logger.debug(f"Target arrays for axis {axis}: {target_arrays_2d}")
-                datasets.append(
-                    CellMapDataset(
-                        raw_path,
-                        target_path,
-                        classes,
-                        input_arrays_2d,
-                        target_arrays_2d,
-                        spatial_transforms=spatial_transforms,
-                        raw_value_transforms=raw_value_transforms,
-                        target_value_transforms=target_value_transforms,
-                        class_relation_dict=class_relation_dict,
-                        is_train=is_train,
-                        axis_order=axis_order,
-                        context=context,
-                        rng=rng,
-                        force_has_data=force_has_data,
-                        empty_value=empty_value,
-                        pad=pad,
-                        device=device,
-                    )
+                # Create dataset instance directly bypassing __new__ to avoid recursion
+                dataset_instance = super(CellMapDataset, cls).__new__(cls)
+                dataset_instance.__init__(
+                    raw_path,
+                    target_path,
+                    classes,
+                    input_arrays_2d,
+                    target_arrays_2d,
+                    spatial_transforms=spatial_transforms,
+                    raw_value_transforms=raw_value_transforms,
+                    target_value_transforms=target_value_transforms,
+                    class_relation_dict=class_relation_dict,
+                    is_train=is_train,
+                    axis_order=axis_order,
+                    context=context,
+                    rng=rng,
+                    force_has_data=force_has_data,
+                    empty_value=empty_value,
+                    pad=pad,
+                    device=device,
                 )
+                datasets.append(dataset_instance)
             return CellMapMultiDataset(
                 classes=classes,
                 input_arrays=input_arrays,

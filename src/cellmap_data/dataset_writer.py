@@ -271,7 +271,7 @@ class CellMapDatasetWriter(Dataset):
             device=self.device,
             is_train=False,  # Writer datasets are typically not for training
             **kwargs,
-        )
+        ).loader
 
     @property
     def device(self) -> torch.device:
@@ -298,13 +298,16 @@ class CellMapDatasetWriter(Dataset):
             return self._len
 
     def get_center(self, idx: int) -> dict[str, float]:
-        idx = np.array(idx.item()) if isinstance(idx, torch.Tensor) else np.array(idx)
+        idx = np.array(idx.cpu()) if isinstance(idx, torch.Tensor) else np.array(idx)
         idx[idx < 0] = len(self) + idx[idx < 0]
         try:
             center = np.unravel_index(
                 idx, [self.sampling_box_shape[c] for c in self.axis_order]
             )
         except ValueError:
+            raise ValueError(
+                f"Index {idx} out of bounds for dataset {self} of length {len(self)}"
+            )
             logger.error(
                 f"Index {idx} out of bounds for dataset {self} of length {len(self)}"
             )

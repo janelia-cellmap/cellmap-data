@@ -256,14 +256,13 @@ class ImageWriter:
             coords = self.aligned_coords_from_center(center)  # type: ignore
             if isinstance(data, torch.Tensor):
                 data = data.cpu().numpy()
-            data = np.array(data).squeeze().astype(self.dtype)
+            data = np.array(data).astype(self.dtype)
             try:
                 self.array.loc[coords] = data
             except ValueError as e:
                 slices = []
                 for coord in coords.values():
-                    if len(coord) > 1:
-                        slices.append(slice(None, len(coord)))
+                    slices.append(slice(None, len(coord)))
                 data = data[*slices]
                 self.array.loc[coords] = data
         else:

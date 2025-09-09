@@ -1,6 +1,6 @@
 from difflib import SequenceMatcher
 import os
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Optional, Callable
 
 import torch
 
@@ -51,7 +51,7 @@ def split_target_path(path: str) -> tuple[str, list[str]]:
 
 
 def is_array_2D(
-    array_info: Mapping[str, Any] | None, summary: bool = True
+    array_info: Mapping[str, Any] | None, summary: Optional[Callable] = None
 ) -> bool | Mapping[str, bool]:
     """Checks if the array has only 2 dimensions of shape specified."""
     if array_info is None or len(array_info) == 0:
@@ -62,8 +62,8 @@ def is_array_2D(
         arrays = {}
         for key, value in array_info.items():
             arrays[key] = is_array_2D(value)
-        if summary:
-            return all(arrays.values())
+        if summary is not None:
+            return summary(arrays.values())
         else:
             return arrays
 
