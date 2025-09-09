@@ -414,7 +414,7 @@ class CellMapDatasetWriter(Dataset):
         for c, (start, stop) in source_box.items():
             size = stop - start
             size /= self.smallest_voxel_sizes[c]
-            box_shape[c] = int(np.floor(size))
+            box_shape[c] = int(np.ceil(size))
         return box_shape
 
     def _get_box_union(

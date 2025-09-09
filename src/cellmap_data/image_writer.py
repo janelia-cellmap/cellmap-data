@@ -4,7 +4,8 @@ import torch
 import xarray
 import tensorstore
 import xarray_tensorstore as xt
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence, Union
+from numpy.typing import ArrayLike
 from upath import UPath
 from pydantic_ome_ngff.v04.axis import Axis
 from pydantic_ome_ngff.v04.transform import VectorScale, VectorTranslation
@@ -248,30 +249,74 @@ class ImageWriter:
 
     def __setitem__(
         self,
-        coords: Mapping[str, float] | Mapping[str, tuple[Sequence, np.ndarray]],
-        data: torch.Tensor | np.typing.ArrayLike | float | int,  # type: ignore
+        coords: Union[Mapping[str, float], Mapping[str, tuple[Sequence, np.ndarray]]],
+        data: Union[torch.Tensor, ArrayLike, float, int],
     ) -> None:
-        if isinstance(list(coords.values())[0], int | float):
-            center = coords
-            coords = self.aligned_coords_from_center(center)  # type: ignore
-            if isinstance(data, torch.Tensor):
-                data = data.cpu().numpy()
-            data = np.array(data).astype(self.dtype)
-            try:
-                self.array.loc[coords] = data
-            except ValueError as e:
-                slices = []
-                for coord in coords.values():
-                    slices.append(slice(None, len(coord)))
-                data = data[*slices]
-                self.array.loc[coords] = data
+        """
+        Set data at the specified coordinates.
+
+        This method handles two types of coordinate inputs:
+        1. Center coordinates: mapping axis names to float values
+        2. Batch coordinates: mapping axis names to sequences of coordinates
+
+        Args:
+            coords: Either center coordinates or batch coordinates
+            data: Data to write at the coordinates
+        """
+        first_coord_value = next(iter(coords.values()))
+
+        if isinstance(first_coord_value, (int, float)):
+            # Handle single item with center coordinates
+            self._write_single_item(coords, data)  # type: ignore
         else:
-            for i in range(len(coords[self.axes[0]])):
-                if isinstance(data, (int, float)):
-                    this_data = data
-                else:
-                    this_data = data[i]
-                self[{c: coords[c][i] for c in self.axes}] = this_data
+            # Handle batch of items with coordinate sequences
+            self._write_batch_items(coords, data)  # type: ignore
+
+    def _write_single_item(
+        self,
+        center_coords: Mapping[str, float],
+        data: Union[torch.Tensor, ArrayLike, float, int],
+    ) -> None:
+        """Write a single data item using center coordinates."""
+        # Convert center coordinates to aligned array coordinates
+        aligned_coords = self.aligned_coords_from_center(center_coords)
+
+        # Convert data to numpy array with correct dtype
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+        data_array = np.array(data).astype(self.dtype)
+
+        # Write to array, handling shape mismatches
+        try:
+            self.array.loc[aligned_coords] = data_array
+        except ValueError:
+            # If data shape doesn't match coordinate space, slice data to fit
+            slices = [slice(None, len(coord)) for coord in aligned_coords.values()]
+            resized_data = data_array[tuple(slices)]
+            self.array.loc[aligned_coords] = resized_data
+
+    def _write_batch_items(
+        self,
+        batch_coords: Mapping[str, tuple[Sequence, np.ndarray]],
+        data: Union[torch.Tensor, ArrayLike, float, int],
+    ) -> None:
+        """Write multiple data items by iterating through coordinate batches."""
+        # Get batch size from first axis
+        first_axis = self.axes[0]
+        batch_size = len(batch_coords[first_axis])
+
+        for i in range(batch_size):
+            # Extract center coordinates for this item
+            item_coords = {axis: batch_coords[axis][i] for axis in self.axes}
+
+            # Extract data for this item
+            if isinstance(data, (int, float)):
+                item_data = data
+            else:
+                item_data = data[i]  # type: ignore
+
+            # Write this single item using center coordinates
+            self._write_single_item(item_coords, item_data)  # type: ignore
 
     def __repr__(self) -> str:
         return f"ImageWriter({self.path}: {self.label_class} @ {list(self.scale.values())} {self.metadata['units']})"
