@@ -10,7 +10,7 @@ class Binarize(T.Transform):
         _transform: Transform the input.
     """
 
-    def __init__(self, threshold=0) -> None:
+    def __init__(self, threshold=0.0) -> None:
         """Initialize the normalization transformation."""
         super().__init__()
         self.threshold = threshold
