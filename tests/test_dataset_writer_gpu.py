@@ -95,8 +95,10 @@ class TestDatasetWriterGPUTransfer:
             # Create loader - this returns a standard PyTorch DataLoader
             loader = writer.loader(batch_size=2, num_workers=0)
 
-            # Verify loader is a DataLoader (PyTorch DataLoader doesn't have device attribute)
-            assert isinstance(loader, torch.utils.data.DataLoader)
+            # Verify loader is a CellMapDataLoader (which maintains the same interface)
+            from cellmap_data.dataloader import CellMapDataLoader
+
+            assert isinstance(loader, CellMapDataLoader)
             # The device info is maintained by the dataset writer itself
             assert writer.device.type == "cuda"
 
