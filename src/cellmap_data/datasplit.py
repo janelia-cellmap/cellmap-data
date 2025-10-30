@@ -198,6 +198,10 @@ class CellMapDataSplit:
             self.pad_training = pad
             self.pad_validation = pad
         self.force_has_data = force_has_data
+        # Initialize datasets lists
+        self.train_datasets = []
+        self.validation_datasets = []
+
         if datasets is not None:
             self.datasets = datasets
             self.train_datasets = datasets["train"]
@@ -210,6 +214,12 @@ class CellMapDataSplit:
             self.dataset_dict = dataset_dict
         elif csv_path is not None:
             self.dataset_dict = self.from_csv(csv_path)
+        else:
+            # No data source provided - this should raise an error
+            raise ValueError(
+                "One of 'datasets', 'dataset_dict', or 'csv_path' must be provided"
+            )
+
         self.spatial_transforms = spatial_transforms
         self.train_raw_value_transforms = train_raw_value_transforms
         self.val_raw_value_transforms = val_raw_value_transforms
@@ -219,7 +229,9 @@ class CellMapDataSplit:
         if self.dataset_dict is not None:
             self.construct(self.dataset_dict)
         self.verify_datasets()
-        assert len(self.train_datasets) > 0, "No valid training datasets found."
+        # Only require training datasets if force_has_data is False
+        if not self.force_has_data:
+            assert len(self.train_datasets) > 0, "No valid training datasets found."
         logger.info("CellMapDataSplit initialized.")
 
     def __repr__(self) -> str:
