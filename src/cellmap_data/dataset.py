@@ -179,9 +179,9 @@ class CellMapDataset(Dataset):
     def __del__(self):
         """Cleanup ThreadPoolExecutor to prevent resource leaks."""
         if hasattr(self, "_executor") and self._executor is not None:
-            self._executor.shutdown(
-                wait=True
-            )  # Changed to wait=True to prevent resource leaks
+            # Use timeout to prevent indefinite hangs during cleanup (Python 3.9+)
+            # This avoids blocking during interpreter shutdown or garbage collection
+            self._executor.shutdown(wait=True, timeout=5.0)
 
     def __new__(
         cls,
