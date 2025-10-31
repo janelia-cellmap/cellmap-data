@@ -117,7 +117,8 @@ class CellMapDataLoader:
             # Validate prefetch_factor
             if not isinstance(prefetch_factor, int) or prefetch_factor < 1:
                 raise ValueError(
-                    f"prefetch_factor must be a positive integer, got {prefetch_factor}"
+                    f"prefetch_factor must be a positive integer (>= 1), "
+                    f"got {prefetch_factor!r} of type {type(prefetch_factor).__name__}"
                 )
             self._prefetch_factor = prefetch_factor
         else:
