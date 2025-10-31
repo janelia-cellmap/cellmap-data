@@ -799,7 +799,12 @@ class CellMapDataset(Dataset):
         # Get padding per axis
         indices_dict = {}
         for c, size in chunk_size.items():
-            indices_dict[c] = np.arange(0, self.sampling_box_shape[c], size, dtype=int)
+            if size <= 0:
+                indices_dict[c] = np.array([0], dtype=int)
+            else:
+                indices_dict[c] = np.arange(
+                    0, self.sampling_box_shape[c], size, dtype=int
+                )
 
         indices = []
         # Generate linear indices by unraveling all combinations of axes indices
