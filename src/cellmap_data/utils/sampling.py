@@ -2,7 +2,9 @@ import warnings
 from typing import Optional
 import torch
 
-MAX_SIZE = 64 * 1024 * 1024  # 64 million
+MAX_SIZE = (
+    512 * 1024 * 1024
+)  # 512 million - increased from 64M to handle larger datasets efficiently
 
 
 def min_redundant_inds(
