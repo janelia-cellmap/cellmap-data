@@ -217,8 +217,8 @@ class CellMapDataSplit:
                 "One of 'datasets', 'dataset_dict', or 'csv_path' must be provided"
             )
 
-        # Initialize datasets lists for dataset_dict and csv_path paths
-        # (datasets path initializes them above, construct method reinitializes for other paths)
+        # Temporary initialization of datasets lists for dataset_dict and csv_path paths.
+        # These will be immediately overwritten by the construct() method for non-'datasets' paths.
         if datasets is None:
             self.train_datasets = []
             self.validation_datasets = []
