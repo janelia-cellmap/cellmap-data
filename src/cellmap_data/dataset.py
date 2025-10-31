@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import functools
 import os
 from typing import Any, Callable, Mapping, Sequence, Optional
+import warnings
 import numpy as np
 from numpy.typing import ArrayLike
 import torch
@@ -17,6 +18,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+DEFAULT_TIMEOUT = 300.0  # Default timeout of 5 minutes for executor tasks
 
 
 # %%
@@ -142,6 +145,7 @@ class CellMapDataset(Dataset):
         # Initialize persistent ThreadPoolExecutor for performance
         # This eliminates the major performance bottleneck of creating new executors per __getitem__ call
         self._executor = None
+        self._executor_pid = None  # Track process ID to handle multiprocessing
         if max_workers is not None:
             self._max_workers = max_workers
         else:
@@ -161,6 +165,13 @@ class CellMapDataset(Dataset):
         Lazy initialization of persistent ThreadPoolExecutor.
         This eliminates the performance bottleneck of creating new executors per __getitem__ call.
         """
+        # Add pid tracking to detect process forking and prevent shared executors
+        current_pid = os.getpid()
+        if self._executor_pid != current_pid:
+            # Process was forked, need new executor
+            self._executor = None
+            self._executor_pid = current_pid
+
         if self._executor is None:
             self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
         return self._executor
@@ -168,7 +179,9 @@ class CellMapDataset(Dataset):
     def __del__(self):
         """Cleanup ThreadPoolExecutor to prevent resource leaks."""
         if hasattr(self, "_executor") and self._executor is not None:
-            self._executor.shutdown(wait=False)
+            self._executor.shutdown(
+                wait=True
+            )  # Changed to wait=True to prevent resource leaks
 
     def __new__(
         cls,
@@ -635,7 +648,16 @@ class CellMapDataset(Dataset):
         outputs = {
             "__metadata__": self.metadata,
         }
-        for future in as_completed(futures):
+        # Add timeout to prevent indefinite hangs
+        try:
+            timeout = float(os.environ.get("CELLMAP_EXECUTOR_TIMEOUT", DEFAULT_TIMEOUT))
+        except ValueError:
+            warnings.warn(
+                f"Invalid value for CELLMAP_EXECUTOR_TIMEOUT environment variable. Using default of {DEFAULT_TIMEOUT} seconds."
+            )
+            timeout = DEFAULT_TIMEOUT
+
+        for future in as_completed(futures, timeout=timeout):
             array_name, array = future.result()
             outputs[array_name] = array
 
