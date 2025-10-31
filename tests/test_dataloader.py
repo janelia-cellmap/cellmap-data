@@ -396,3 +396,66 @@ def test_length_calculation_with_drop_last():
     assert (
         len(loader_drop) == expected_drop
     ), f"Expected {expected_drop} batches with drop_last=True"
+
+
+def test_pin_memory_validation():
+    """Test that pin_memory is properly validated for non-CUDA devices."""
+    dataset = DummyDataset(length=8)
+    
+    # Test pin_memory with CPU device (should be set to False with warning)
+    loader = CellMapDataLoader(
+        dataset, 
+        batch_size=2, 
+        pin_memory=True,  # User explicitly sets True
+        device="cpu",     # But device is CPU
+        num_workers=0
+    )
+    # Should be automatically set to False for CPU device
+    assert not loader._pin_memory, "pin_memory should be False for CPU device"
+
+
+def test_prefetch_factor_validation():
+    """Test that prefetch_factor is properly validated."""
+    dataset = DummyDataset(length=8)
+    
+    # Test valid prefetch_factor
+    loader = CellMapDataLoader(
+        dataset, 
+        batch_size=2, 
+        num_workers=2,
+        prefetch_factor=4
+    )
+    assert loader._prefetch_factor == 4, "prefetch_factor should be set correctly"
+    
+    # Test invalid prefetch_factor (negative)
+    try:
+        loader = CellMapDataLoader(
+            dataset,
+            batch_size=2,
+            num_workers=2,
+            prefetch_factor=-1
+        )
+        assert False, "Should raise ValueError for negative prefetch_factor"
+    except ValueError as e:
+        assert "prefetch_factor must be a positive integer" in str(e)
+    
+    # Test invalid prefetch_factor (zero)
+    try:
+        loader = CellMapDataLoader(
+            dataset,
+            batch_size=2,
+            num_workers=2,
+            prefetch_factor=0
+        )
+        assert False, "Should raise ValueError for zero prefetch_factor"
+    except ValueError as e:
+        assert "prefetch_factor must be a positive integer" in str(e)
+    
+    # Test prefetch_factor ignored when num_workers=0
+    loader = CellMapDataLoader(
+        dataset,
+        batch_size=2,
+        num_workers=0,
+        prefetch_factor=4  # Should be ignored
+    )
+    assert loader._prefetch_factor is None, "prefetch_factor should be None when num_workers=0"

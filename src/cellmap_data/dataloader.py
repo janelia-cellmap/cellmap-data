@@ -94,15 +94,35 @@ class CellMapDataLoader:
         self.iterations_per_epoch = iterations_per_epoch
 
         # Extract DataLoader parameters with optimized defaults
-        self._pin_memory = kwargs.pop("pin_memory", torch.cuda.is_available())
+        # pin_memory only works with CUDA, so default to True only when CUDA is available
+        # and device is CUDA
+        pin_memory_default = torch.cuda.is_available() and str(device).startswith("cuda")
+        self._pin_memory = kwargs.pop("pin_memory", pin_memory_default)
+        
+        # Validate pin_memory setting
+        if self._pin_memory and not str(device).startswith("cuda"):
+            logger.warning(
+                f"pin_memory=True is only supported with CUDA devices. "
+                f"Setting pin_memory=False for device={device}"
+            )
+            self._pin_memory = False
+        
         self._persistent_workers = kwargs.pop("persistent_workers", num_workers > 0)
         self._drop_last = kwargs.pop("drop_last", False)
         
         # Set prefetch_factor for better GPU utilization (default 2, increase for GPU training)
         # Only applicable when num_workers > 0
         if num_workers > 0:
-            self._prefetch_factor = kwargs.pop("prefetch_factor", 2)
+            prefetch_factor = kwargs.pop("prefetch_factor", 2)
+            # Validate prefetch_factor
+            if not isinstance(prefetch_factor, int) or prefetch_factor < 1:
+                raise ValueError(
+                    f"prefetch_factor must be a positive integer, got {prefetch_factor}"
+                )
+            self._prefetch_factor = prefetch_factor
         else:
+            # Remove prefetch_factor from kwargs if present (not used with num_workers=0)
+            kwargs.pop("prefetch_factor", None)
             self._prefetch_factor = None
 
         # Move dataset to device if not using multiprocessing
