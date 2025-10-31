@@ -198,9 +198,6 @@ class CellMapDataSplit:
             self.pad_training = pad
             self.pad_validation = pad
         self.force_has_data = force_has_data
-        # Initialize datasets lists
-        self.train_datasets = []
-        self.validation_datasets = []
 
         if datasets is not None:
             self.datasets = datasets
@@ -219,6 +216,12 @@ class CellMapDataSplit:
             raise ValueError(
                 "One of 'datasets', 'dataset_dict', or 'csv_path' must be provided"
             )
+
+        # Initialize datasets lists for dataset_dict and csv_path paths
+        # (datasets path initializes them above, construct method reinitializes for other paths)
+        if datasets is None:
+            self.train_datasets = []
+            self.validation_datasets = []
 
         self.spatial_transforms = spatial_transforms
         self.train_raw_value_transforms = train_raw_value_transforms
