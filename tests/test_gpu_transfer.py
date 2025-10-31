@@ -176,8 +176,8 @@ def test_multiworker_gpu_performance():
         if i >= 2:  # Test first 3 batches
             break
 
-    # Verify persistent workers
-    assert loader._worker_executor is not None, "Workers should persist"
+    # Verify persistent workers configuration
+    assert loader._pytorch_loader is not None, "PyTorch loader should exist"
     assert loader._persistent_workers, "persistent_workers should be True"
 
     print(
@@ -213,18 +213,18 @@ def test_gpu_memory_optimization():
 
     dataset = LargeDataset()
 
-    # Test with CUDA streams optimization
+    # Test with pin_memory optimization for GPU transfer
     loader = CellMapDataLoader(
         dataset, batch_size=4, pin_memory=True, device="cuda", num_workers=0
     )
 
-    # Get a batch to trigger stream initialization
+    # Get a batch - PyTorch handles GPU transfer optimization internally
     batch = next(iter(loader))
 
-    # Verify CUDA stream optimization may be enabled
-    # (depends on memory threshold and GPU availability)
-    print(f"CUDA streams enabled: {loader._use_streams}")
-    print(f"Number of streams: {len(loader._streams) if loader._streams else 0}")
+    # Verify GPU transfer optimization settings
+    # PyTorch's DataLoader uses pin_memory and non_blocking transfers for optimization
+    print(f"Pin memory enabled: {loader._pin_memory}")
+    print(f"Using PyTorch's optimized GPU transfer")
 
     # Verify tensors are properly transferred
     assert batch["image"].device.type == "cuda", "Images should be on GPU"

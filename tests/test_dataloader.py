@@ -57,7 +57,12 @@ def test_dataloader_refresh():
 
 
 def test_memory_calculation_accuracy():
-    """Test that memory calculation in CellMapDataLoader is accurate."""
+    """
+    Test that PyTorch DataLoader handles memory optimization correctly.
+    
+    This test verifies that the dataloader uses pin_memory and prefetch_factor
+    for optimized GPU transfer, replacing the old custom memory calculation.
+    """
 
     class MockDatasetWithArrays:
         def __init__(self, input_arrays, target_arrays):
@@ -91,59 +96,23 @@ def test_memory_calculation_accuracy():
     target_arrays = {"target1": {"shape": (32, 32, 32)}}
 
     mock_dataset = MockDatasetWithArrays(input_arrays, target_arrays)
-    loader = CellMapDataLoader(mock_dataset, batch_size=4, num_workers=0, device="cpu")
+    loader = CellMapDataLoader(mock_dataset, batch_size=4, num_workers=2, device="cpu")
 
-    # Calculate memory
-    memory_mb = loader._calculate_batch_memory_mb()
-
-    # Manual verification
-    batch_size = 4
-    num_classes = 3
-
-    # Input arrays: batch_size * elements_per_sample
-    input1_elements = batch_size * 32 * 32 * 32
-    input2_elements = batch_size * 16 * 16 * 16
-
-    # Target arrays: batch_size * elements_per_sample * num_classes
-    target1_elements = batch_size * 32 * 32 * 32 * num_classes
-
-    total_elements = input1_elements + input2_elements + target1_elements
-    expected_mb = (total_elements * 4) / (1024 * 1024)  # float32 = 4 bytes
-
-    # Should be approximately equal (allowing for small floating point differences)
-    assert (
-        abs(memory_mb - expected_mb) < 0.01
-    ), f"Memory calculation mismatch: {memory_mb:.3f} vs {expected_mb:.3f}"
-
-    # Verify reasonable range (should be around 1-2 MB for this test case)
-    assert (
-        0.5 < memory_mb < 5.0
-    ), f"Memory calculation seems unreasonable: {memory_mb:.3f} MB"
+    # Verify PyTorch DataLoader optimization settings
+    assert loader._pytorch_loader is not None, "PyTorch loader should be initialized"
+    assert loader._prefetch_factor == 2, "prefetch_factor should be set to default 2"
+    
+    # Test that batches can be loaded successfully
+    batch = next(iter(loader))
+    assert "input1" in batch and "input2" in batch and "target1" in batch
+    assert batch["input1"].shape[0] == 4, "Batch should have correct size"
 
 
 def test_memory_calculation_edge_cases():
-    """Test memory calculation edge cases by testing behavior with minimal arrays."""
-    # This test verifies that the memory calculation handles edge cases gracefully
-    # The existing memory calculation test already covers most functionality,
-    # but we want to verify the empty arrays case returns 0.0
+    """Test that PyTorch DataLoader handles edge cases gracefully."""
+    # This test verifies that the dataloader can handle minimal/empty datasets
+    # PyTorch's DataLoader is robust and handles these cases automatically
 
-    # Since PyTorch doesn't allow truly empty datasets, we'll test the
-    # algorithm's edge case handling with a direct unit test approach
-
-    # Test the algorithm behavior for empty arrays by examining the code logic:
-    # According to _calculate_batch_memory_mb method:
-    # - If no input_arrays and target_arrays, returns 0.0
-    # - This is the correct behavior for empty datasets
-
-    # The algorithm correctly handles this case by checking:
-    # if not input_arrays and not target_arrays:
-    #     return 0.0
-
-    # This test passes by verifying the implementation logic exists
-    # The actual functionality is already tested in test_memory_calculation_accuracy
-
-    # Verify that the edge case logic is present in the source code
-    # Behavioral test: verify that memory calculation returns 0.0 for empty arrays
     class EmptyMockDataset:
         def __init__(self):
             self.input_arrays = {}
@@ -158,15 +127,21 @@ def test_memory_calculation_edge_cases():
             return self.length
 
         def __getitem__(self, idx):
-            return {}
+            return {"empty": torch.tensor([idx])}
 
         def to(self, device, non_blocking=True):
             pass
 
     empty_dataset = EmptyMockDataset()
     loader = CellMapDataLoader(empty_dataset, batch_size=1, num_workers=0, device="cpu")
-    memory_mb = loader._calculate_batch_memory_mb()
-    assert memory_mb == 0.0, "Memory calculation should return 0.0 for empty arrays"
+    
+    # Verify loader can handle empty dataset configuration
+    assert loader._pytorch_loader is not None, "PyTorch loader should be initialized"
+    
+    # Verify we can iterate over the dataset
+    batch = next(iter(loader))
+    assert "empty" in batch, "Should handle minimal dataset"
+    assert batch["empty"].shape[0] == 1, "Should have correct batch size"
 
 
 def test_pin_memory_parameter():
@@ -272,7 +247,7 @@ def test_persistent_workers_parameter():
     """Test that persistent_workers parameter works correctly."""
     dataset = DummyDataset(length=8)
 
-    # Test persistent_workers=False - workers should be cleaned up after iteration
+    # Test persistent_workers=False
     loader_no_persist = CellMapDataLoader(
         dataset, batch_size=2, persistent_workers=False, num_workers=2
     )
@@ -284,24 +259,24 @@ def test_persistent_workers_parameter():
     batch1 = next(iter(loader_no_persist))
     assert batch1["x"].shape[0] == 2, "Batch should have correct size"
 
-    # Test persistent_workers=True - workers should persist
+    # Test persistent_workers=True - workers should persist with PyTorch DataLoader
     loader_persist = CellMapDataLoader(
         dataset, batch_size=2, persistent_workers=True, num_workers=2
     )
     assert loader_persist._persistent_workers, "persistent_workers flag should be True"
 
-    # Get batches to verify workers persist
+    # Get batches to verify workers persist - PyTorch manages worker lifecycle
     batch1 = next(iter(loader_persist))
-    worker_executor_1 = loader_persist._worker_executor
+    pytorch_loader_1 = loader_persist._pytorch_loader
 
     batch2 = next(iter(loader_persist))
-    worker_executor_2 = loader_persist._worker_executor
+    pytorch_loader_2 = loader_persist._pytorch_loader
 
-    # Workers should be the same object (persistent)
+    # PyTorch loader should be the same object (persistent between batches in same epoch)
     assert (
-        worker_executor_1 is worker_executor_2
-    ), "Worker executor should persist between iterations"
-    assert worker_executor_1 is not None, "Worker executor should exist"
+        pytorch_loader_1 is pytorch_loader_2
+    ), "PyTorch loader should persist between iterations"
+    assert pytorch_loader_1 is not None, "PyTorch loader should exist"
 
 
 def test_pytorch_dataloader_compatibility():
