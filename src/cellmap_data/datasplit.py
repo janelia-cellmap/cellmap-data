@@ -229,7 +229,7 @@ class CellMapDataSplit:
         if self.dataset_dict is not None:
             self.construct(self.dataset_dict)
         self.verify_datasets()
-        # Only require training datasets if force_has_data is False
+        # Require training datasets unless force_has_data is True
         if not self.force_has_data:
             assert len(self.train_datasets) > 0, "No valid training datasets found."
         logger.info("CellMapDataSplit initialized.")
