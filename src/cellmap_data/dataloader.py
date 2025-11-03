@@ -252,9 +252,9 @@ class CellMapDataLoader:
                     outputs[key] = []
                 outputs[key].append(value)
 
-        # Stack tensors and move to device
+        # Stack tensors (do not move to device here; let DataLoader handle device transfer if pin_memory=True)
         for key, value in outputs.items():
             if key != "__metadata__":
-                outputs[key] = torch.stack(value).to(self.device, non_blocking=True)
+                outputs[key] = torch.stack(value)
 
         return outputs
