@@ -429,7 +429,7 @@ def test_prefetch_factor_validation():
     
     # Test invalid prefetch_factor (negative)
     try:
-        loader = CellMapDataLoader(
+        CellMapDataLoader(
             dataset,
             batch_size=2,
             num_workers=2,
@@ -441,7 +441,7 @@ def test_prefetch_factor_validation():
     
     # Test invalid prefetch_factor (zero)
     try:
-        loader = CellMapDataLoader(
+        CellMapDataLoader(
             dataset,
             batch_size=2,
             num_workers=2,

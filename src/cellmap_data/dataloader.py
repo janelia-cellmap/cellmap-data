@@ -126,9 +126,8 @@ class CellMapDataLoader:
             kwargs.pop("prefetch_factor", None)
             self._prefetch_factor = None
 
-        # Move dataset to device if not using multiprocessing
-        if num_workers == 0:
-            self.dataset.to(device, non_blocking=True)
+        # Note: We no longer move dataset to device here. PyTorch's DataLoader
+        # handles device transfer via pin_memory and the collate_fn when needed.
 
         # Setup sampler
         if self.sampler is None:
