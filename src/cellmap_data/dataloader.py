@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.utils.data
 import logging
-from typing import Callable, Optional, Sequence, Union, Any
+from typing import Callable, Optional, Sequence, Union
 
 from .mutable_sampler import MutableSubsetRandomSampler
 from .subdataset import CellMapSubset
