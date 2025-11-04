@@ -222,15 +222,15 @@ class TestRefactoredDataLoader:
         batch = next(iter(loader))
         assert batch["input_data"].shape[0] == 3, "Should work with multiple workers"
 
-        # Test that workers persist
-        assert loader._worker_executor is not None, "Worker executor should exist"
+        # Test that PyTorch loader is initialized
+        assert loader._pytorch_loader is not None, "PyTorch loader should exist"
 
         # Test multiple iterations
         batches = list(loader)
         assert len(batches) == 4, "Should generate 4 batches for 12 samples"
 
-        # Verify worker persistence
-        assert loader._worker_executor is not None, "Workers should persist"
+        # Verify PyTorch loader persistence (with persistent_workers enabled)
+        assert loader._pytorch_loader is not None, "PyTorch loader should persist"
 
         print("✅ Multiworker functionality test passed")
 
