@@ -1,20 +1,21 @@
 # %%
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import functools
-import os
-from typing import Any, Callable, Mapping, Sequence, Optional
-import warnings
-import numpy as np
-from numpy.typing import ArrayLike
-import torch
-from torch.utils.data import Dataset
-import tensorstore
-
-from .mutable_sampler import MutableSubsetRandomSampler
-from .utils import min_redundant_inds, split_target_path, is_array_2D, get_sliced_shape
-from .image import CellMapImage
-from .empty_image import EmptyImage
 import logging
+import os
+import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable, Mapping, Optional, Sequence
+
+import numpy as np
+import tensorstore
+import torch
+from numpy.typing import ArrayLike
+from torch.utils.data import Dataset
+
+from .empty_image import EmptyImage
+from .image import CellMapImage
+from .mutable_sampler import MutableSubsetRandomSampler
+from .utils import get_sliced_shape, is_array_2D, min_redundant_inds, split_target_path
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -319,7 +320,7 @@ class CellMapDataset(Dataset):
         try:
             return self._largest_voxel_sizes
         except AttributeError:
-            largest_voxel_size = {c: 0.0 for c in self.axis_order}
+            largest_voxel_size = dict.fromkeys(self.axis_order, 0.0)
             for source in list(self.input_sources.values()) + list(
                 self.target_sources.values()
             ):
@@ -442,7 +443,7 @@ class CellMapDataset(Dataset):
         try:
             return self._class_counts
         except AttributeError:
-            class_counts = {"totals": {c: 0.0 for c in self.classes}}
+            class_counts = {"totals": dict.fromkeys(self.classes, 0.0)}
             class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
             for array_name, sources in self.target_sources.items():
                 class_counts[array_name] = {}
@@ -527,7 +528,7 @@ class CellMapDataset(Dataset):
             logger.error(
                 f"Index {idx} out of bounds for dataset {self} of length {len(self)}"
             )
-            logger.warning(f"Returning closest index in bounds")
+            logger.warning("Returning closest index in bounds")
             center = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
         center = {
             c: center[i] * self.largest_voxel_sizes[c] + self.sampling_box[c][0]
@@ -564,9 +565,7 @@ class CellMapDataset(Dataset):
         else:
 
             def get_target_array(array_name: str) -> tuple[str, torch.Tensor]:
-                class_arrays = {
-                    label: None for label in self.classes
-                }  # Force order of classes
+                class_arrays = dict.fromkeys(self.classes)  # Force order of classes
                 inferred_arrays = []
 
                 # 1) Get images with gt data
@@ -841,7 +840,6 @@ class CellMapDataset(Dataset):
             - "transpose": Transposes the data along the specified axes. Parameters are the axes to transpose, formatted as a list. Example: {"transpose": {"axes": ["x", "z"]}} will randomly transpose the data along the x and z axes.
             - "rotate": Rotates the data around the specified axes within the specified angle ranges. Parameters are the axes to rotate and the angle ranges, formatted as a dictionary of axis: [min_angle, max_angle] pairs. Example: {"rotate": {"axes": {"x": [-180,180], "y": [-180,180], "z":[-180,180]}} will rotate the data around the x, y, and z axes from 180 to -180 degrees.
         """
-
         if not self.is_train or self.spatial_transforms is None:
             return None
         spatial_transforms: dict[str, Any] = {}
@@ -944,7 +942,6 @@ class CellMapDataset(Dataset):
         - If `num_samples` ≤ total number of available indices, samples without replacement.
         - If `num_samples` > total number of available indices, samples with replacement using repeated shuffles to minimize duplicates.
         """
-
         indices_generator = functools.partial(
             self.get_random_subset_indices, num_samples, rng, **kwargs
         )

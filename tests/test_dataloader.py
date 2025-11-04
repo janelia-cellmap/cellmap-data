@@ -1,5 +1,5 @@
 import torch
-import numpy as np
+
 from cellmap_data.dataloader import CellMapDataLoader
 
 
@@ -59,7 +59,7 @@ def test_dataloader_refresh():
 def test_memory_calculation_accuracy():
     """
     Test that PyTorch DataLoader handles memory optimization correctly.
-    
+
     This test verifies that the dataloader uses pin_memory and prefetch_factor
     for optimized GPU transfer, replacing the old custom memory calculation.
     """
@@ -101,7 +101,7 @@ def test_memory_calculation_accuracy():
     # Verify PyTorch DataLoader optimization settings
     assert loader._pytorch_loader is not None, "PyTorch loader should be initialized"
     assert loader._prefetch_factor == 2, "prefetch_factor should be set to default 2"
-    
+
     # Test that batches can be loaded successfully
     batch = next(iter(loader))
     assert "input1" in batch and "input2" in batch and "target1" in batch
@@ -134,10 +134,10 @@ def test_memory_calculation_edge_cases():
 
     empty_dataset = EmptyMockDataset()
     loader = CellMapDataLoader(empty_dataset, batch_size=1, num_workers=0, device="cpu")
-    
+
     # Verify loader can handle empty dataset configuration
     assert loader._pytorch_loader is not None, "PyTorch loader should be initialized"
-    
+
     # Verify we can iterate over the dataset
     batch = next(iter(loader))
     assert "empty" in batch, "Should handle minimal dataset"
@@ -401,14 +401,14 @@ def test_length_calculation_with_drop_last():
 def test_pin_memory_validation():
     """Test that pin_memory is properly validated for non-CUDA devices."""
     dataset = DummyDataset(length=8)
-    
+
     # Test pin_memory with CPU device (should be set to False with warning)
     loader = CellMapDataLoader(
-        dataset, 
-        batch_size=2, 
+        dataset,
+        batch_size=2,
         pin_memory=True,  # User explicitly sets True
-        device="cpu",     # But device is CPU
-        num_workers=0
+        device="cpu",  # But device is CPU
+        num_workers=0,
     )
     # Should be automatically set to False for CPU device
     assert not loader._pin_memory, "pin_memory should be False for CPU device"
@@ -417,45 +417,29 @@ def test_pin_memory_validation():
 def test_prefetch_factor_validation():
     """Test that prefetch_factor is properly validated."""
     dataset = DummyDataset(length=8)
-    
+
     # Test valid prefetch_factor
-    loader = CellMapDataLoader(
-        dataset, 
-        batch_size=2, 
-        num_workers=2,
-        prefetch_factor=4
-    )
+    loader = CellMapDataLoader(dataset, batch_size=2, num_workers=2, prefetch_factor=4)
     assert loader._prefetch_factor == 4, "prefetch_factor should be set correctly"
-    
+
     # Test invalid prefetch_factor (negative)
     try:
-        CellMapDataLoader(
-            dataset,
-            batch_size=2,
-            num_workers=2,
-            prefetch_factor=-1
-        )
+        CellMapDataLoader(dataset, batch_size=2, num_workers=2, prefetch_factor=-1)
         assert False, "Should raise ValueError for negative prefetch_factor"
     except ValueError as e:
         assert "prefetch_factor must be a positive integer" in str(e)
-    
+
     # Test invalid prefetch_factor (zero)
     try:
-        CellMapDataLoader(
-            dataset,
-            batch_size=2,
-            num_workers=2,
-            prefetch_factor=0
-        )
+        CellMapDataLoader(dataset, batch_size=2, num_workers=2, prefetch_factor=0)
         assert False, "Should raise ValueError for zero prefetch_factor"
     except ValueError as e:
         assert "prefetch_factor must be a positive integer" in str(e)
-    
+
     # Test prefetch_factor ignored when num_workers=0
     loader = CellMapDataLoader(
-        dataset,
-        batch_size=2,
-        num_workers=0,
-        prefetch_factor=4  # Should be ignored
+        dataset, batch_size=2, num_workers=0, prefetch_factor=4  # Should be ignored
     )
-    assert loader._prefetch_factor is None, "prefetch_factor should be None when num_workers=0"
+    assert (
+        loader._prefetch_factor is None
+    ), "prefetch_factor should be None when num_workers=0"

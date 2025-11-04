@@ -1,15 +1,14 @@
-import os
-import numpy as np
-import torch
-import torch.utils.data
 import logging
 from typing import Callable, Optional, Sequence, Union
 
+import torch
+import torch.utils.data
+
+from .dataset import CellMapDataset
+from .dataset_writer import CellMapDatasetWriter
+from .multidataset import CellMapMultiDataset
 from .mutable_sampler import MutableSubsetRandomSampler
 from .subdataset import CellMapSubset
-from .dataset import CellMapDataset
-from .multidataset import CellMapMultiDataset
-from .dataset_writer import CellMapDatasetWriter
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 class CellMapDataLoader:
     """
     Optimized DataLoader wrapper for CellMapDataset that uses PyTorch's native DataLoader.
-    
+
     This class provides a simplified, high-performance interface to PyTorch's DataLoader
     with optimizations for GPU training including prefetch_factor, persistent_workers,
     and pin_memory support.
@@ -81,7 +80,7 @@ class CellMapDataLoader:
         self.sampler = sampler
         self.is_train = is_train
         self.rng = rng
-        
+
         # Set device
         if device is None:
             if torch.cuda.is_available():
@@ -96,9 +95,11 @@ class CellMapDataLoader:
         # Extract DataLoader parameters with optimized defaults
         # pin_memory only works with CUDA, so default to True only when CUDA is available
         # and device is CUDA
-        pin_memory_default = torch.cuda.is_available() and str(device).startswith("cuda")
+        pin_memory_default = torch.cuda.is_available() and str(device).startswith(
+            "cuda"
+        )
         self._pin_memory = kwargs.pop("pin_memory", pin_memory_default)
-        
+
         # Validate pin_memory setting
         if self._pin_memory and not str(device).startswith("cuda"):
             logger.warning(
@@ -106,10 +107,10 @@ class CellMapDataLoader:
                 f"Setting pin_memory=False for device={device}"
             )
             self._pin_memory = False
-        
+
         self._persistent_workers = kwargs.pop("persistent_workers", num_workers > 0)
         self._drop_last = kwargs.pop("drop_last", False)
-        
+
         # Set prefetch_factor for better GPU utilization (default 2, increase for GPU training)
         # Only applicable when num_workers > 0
         if num_workers > 0:
@@ -152,11 +153,13 @@ class CellMapDataLoader:
 
         # Store all kwargs for compatibility
         self.default_kwargs = kwargs.copy()
-        self.default_kwargs.update({
-            "pin_memory": self._pin_memory,
-            "persistent_workers": self._persistent_workers,
-            "drop_last": self._drop_last,
-        })
+        self.default_kwargs.update(
+            {
+                "pin_memory": self._pin_memory,
+                "persistent_workers": self._persistent_workers,
+                "drop_last": self._drop_last,
+            }
+        )
         if self._prefetch_factor is not None:
             self.default_kwargs["prefetch_factor"] = self._prefetch_factor
 
@@ -196,7 +199,7 @@ class CellMapDataLoader:
         # Determine sampler for PyTorch DataLoader
         dataloader_sampler = None
         shuffle = False
-        
+
         if self.sampler is not None:
             if isinstance(self.sampler, MutableSubsetRandomSampler):
                 dataloader_sampler = self.sampler
@@ -218,25 +221,24 @@ class CellMapDataLoader:
             "drop_last": self._drop_last,
             "generator": self.rng,
         }
-        
+
         # Add sampler if provided
         if dataloader_sampler is not None:
             dataloader_kwargs["sampler"] = dataloader_sampler
-            
+
         # Add persistent_workers only if num_workers > 0
         if self.num_workers > 0:
             dataloader_kwargs["persistent_workers"] = self._persistent_workers
             if self._prefetch_factor is not None:
                 dataloader_kwargs["prefetch_factor"] = self._prefetch_factor
-        
+
         # Add any additional kwargs
         for key, value in self.default_kwargs.items():
             if key not in dataloader_kwargs:
                 dataloader_kwargs[key] = value
 
         self._pytorch_loader = torch.utils.data.DataLoader(
-            self.dataset,
-            **dataloader_kwargs
+            self.dataset, **dataloader_kwargs
         )
 
     def collate_fn(self, batch: Sequence) -> dict[str, torch.Tensor]:

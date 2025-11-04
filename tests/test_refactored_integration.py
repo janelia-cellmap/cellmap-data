@@ -6,8 +6,9 @@ These tests verify that the refactored implementation maintains full compatibili
 while adding new PyTorch DataLoader parameter support.
 """
 
-import torch
 import pytest
+import torch
+
 from cellmap_data.dataloader import CellMapDataLoader
 
 

@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 
+import sys
+import tempfile
+from pathlib import Path
+
 import torch
 import torch.utils.data
-import tempfile
-import numpy as np
-from pathlib import Path
-import sys
-import os
 
 # Add the src directory to Python path
 src_path = Path(__file__).parent / "src"
 sys.path.insert(0, str(src_path))
 
-from cellmap_data.dataset_writer import CellMapDatasetWriter
 from cellmap_data.dataloader import CellMapDataLoader
+from cellmap_data.dataset_writer import CellMapDatasetWriter
 
 
 def test_dataset_writer_gpu_transfer():
@@ -224,7 +223,7 @@ def test_gpu_memory_optimization():
     # Verify GPU transfer optimization settings
     # PyTorch's DataLoader uses pin_memory and non_blocking transfers for optimization
     print(f"Pin memory enabled: {loader._pin_memory}")
-    print(f"Using PyTorch's optimized GPU transfer")
+    print("Using PyTorch's optimized GPU transfer")
 
     # Verify tensors are properly transferred
     assert batch["image"].device.type == "cuda", "Images should be on GPU"
