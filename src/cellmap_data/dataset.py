@@ -20,8 +20,6 @@ from .utils import get_sliced_shape, is_array_2D, min_redundant_inds, split_targ
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-DEFAULT_TIMEOUT = 300.0  # Default timeout of 5 minutes for executor tasks
-
 
 # %%
 class CellMapDataset(Dataset):
@@ -180,9 +178,8 @@ class CellMapDataset(Dataset):
     def __del__(self):
         """Cleanup ThreadPoolExecutor to prevent resource leaks."""
         if hasattr(self, "_executor") and self._executor is not None:
-            # Use timeout to prevent indefinite hangs during cleanup (Python 3.9+)
             # This avoids blocking during interpreter shutdown or garbage collection
-            self._executor.shutdown(wait=True, timeout=5.0)
+            self._executor.shutdown(wait=True)
 
     def __new__(
         cls,
@@ -647,16 +644,8 @@ class CellMapDataset(Dataset):
         outputs = {
             "__metadata__": self.metadata,
         }
-        # Add timeout to prevent indefinite hangs
-        try:
-            timeout = float(os.environ.get("CELLMAP_EXECUTOR_TIMEOUT", DEFAULT_TIMEOUT))
-        except ValueError:
-            warnings.warn(
-                f"Invalid value for CELLMAP_EXECUTOR_TIMEOUT environment variable. Using default of {DEFAULT_TIMEOUT} seconds."
-            )
-            timeout = DEFAULT_TIMEOUT
 
-        for future in as_completed(futures, timeout=timeout):
+        for future in as_completed(futures):
             array_name, array = future.result()
             outputs[array_name] = array
 
