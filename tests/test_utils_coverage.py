@@ -124,7 +124,7 @@ class TestMinRedundantInds:
 
         # This currently fails due to torch.cat() on empty list
         # This is an edge case that should be handled in the actual function
-        with pytest.raises(RuntimeError, match="expected a non-empty list of Tensors"):
+        with pytest.raises(ValueError, match="expected a non-empty list of Tensors"):
             result = min_redundant_inds(size, num_samples)
 
     def test_size_one(self):
