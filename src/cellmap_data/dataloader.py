@@ -15,10 +15,11 @@ logger = logging.getLogger(__name__)
 
 class CellMapDataLoader:
     """
-    Optimized DataLoader wrapper for CellMapDataset using PyTorch's native DataLoader.
+    Optimized DataLoader wrapper for CellMapDataset that uses PyTorch's native DataLoader.
 
-    This class provides a simplified, high-performance interface for GPU training
-    with optimizations like prefetch_factor, persistent_workers, and pin_memory.
+    This class provides a simplified, high-performance interface to PyTorch's DataLoader
+    with optimizations for GPU training including prefetch_factor, persistent_workers,
+    and pin_memory support.
 
     Attributes:
         dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): Dataset to load.
@@ -85,12 +86,15 @@ class CellMapDataLoader:
         self.device = device
         self.iterations_per_epoch = iterations_per_epoch
 
-        # Optimized defaults for DataLoader
+        # Extract DataLoader parameters with optimized defaults
+        # pin_memory only works with CUDA, so default to True only when CUDA is available
+        # and device is CUDA
         pin_memory_default = torch.cuda.is_available() and str(device).startswith(
             "cuda"
         )
         self._pin_memory = kwargs.pop("pin_memory", pin_memory_default)
 
+        # Validate pin_memory setting
         if self._pin_memory and not str(device).startswith("cuda"):
             logger.warning(
                 "pin_memory=True is only supported with CUDA. Disabling for %s.",
@@ -101,6 +105,8 @@ class CellMapDataLoader:
         self._persistent_workers = kwargs.pop("persistent_workers", num_workers > 0)
         self._drop_last = kwargs.pop("drop_last", False)
 
+        # Set prefetch_factor for better GPU utilization (default 2, increase for GPU training)
+        # Only applicable when num_workers > 0
         if num_workers > 0:
             prefetch_factor = kwargs.pop("prefetch_factor", 2)
             if not isinstance(prefetch_factor, int) or prefetch_factor < 1:
@@ -202,14 +208,17 @@ class CellMapDataLoader:
             "generator": self.rng,
         }
 
+        # Add sampler if provided
         if dataloader_sampler is not None:
             dataloader_kwargs["sampler"] = dataloader_sampler
 
+        # Add persistent_workers only if num_workers > 0
         if self.num_workers > 0:
             dataloader_kwargs["persistent_workers"] = self._persistent_workers
             if self._prefetch_factor is not None:
                 dataloader_kwargs["prefetch_factor"] = self._prefetch_factor
 
+        # Add any additional kwargs
         for key, value in self.default_kwargs.items():
             if key not in dataloader_kwargs:
                 dataloader_kwargs[key] = value

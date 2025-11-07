@@ -1,25 +1,24 @@
 # %%
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import functools
-import os
-from typing import Any, Callable, Mapping, Sequence, Optional
-import warnings
-import numpy as np
-from numpy.typing import ArrayLike
-import torch
-from torch.utils.data import Dataset
-import tensorstore
-
-from .mutable_sampler import MutableSubsetRandomSampler
-from .utils import min_redundant_inds, split_target_path, is_array_2D, get_sliced_shape
-from .image import CellMapImage
-from .empty_image import EmptyImage
 import logging
+import os
+import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable, Mapping, Optional, Sequence
+
+import numpy as np
+import tensorstore
+import torch
+from numpy.typing import ArrayLike
+from torch.utils.data import Dataset
+
+from .empty_image import EmptyImage
+from .image import CellMapImage
+from .mutable_sampler import MutableSubsetRandomSampler
+from .utils import get_sliced_shape, is_array_2D, min_redundant_inds, split_target_path
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-DEFAULT_TIMEOUT = 300.0  # Default timeout of 5 minutes for executor tasks
 
 
 # %%
@@ -315,7 +314,7 @@ class CellMapDataset(Dataset):
         try:
             return self._largest_voxel_sizes
         except AttributeError:
-            largest_voxel_size = {c: 0.0 for c in self.axis_order}
+            largest_voxel_size = dict.fromkeys(self.axis_order, 0.0)
             for source in list(self.input_sources.values()) + list(
                 self.target_sources.values()
             ):
@@ -426,9 +425,7 @@ class CellMapDataset(Dataset):
         try:
             return self._size
         except AttributeError:
-            size = np.prod(
-                [stop - start for start, stop in self.bounding_box.items()]
-            )
+            size = np.prod([stop - start for start, stop in self.bounding_box.items()])
             self._size = int(size)
             return self._size
 
@@ -438,9 +435,7 @@ class CellMapDataset(Dataset):
         try:
             return self._class_counts
         except AttributeError:
-            class_counts: dict[str, Any] = {
-                "totals": {c: 0.0 for c in self.classes}
-            }
+            class_counts = {"totals": dict.fromkeys(self.classes, 0.0)}
             class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
             for array_name, sources in self.target_sources.items():
                 class_counts[array_name] = {}
@@ -521,26 +516,19 @@ class CellMapDataset(Dataset):
             center_indices = np.unravel_index(
                 idx_arr, [self.sampling_box_shape[c] for c in self.axis_order]
             )
-            center: dict[str, float] = {
-                c: float(
-                    center_indices[i] * self.largest_voxel_sizes[c]
-                    + self.sampling_box[c][0]
-                )
-                for i, c in enumerate(self.axis_order)
-            }
         except ValueError:
             logger.error(
                 "Index %s out of bounds for dataset of length %d", idx, len(self)
             )
             logger.warning("Returning closest index in bounds")
             center_indices = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
-            center = {
-                c: float(
-                    center_indices[i] * self.largest_voxel_sizes[c]
-                    + self.sampling_box[c][0]
-                )
-                for i, c in enumerate(self.axis_order)
-            }
+        center = {
+            c: float(
+                center_indices[i] * self.largest_voxel_sizes[c]
+                + self.sampling_box[c][0]
+            )
+            for i, c in enumerate(self.axis_order)
+        }
 
         self._current_idx = idx
         self._current_center = center
@@ -568,9 +556,7 @@ class CellMapDataset(Dataset):
         else:
 
             def get_target_array(array_name: str) -> tuple[str, torch.Tensor]:
-                class_arrays: dict[str, torch.Tensor | None] = {
-                    label: None for label in self.classes
-                }
+                class_arrays = dict.fromkeys(self.classes)  # Force order of classes
                 inferred_arrays = []
 
                 def get_label_array(
@@ -643,15 +629,8 @@ class CellMapDataset(Dataset):
         outputs: dict[str, Any] = {
             "__metadata__": self.metadata,
         }
-        try:
-            timeout = float(os.environ.get("CELLMAP_EXECUTOR_TIMEOUT", DEFAULT_TIMEOUT))
-        except (ValueError, TypeError):
-            warnings.warn(
-                f"Invalid CELLMAP_EXECUTOR_TIMEOUT. Using default: {DEFAULT_TIMEOUT}s."
-            )
-            timeout = DEFAULT_TIMEOUT
 
-        for future in as_completed(futures, timeout=timeout):
+        for future in as_completed(futures):
             array_name, array = future.result()
             outputs[array_name] = array
 
@@ -932,22 +911,22 @@ class CellMapDataset(Dataset):
     def get_random_subset_sampler(
         self, num_samples: int, rng: Optional[torch.Generator] = None, **kwargs: Any
     ) -> MutableSubsetRandomSampler:
-        """Returns a sampler for a random subset of the dataset."""
-        if self.class_weights is not None:
-            indices_generator = functools.partial(
-                min_redundant_inds,
-                self.class_weights,
-                num_samples,
-                self,
-                rng=rng,
-                **kwargs,
-            )
-        else:
-            indices_generator = functools.partial(
-                torch.randperm, len(self), generator=rng, **kwargs
-            )
+        """
+        Returns a random sampler that yields exactly `num_samples` indices from this subset.
+        - If `num_samples` ≤ total number of available indices, samples without replacement.
+        - If `num_samples` > total number of available indices, samples with replacement using repeated shuffles to minimize duplicates.
+        """
+        indices_generator = functools.partial(
+            self.get_random_subset_indices, num_samples, rng, **kwargs
+        )
 
         return MutableSubsetRandomSampler(indices_generator)
+
+    def get_random_subset_indices(
+        self, num_samples: int, rng: Optional[torch.Generator] = None, **kwargs: Any
+    ) -> Sequence[int]:
+        inds = min_redundant_inds(len(self), num_samples, rng=rng)
+        return inds.tolist()
 
     @staticmethod
     def empty() -> "CellMapDataset":

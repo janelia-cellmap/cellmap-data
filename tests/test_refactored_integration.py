@@ -6,8 +6,9 @@ These tests verify that the refactored implementation maintains full compatibili
 while adding new PyTorch DataLoader parameter support.
 """
 
-import torch
 import pytest
+import torch
+
 from cellmap_data.dataloader import CellMapDataLoader
 
 
@@ -100,6 +101,7 @@ class TestRefactoredDataLoader:
         dataset = MockDataset(size=15, return_cpu_tensors=True)
 
         # Test comprehensive parameter combination
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         loader = CellMapDataLoader(
             dataset,
             batch_size=4,
@@ -107,12 +109,15 @@ class TestRefactoredDataLoader:
             persistent_workers=True,
             drop_last=True,
             num_workers=2,
-            device="cuda" if torch.cuda.is_available() else "cpu",
+            device=device,
             shuffle=True,
         )
 
-        # Verify configuration
-        assert loader._pin_memory, "pin_memory should be enabled"
+        # Verify configuration (pin_memory only works on CUDA)
+        if device == "cuda":
+            assert loader._pin_memory, "pin_memory should be enabled on CUDA"
+        else:
+            assert not loader._pin_memory, "pin_memory should be False on CPU"
         assert loader._persistent_workers, "persistent_workers should be enabled"
         assert loader._drop_last, "drop_last should be enabled"
         assert loader.num_workers == 2, "Should have 2 workers"
@@ -238,22 +243,22 @@ class TestRefactoredDataLoader:
         """Test that unsupported PyTorch parameters are handled gracefully."""
         dataset = MockDataset(size=6)
 
-        # Test with various PyTorch DataLoader parameters
+        # Test with various PyTorch DataLoader parameters (use num_workers=1 so prefetch_factor is applicable)
         loader = CellMapDataLoader(
             dataset,
             batch_size=2,
             timeout=30,  # Not implemented, stored for compatibility
-            prefetch_factor=2,  # Not implemented, stored for compatibility
+            prefetch_factor=2,  # Stored when num_workers > 0
             worker_init_fn=None,  # Not implemented, stored for compatibility
             generator=None,  # Not implemented, stored for compatibility
-            num_workers=0,
+            num_workers=1,  # Changed from 0 to 1 so prefetch_factor is stored
         )
 
         # Should not crash and should store parameters
         assert "timeout" in loader.default_kwargs, "Should store timeout parameter"
         assert (
             "prefetch_factor" in loader.default_kwargs
-        ), "Should store prefetch_factor parameter"
+        ), "Should store prefetch_factor parameter when num_workers > 0"
         assert (
             loader.default_kwargs["timeout"] == 30
         ), "Should store correct timeout value"

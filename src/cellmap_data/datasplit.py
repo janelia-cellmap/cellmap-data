@@ -1,15 +1,17 @@
 import csv
+import logging
 import os
 from typing import Any, Callable, Mapping, Optional, Sequence
+
 import tensorstore
 import torch
 import torchvision.transforms.v2 as T
 from tqdm import tqdm
-from .transforms import NaNtoNum, Normalize, Binarize
+
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .subdataset import CellMapSubset
-import logging
+from .transforms import Binarize, NaNtoNum, Normalize
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +185,6 @@ class CellMapDataSplit:
             The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.
 
         """
-
         logger.info("Initializing CellMapDataSplit...")
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays
@@ -308,7 +309,7 @@ class CellMapDataSplit:
     def from_csv(self, csv_path) -> dict[str, Sequence[dict[str, str]]]:
         """Loads the dataset_dict data from a csv file."""
         dataset_dict = {}
-        with open(csv_path, "r") as f:
+        with open(csv_path) as f:
             reader = csv.reader(f)
             logger.info("Reading csv file...")
             for row in reader:

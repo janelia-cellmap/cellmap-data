@@ -267,9 +267,9 @@ def get_image(data_path: str):
 
     try:
         return open_ds_tensorstore(data_path)
-    except ValueError:
-        spec = xt._zarr_spec_from_path(data_path)
-        array_future = ts_open(spec, read=True, write=False)
+    except ValueError as e:
+        spec = xt._zarr_spec_from_path(data_path, zarr_format=2)
+        array_future = tensorstore.open(spec, read=True, write=False)
         try:
             array = array_future.result()
         except ValueError:

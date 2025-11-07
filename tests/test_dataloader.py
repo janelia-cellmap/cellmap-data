@@ -1,5 +1,5 @@
 import torch
-import numpy as np
+
 from cellmap_data.dataloader import CellMapDataLoader
 
 
@@ -23,6 +23,31 @@ class DummyDataset(torch.utils.data.Dataset):
 
     def to(self, device, non_blocking=True):
         return self
+
+
+class MockDatasetWithArrays:
+    def __init__(self, input_arrays, target_arrays):
+        self.input_arrays = input_arrays
+        self.target_arrays = target_arrays
+        self.classes = ["class1", "class2", "class3"]
+        self.length = 10
+        self.class_counts = {"class1": 5, "class2": 5, "class3": 5}
+        self.class_weights = {"class1": 0.33, "class2": 0.33, "class3": 0.34}
+        self.validation_indices = list(range(self.length // 2))
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        return {
+            "input1": torch.randn(1, 32, 32, 32),
+            "input2": torch.randn(1, 16, 16, 16),
+            "target1": torch.randn(3, 32, 32, 32),  # 3 classes
+            "__metadata__": {"idx": idx},
+        }
+
+    def to(self, device, non_blocking=True):
+        pass
 
 
 def test_dataloader_basic():
@@ -63,30 +88,6 @@ def test_memory_calculation_accuracy():
     This test verifies that the dataloader uses pin_memory and prefetch_factor
     for optimized GPU transfer, replacing the old custom memory calculation.
     """
-
-    class MockDatasetWithArrays:
-        def __init__(self, input_arrays, target_arrays):
-            self.input_arrays = input_arrays
-            self.target_arrays = target_arrays
-            self.classes = ["class1", "class2", "class3"]
-            self.length = 10
-            self.class_counts = {"class1": 5, "class2": 5, "class3": 5}
-            self.class_weights = {"class1": 0.33, "class2": 0.33, "class3": 0.34}
-            self.validation_indices = list(range(self.length // 2))
-
-        def __len__(self):
-            return self.length
-
-        def __getitem__(self, idx):
-            return {
-                "input1": torch.randn(1, 32, 32, 32),
-                "input2": torch.randn(1, 16, 16, 16),
-                "target1": torch.randn(3, 32, 32, 32),  # 3 classes
-                "__metadata__": {"idx": idx},
-            }
-
-        def to(self, device, non_blocking=True):
-            pass
 
     # Test arrays configuration
     input_arrays = {
@@ -176,24 +177,34 @@ def test_pin_memory_parameter():
         "x"
     ].is_pinned(), "Tensor should not be pinned when pin_memory=False"
 
-    # Test pin_memory=True
+    # Test pin_memory=True on CPU (should be rejected and set to False)
     loader_pin = CellMapDataLoader(
         dataset, batch_size=2, pin_memory=True, device="cpu", num_workers=0
     )
     batch_pin = next(iter(loader_pin))
-    assert batch_pin["x"].is_pinned(), "Tensor should be pinned when pin_memory=True"
+    # On CPU, pin_memory=True is rejected and set to False
+    assert not batch_pin["x"].is_pinned(), "Tensor should not be pinned on CPU device"
+    assert not loader_pin._pin_memory, "pin_memory should be False on CPU"
 
-    # Additional check: if CUDA is available, verify pinned tensor can be moved to GPU
+    # Additional check: if CUDA is available, test actual pin_memory behavior
     if torch.cuda.is_available():
+        loader_cuda_pin = CellMapDataLoader(
+            dataset, batch_size=2, pin_memory=True, device="cuda", num_workers=0
+        )
+        batch_cuda_pin = next(iter(loader_cuda_pin))
         try:
-            gpu_tensor = batch_pin["x"].to("cuda", non_blocking=True)
-            assert gpu_tensor.device.type == "cuda", "Tensor should be on CUDA device"
+            # On CUDA with pin_memory=True, tensors should be on CUDA device
+            assert (
+                batch_cuda_pin["x"].device.type == "cuda"
+            ), "Tensor should be on CUDA device"
+            assert loader_cuda_pin._pin_memory, "pin_memory should be True for CUDA"
         except Exception as e:
-            assert False, f"Failed to move pinned tensor to CUDA: {e}"
+            assert False, f"Failed pin_memory test on CUDA: {e}"
 
     # Verify pin_memory setting is stored correctly
     assert not loader_no_pin._pin_memory, "pin_memory flag should be False"
-    assert loader_pin._pin_memory, "pin_memory flag should be True"
+    # loader_pin was created with device="cpu", so pin_memory should be False
+    assert not loader_pin._pin_memory, "pin_memory flag should be False on CPU"
 
 
 def test_drop_last_parameter():
@@ -283,7 +294,8 @@ def test_pytorch_dataloader_compatibility():
     """Test that other PyTorch DataLoader parameters are accepted and stored."""
     dataset = DummyDataset()
 
-    # Test various PyTorch DataLoader parameters
+    # Test various PyTorch DataLoader parameters with num_workers > 0
+    # so prefetch_factor is applicable
     loader = CellMapDataLoader(
         dataset,
         batch_size=2,
@@ -291,14 +303,14 @@ def test_pytorch_dataloader_compatibility():
         prefetch_factor=3,
         worker_init_fn=None,
         generator=None,
-        num_workers=0,
+        num_workers=1,  # Changed from 0 to 1 so prefetch_factor is stored
     )
 
     # Verify parameters are stored in default_kwargs for compatibility
     assert "timeout" in loader.default_kwargs, "timeout should be stored"
     assert (
         "prefetch_factor" in loader.default_kwargs
-    ), "prefetch_factor should be stored"
+    ), "prefetch_factor should be stored when num_workers > 0"
     assert "worker_init_fn" in loader.default_kwargs, "worker_init_fn should be stored"
     assert "generator" in loader.default_kwargs, "generator should be stored"
 
@@ -329,8 +341,8 @@ def test_combined_pytorch_parameters():
         device="cpu",
     )
 
-    # Verify all settings
-    assert loader._pin_memory, "pin_memory should be True"
+    # Verify all settings (pin_memory will be False on CPU even if requested True)
+    assert not loader._pin_memory, "pin_memory should be False on CPU"
     assert loader._persistent_workers, "persistent_workers should be True"
     assert loader._drop_last, "drop_last should be True"
     assert loader.num_workers == 2, "num_workers should be 2"
@@ -346,7 +358,8 @@ def test_combined_pytorch_parameters():
 
     for batch in batches:
         assert len(batch["x"]) == 3, "All batches should have exactly 3 samples"
-        assert batch["x"].is_pinned(), "Tensors should be pinned"
+        # On CPU, tensors won't be pinned even if pin_memory was requested
+        assert not batch["x"].is_pinned(), "Tensors should not be pinned on CPU"
 
 
 def test_direct_iteration_support():

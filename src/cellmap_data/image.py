@@ -262,7 +262,7 @@ class CellMapImage:
                 )
             else:
                 # Construct an xarray with Tensorstore backend
-                spec = xt._zarr_spec_from_path(self.array_path)
+                spec = xt._zarr_spec_from_path(self.array_path, zarr_format=2)
                 array_future = ts.open(
                     spec, read=True, write=False, context=self.context
                 )
