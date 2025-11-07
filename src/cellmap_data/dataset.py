@@ -922,6 +922,12 @@ class CellMapDataset(Dataset):
 
         return MutableSubsetRandomSampler(indices_generator)
 
+    def get_random_subset_indices(
+        self, num_samples: int, rng: Optional[torch.Generator] = None, **kwargs: Any
+    ) -> Sequence[int]:
+        inds = min_redundant_inds(len(self), num_samples, rng=rng)
+        return inds.tolist()
+
     @staticmethod
     def empty() -> "CellMapDataset":
         """Creates an empty dataset."""
