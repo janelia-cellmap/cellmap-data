@@ -9,12 +9,12 @@ from multiprocessing.pool import ThreadPool
 
 import neuroglancer
 import numpy as np
-import urllib
+import urllib.parse
 import s3fs
 import zarr
-import tensorstore as ts
+from tensorstore import open as ts_open, d as ts_d
 
-from IPython import get_ipython
+from IPython.core.getipython import get_ipython
 from IPython.display import IFrame, display
 from upath import UPath
 
@@ -61,8 +61,6 @@ def get_neuroglancer_link(metadata):
         dataset = m.group(1)
     else:
         # fallback: take parent folder name before .zarr
-        import os
-
         dataset = os.path.basename(metadata["raw_path"].split(".zarr")[0])
     # build raw EM layer source
     raw_key = S3_SEARCH_PATH.format(dataset=dataset, name=S3_RAW_NAME)
@@ -152,7 +150,8 @@ def open_neuroglancer(metadata):
     else:
         webbrowser.open(url)
 
-    # 5) center the view on the current center when it is available by starting a background thread
+    # 5) center the view on the current center when it is available
+    # by starting a background thread
     def _center_view():
         while len(viewer.state.dimensions.to_json()) < 3:
             time.sleep(0.1)  # wait for dimensions to be set
@@ -205,8 +204,7 @@ def get_layer(
         scales, metadata = parse_multiscale_metadata(data_path)
         for scale in scales:
             this_path = (UPath(data_path) / scale).path
-            image = open_ds_tensorstore(this_path)
-            # image = get_image(this_path)
+            image = get_image(this_path)
 
             layers.append(
                 neuroglancer.LocalVolume(
@@ -274,11 +272,10 @@ def get_image(data_path: str):
         array_future = tensorstore.open(spec, read=True, write=False)
         try:
             array = array_future.result()
-        except ValueError as e:
-            Warning(e)
+        except ValueError:
             UserWarning("Falling back to zarr3 driver")
             spec["driver"] = "zarr3"
-            array_future = tensorstore.open(spec, read=True, write=False)
+            array_future = ts_open(spec, read=True, write=False)
             array = array_future.result()
         return array
 
@@ -416,7 +413,10 @@ class ScalePyramid(neuroglancer.LocalVolume):
         relative_scale = np.array(scale) // np.array(closest_scale)
 
         return self.volume_layers[closest_scale].get_encoded_subvolume(
-            data_format, start, end, scale_key=",".join(map(str, relative_scale))
+            data_format,
+            start,
+            end,
+            scale_key=",".join(map(str, relative_scale)),
         )
 
     def get_object_mesh(self, object_id):
@@ -472,13 +472,14 @@ def open_ds_tensorstore(dataset_path: str, mode="r", concurrency_limit=None):
         spec = {"driver": filetype, "kvstore": kvstore, **extra_args}
 
     if mode == "r":
-        dataset_future = ts.open(spec, read=True, write=False)
+        dataset_future = ts_open(spec, read=True, write=False)
     else:
-        dataset_future = ts.open(spec, read=False, write=True)
+        dataset_future = ts_open(spec, read=False, write=True)
 
     if dataset_path.startswith("gs://"):
-        # NOTE: Currently a hack since google store is for some reason stored as mutlichannel
-        ts_dataset = dataset_future.result()[ts.d["channel"][0]]
+        # NOTE: Currently a hack since google store is for some reason
+        # stored as mutlichannel
+        ts_dataset = dataset_future.result()[ts_d["channel"][0]]
     else:
         ts_dataset = dataset_future.result()
 
@@ -496,23 +497,12 @@ def ends_with_scale(string):
 class LazyNormalization:
     def __init__(self, ts_dataset):
         self.ts_dataset = ts_dataset
+        self.input_norms = []
 
-    def __getitem__(self, index):
-        result = self.ts_dataset[index]
-        return apply_norms(result)
+    def __getitem__(self, ind):
+        g = self.ts_dataset[ind].read().result()
+        self.input_norms.append((g.min(), g.max()))
+        return g
 
-    def __getattr__(self, attr):
-        at = getattr(self.ts_dataset, attr)
-        if attr == "dtype":
-            if len(g.input_norms) > 0:
-                return np.dtype(g.input_norms[-1].dtype)
-            return np.dtype(at.numpy_dtype)
-        return at
-
-
-def apply_norms(data):
-    if hasattr(data, "read"):
-        data = data.read().result()
-    for norm in g.input_norms:
-        data = norm(data)
-    return data
+    def __getattr__(self, name):
+        return getattr(self.ts_dataset, name)

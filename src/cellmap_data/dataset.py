@@ -24,13 +24,18 @@ logger.setLevel(logging.INFO)
 # %%
 class CellMapDataset(Dataset):
     """
-    This subclasses PyTorch Dataset to load CellMap data for training. It maintains the same API as the Dataset class. Importantly, it maintains information about and handles for the sources for raw and groundtruth data. This information includes the path to the data, the classes for segmentation, and the arrays to input to the network and use as targets for the network predictions. The dataset constructs the sources for the raw and groundtruth data, and retrieves the data from the sources. The dataset also provides methods to get the number of pixels for each class in the ground truth data, normalized by the resolution. Additionally, random crops of the data can be generated for training, because the CellMapDataset maintains information about the extents of its source arrays. This object additionally combines images for different classes into a single output array, which is useful for training multiclass segmentation networks.
+    Subclasses PyTorch Dataset to load CellMap data for training.
 
+    This class handles data sources for raw and ground truth data, including paths,
+    segmentation classes, and input/target array configurations. It retrieves data,
+    calculates class-specific pixel counts, and generates random crops for training.
+    It also combines images for different classes into a single output array,
+    which is useful for training multi-class segmentation networks.
     """
 
     def __init__(
         self,
-        raw_path: str,  # TODO: Switch "raw_path" to "input_path"
+        raw_path: str,
         target_path: str,
         classes: Sequence[str] | None,
         input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
@@ -54,36 +59,24 @@ class CellMapDataset(Dataset):
         """Initializes the CellMapDataset class.
 
         Args:
-            raw_path (str): The path to the raw data.
-            target_path (str): The path to the ground truth data.
-            classes (Sequence[str]): A list of classes for segmentation training. Class order will be preserved in the output arrays. Classes not contained in the dataset will be filled in with zeros.
-            input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::
-            max_workers (Optional[int], optional): The maximum number of worker threads to use for parallel data loading. If not specified, defaults to the minimum of the number of CPU cores and the value of the CELLMAP_MAX_WORKERS environment variable (default 4).
-
-                {
-                    "array_name": {
-                        "shape": tuple[int],
-                        "scale": Sequence[float],
-                    },
-                    ...
-                }
-
-            where 'array_name' is the name of the array, 'shape' is the shape of the array in voxels, and 'scale' is the scale of the array in world units.
-            target_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to use as targets for the network. The dictionary should have the same structure as 'input_arrays'.
-            spatial_transforms (Optional[Mapping[str, Any]] = None, optional): A sequence of dictionaries containing the spatial transformations to apply to the data. Defaults to None. The dictionary should have the following structure::
-
-                {transform_name: {transform_args}}
-
-            raw_value_transforms (Optional[Callable], optional): A function to apply to the raw data. Defaults to None. Example is to normalize the raw data.
-            target_value_transforms (Optional[Callable | Sequence[Callable] | Mapping[str, Callable]], optional): A function to convert the ground truth data to target arrays. Defaults to None. Example is to convert the ground truth data to a signed distance transform. May be a single function, a list of functions, or a dictionary of functions for each class. In the case of a list of functions, it is assumed that the functions correspond to each class in the classes list in order. If the function is a dictionary, the keys should correspond to the classes in the 'classes' list. The function should return a tensor of the same shape as the input tensor. Note that target transforms are applied to the ground truth data and should generally not be used with use of true-negative data inferred using the 'class_relation_dict'.
-            is_train (bool, optional): Whether the dataset is for training. Defaults to False.
-            context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
-            rng (Optional[torch.Generator], optional): A random number generator. Defaults to None.
-            force_has_data (bool, optional): Whether to force the dataset to report that it has data. Defaults to False.
-            empty_value (float | int, optional): The value to fill in for empty data. Defaults to torch.nan.
-            pad (bool, optional): Whether to pad the image data to match requested arrays. Defaults to False.
-            device (Optional[str | torch.device], optional): The device for the dataset. Defaults to None. If None, the device will be set to "cuda" if available, "mps" if available, or "cpu" if neither are available.
-
+            raw_path: Path to the raw data.
+            target_path: Path to the ground truth data.
+            classes: List of classes for segmentation training.
+            input_arrays: Dictionary of input arrays with shape and scale.
+            target_arrays: Dictionary of target arrays with shape and scale.
+            spatial_transforms: Spatial transformations to apply.
+            raw_value_transforms: Transforms for raw data (e.g., normalization).
+            target_value_transforms: Transforms for target data (e.g., distance transform).
+            class_relation_dict: Defines mutual exclusivity between classes.
+            is_train: Whether the dataset is for training.
+            axis_order: The order of axes (e.g., "zyx").
+            context: TensorStore context.
+            rng: Random number generator.
+            force_has_data: If True, forces the dataset to report having data.
+            empty_value: Value for empty data.
+            pad: Whether to pad data to match requested array shapes.
+            device: The device for torch tensors.
+            max_workers: Max worker threads for data loading.
         """
         super().__init__()
         self.raw_path = raw_path
@@ -113,12 +106,12 @@ class CellMapDataset(Dataset):
             self.input_sources[array_name] = CellMapImage(
                 self.raw_path,
                 "raw",
-                array_info["scale"],
-                array_info["shape"],  # type: ignore
+                array_info["scale"],  # type: ignore
+                tuple(map(int, array_info["shape"])),
                 value_transform=self.raw_value_transforms,
                 context=self.context,
                 pad=self.pad,
-                pad_value=0,  # inputs to the network should be padded with 0
+                pad_value=0,
                 interpolation="linear",
             )
         self.target_sources = {}
@@ -130,21 +123,19 @@ class CellMapDataset(Dataset):
                 self.target_sources[array_name] = CellMapImage(
                     self.raw_path,
                     "raw",
-                    array_info["scale"],
-                    array_info["shape"],  # type: ignore
+                    array_info["scale"],  # type: ignore
+                    tuple(map(int, array_info["shape"])),
                     value_transform=self.target_value_transforms,
                     context=self.context,
                     pad=self.pad,
-                    pad_value=0,  # inputs to the network should be padded with 0
+                    pad_value=0,
                     interpolation="linear",
                 )
             else:
                 self.target_sources[array_name] = self.get_target_array(array_info)
 
-        # Initialize persistent ThreadPoolExecutor for performance
-        # This eliminates the major performance bottleneck of creating new executors per __getitem__ call
         self._executor = None
-        self._executor_pid = None  # Track process ID to handle multiprocessing
+        self._executor_pid = None
         if max_workers is not None:
             self._max_workers = max_workers
         else:
@@ -153,9 +144,12 @@ class CellMapDataset(Dataset):
             )
 
         logger.debug(
-            f"CellMapDataset initialized with {len(self.input_arrays)} input arrays, "
-            f"{len(self.target_arrays)} target arrays, {len(self.classes)} classes. "
-            f"Using persistent ThreadPoolExecutor with {self._max_workers} workers for performance."
+            "CellMapDataset initialized with %d inputs, %d targets, %d classes. "
+            "Using ThreadPoolExecutor with %d workers.",
+            len(self.input_arrays),
+            len(self.target_arrays),
+            len(self.classes),
+            self._max_workers,
         )
 
     @property
@@ -178,12 +172,11 @@ class CellMapDataset(Dataset):
     def __del__(self):
         """Cleanup ThreadPoolExecutor to prevent resource leaks."""
         if hasattr(self, "_executor") and self._executor is not None:
-            # This avoids blocking during interpreter shutdown or garbage collection
             self._executor.shutdown(wait=True)
 
     def __new__(
         cls,
-        raw_path: str,  # TODO: Switch "raw_path" to "input_path"
+        raw_path: str,
         target_path: str,
         classes: Sequence[str] | None,
         input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
@@ -202,23 +195,28 @@ class CellMapDataset(Dataset):
         empty_value: float | int = torch.nan,
         pad: bool = True,
         device: Optional[str | torch.device] = None,
+        max_workers: Optional[int] = None,
     ):
-        # Need to determine if 2D arrays are requested without slicing axis specified
-        # If so, turn into a multidataset with 3 datasets each 2D arrays sliced along one axis
+        # If 2D arrays are requested without a slicing axis, create a
+        # multidataset with 3 datasets, each slicing along one axis.
         if is_array_2D(input_arrays, summary=any) or is_array_2D(
             target_arrays, summary=any
         ):
             from cellmap_data.multidataset import CellMapMultiDataset
 
             logger.warning(
-                "2D arrays requested without slicing axis specified. Creating datasets that each slice along one axis. If this is not intended, please specify the slicing axis in the input and target arrays."
+                "2D arrays requested without slicing axis. Creating datasets "
+                "that each slice along one axis. If this is not intended, "
+                "specify the slicing axis in the input and target arrays."
             )
             datasets = []
             for axis in range(3):
-                logger.debug(f"Creating dataset for axis {axis}")
+                logger.debug("Creating dataset for axis %d", axis)
                 input_arrays_2d = {
                     name: {
-                        "shape": get_sliced_shape(array_info["shape"], axis),
+                        "shape": get_sliced_shape(
+                            tuple(map(int, array_info["shape"])), axis
+                        ),
                         "scale": array_info["scale"],
                     }
                     for name, array_info in input_arrays.items()
@@ -226,7 +224,9 @@ class CellMapDataset(Dataset):
                 target_arrays_2d = (
                     {
                         name: {
-                            "shape": get_sliced_shape(array_info["shape"], axis),
+                            "shape": get_sliced_shape(
+                                tuple(map(int, array_info["shape"])), axis
+                            ),
                             "scale": array_info["scale"],
                         }
                         for name, array_info in target_arrays.items()
@@ -234,9 +234,8 @@ class CellMapDataset(Dataset):
                     if target_arrays is not None
                     else None
                 )
-                logger.debug(f"Input arrays for axis {axis}: {input_arrays_2d}")
-                logger.debug(f"Target arrays for axis {axis}: {target_arrays_2d}")
-                # Create dataset instance directly bypassing __new__ to avoid recursion
+                logger.debug("Input arrays for axis %d: %s", axis, input_arrays_2d)
+                logger.debug("Target arrays for axis %d: %s", axis, target_arrays_2d)
                 dataset_instance = super(CellMapDataset, cls).__new__(cls)
                 dataset_instance.__init__(
                     raw_path,
@@ -256,6 +255,7 @@ class CellMapDataset(Dataset):
                     empty_value=empty_value,
                     pad=pad,
                     device=device,
+                    max_workers=max_workers,
                 )
                 datasets.append(dataset_instance)
             return CellMapMultiDataset(
@@ -264,16 +264,13 @@ class CellMapDataset(Dataset):
                 target_arrays=target_arrays,
                 datasets=datasets,
             )
-        # If not, return the standard CellMapDataset
         else:
-            instance = super().__new__(cls)
-            return instance
+            return super().__new__(cls)
 
     def __reduce__(self):
         """
-        Support pickling for multiprocessing DataLoader and spawned processes.
+        Support pickling for multiprocessing DataLoader.
         """
-        # These are the args __init__ needs:
         args = (
             self.raw_path,
             self.target_path,
@@ -291,9 +288,9 @@ class CellMapDataset(Dataset):
             self.force_has_data,
             self.empty_value,
             self.pad,
-            self.device,
+            self.device.type if hasattr(self, "_device") else None,
+            self._max_workers,
         )
-        # Return: (callable, args_for_constructor, state_dict)
         return (self.__class__, args, self.__dict__)
 
     @property
@@ -342,26 +339,24 @@ class CellMapDataset(Dataset):
         try:
             return self._bounding_box
         except AttributeError:
-            bounding_box = None
-            for source in list(self.input_sources.values()) + list(
+            bounding_box: dict[str, list[float]] | None = None
+            all_sources = list(self.input_sources.values()) + list(
                 self.target_sources.values()
-            ):
+            )
+            for source in all_sources:
                 if isinstance(source, dict):
-                    for source in source.values():
-                        if not hasattr(source, "bounding_box"):
-                            continue
-                        bounding_box = self._get_box_intersection(
-                            source.bounding_box, bounding_box  # type: ignore
-                        )
-                else:
-                    if not hasattr(source, "bounding_box"):
-                        continue
+                    for sub_source in source.values():
+                        if hasattr(sub_source, "bounding_box"):
+                            bounding_box = self._get_box_intersection(
+                                sub_source.bounding_box, bounding_box
+                            )
+                elif hasattr(source, "bounding_box"):
                     bounding_box = self._get_box_intersection(
                         source.bounding_box, bounding_box
                     )
             if bounding_box is None:
                 logger.warning(
-                    "Bounding box is None. This may result in errors when trying to sample from the dataset."
+                    "Bounding box is None. This may cause errors during sampling."
                 )
                 bounding_box = {c: [-np.inf, np.inf] for c in self.axis_order}
             self._bounding_box = bounding_box
@@ -382,26 +377,24 @@ class CellMapDataset(Dataset):
         try:
             return self._sampling_box
         except AttributeError:
-            sampling_box = None
-            for source in list(self.input_sources.values()) + list(
+            sampling_box: dict[str, list[float]] | None = None
+            all_sources = list(self.input_sources.values()) + list(
                 self.target_sources.values()
-            ):
+            )
+            for source in all_sources:
                 if isinstance(source, dict):
-                    for source in source.values():
-                        if not hasattr(source, "sampling_box"):
-                            continue
-                        sampling_box = self._get_box_intersection(
-                            source.sampling_box, sampling_box  # type: ignore
-                        )
-                else:
-                    if not hasattr(source, "sampling_box"):
-                        continue
+                    for sub_source in source.values():
+                        if hasattr(sub_source, "sampling_box"):
+                            sampling_box = self._get_box_intersection(
+                                sub_source.sampling_box, sampling_box
+                            )
+                elif hasattr(source, "sampling_box"):
                     sampling_box = self._get_box_intersection(
                         source.sampling_box, sampling_box
                     )
             if sampling_box is None:
                 logger.warning(
-                    "Sampling box is None. This may result in errors when trying to sample from the dataset."
+                    "Sampling box is None. This may cause errors during sampling."
                 )
                 sampling_box = {c: [-np.inf, np.inf] for c in self.axis_order}
             self._sampling_box = sampling_box
@@ -418,7 +411,10 @@ class CellMapDataset(Dataset):
                 for c, size in self._sampling_box_shape.items():
                     if size <= 0:
                         logger.debug(
-                            f"Sampling box shape is <= 0 for axis {c} with size {size}. Setting to 1 and padding."
+                            "Sampling box for axis %s has size %d <= 0. "
+                            "Setting to 1 and padding.",
+                            c,
+                            size,
                         )
                         self._sampling_box_shape[c] = 1
             return self._sampling_box_shape
@@ -429,9 +425,10 @@ class CellMapDataset(Dataset):
         try:
             return self._size
         except AttributeError:
-            self._size = np.prod(
-                [stop - start for start, stop in self.bounding_box.values()]
-            ).astype(int)
+            size = np.prod(
+                [stop - start for start, stop in self.bounding_box.items()]
+            )
+            self._size = int(size)
             return self._size
 
     @property
@@ -445,14 +442,14 @@ class CellMapDataset(Dataset):
             for array_name, sources in self.target_sources.items():
                 class_counts[array_name] = {}
                 for label, source in sources.items():
-                    if not isinstance(source, CellMapImage):
-                        class_counts[array_name][label] = 0.0
-                        class_counts[array_name][label + "_bg"] = 0.0
-                    else:
+                    if isinstance(source, CellMapImage):
                         class_counts[array_name][label] = source.class_counts
                         class_counts[array_name][label + "_bg"] = source.bg_count
                         class_counts["totals"][label] += source.class_counts
                         class_counts["totals"][label + "_bg"] += source.bg_count
+                    else:
+                        class_counts[array_name][label] = 0.0
+                        class_counts[array_name][label + "_bg"] = 0.0
             self._class_counts = class_counts
             return self._class_counts
 
@@ -462,15 +459,14 @@ class CellMapDataset(Dataset):
         try:
             return self._class_weights
         except AttributeError:
-            class_weights = {
-                c: (
-                    self.class_counts["totals"][c + "_bg"]
-                    / self.class_counts["totals"][c]
-                    if self.class_counts["totals"][c] != 0
-                    else 1
-                )
-                for c in self.classes
-            }
+            class_weights = {}
+            for c in self.classes:
+                total_c = self.class_counts["totals"][c]
+                total_bg = self.class_counts["totals"][c + "_bg"]
+                if total_c > 0:
+                    class_weights[c] = total_bg / total_c
+                else:
+                    class_weights[c] = 1.0
             self._class_weights = class_weights
             return self._class_weights
 
@@ -514,42 +510,42 @@ class CellMapDataset(Dataset):
 
     def __getitem__(self, idx: ArrayLike) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
-        idx = np.array(idx)
-        idx[idx < 0] = len(self) + idx[idx < 0]
         try:
-            center = np.unravel_index(
-                idx, [self.sampling_box_shape[c] for c in self.axis_order]
+            idx_arr = np.array(idx)
+            if np.any(idx_arr < 0):
+                idx_arr[idx_arr < 0] = len(self) + idx_arr[idx_arr < 0]
+
+            center_indices = np.unravel_index(
+                idx_arr, [self.sampling_box_shape[c] for c in self.axis_order]
             )
         except ValueError:
-            # TODO: This is a hacky temprorary fix. Need to figure out why this is happening
             logger.error(
-                f"Index {idx} out of bounds for dataset {self} of length {len(self)}"
+                "Index %s out of bounds for dataset of length %d", idx, len(self)
             )
             logger.warning("Returning closest index in bounds")
-            center = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
+            center_indices = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
         center = {
-            c: center[i] * self.largest_voxel_sizes[c] + self.sampling_box[c][0]
+            c: float(
+                center_indices[i] * self.largest_voxel_sizes[c]
+                + self.sampling_box[c][0]
+            )
             for i, c in enumerate(self.axis_order)
         }
+
         self._current_idx = idx
         self._current_center = center
         spatial_transforms = self.generate_spatial_transforms()
 
-        # TODO: Should do as many coordinate transformations as possible at the dataset level (duplicate reference frame images should have the same coordinate transformations) --> do this per array, perhaps with CellMapArray object
-
-        # For input arrays
         def get_input_array(array_name: str) -> tuple[str, torch.Tensor]:
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
-            array = self.input_sources[array_name][center]  # type: ignore
-            return array_name, array.squeeze()[None, ...]  # Add channel dimension
+            array = self.input_sources[array_name][center]
+            return array_name, array.squeeze()[None, ...]
 
-        # Use persistent executor instead of creating new one (MAJOR PERFORMANCE FIX)
         futures = [
             self.executor.submit(get_input_array, array_name)
             for array_name in self.input_arrays.keys()
         ]
 
-        # For target arrays
         if self.raw_only:
 
             def get_target_array(array_name: str) -> tuple[str, torch.Tensor]:
@@ -557,7 +553,7 @@ class CellMapDataset(Dataset):
                     spatial_transforms
                 )
                 array = self.target_sources[array_name][center]
-                return array_name, array.squeeze()[None, ...]  # Add channel dimension
+                return array_name, array.squeeze()[None, ...]
 
         else:
 
@@ -565,75 +561,66 @@ class CellMapDataset(Dataset):
                 class_arrays = dict.fromkeys(self.classes)  # Force order of classes
                 inferred_arrays = []
 
-                # 1) Get images with gt data
                 def get_label_array(
                     label: str,
                 ) -> tuple[str, torch.Tensor | None]:
-                    if isinstance(
-                        self.target_sources[array_name][label],
-                        (CellMapImage, EmptyImage),
-                    ):
-                        self.target_sources[array_name][
-                            label
-                        ].set_spatial_transforms(  # type: ignore
-                            spatial_transforms
-                        )
-                        array = self.target_sources[array_name][label][
-                            center
-                        ].squeeze()  # type: ignore
+                    source = self.target_sources[array_name].get(label)
+                    if isinstance(source, (CellMapImage, EmptyImage)):
+                        source.set_spatial_transforms(spatial_transforms)
+                        array = source[center].squeeze()
                     else:
-                        # Add to list of arrays to infer
                         array = None
                     return label, array
 
-                futures = [
+                label_futures = [
                     self.executor.submit(get_label_array, label)
                     for label in self.classes
                 ]
-                for future in as_completed(futures):
+                for future in as_completed(label_futures):
                     label, array = future.result()
                     if array is not None:
                         class_arrays[label] = array
                     else:
                         inferred_arrays.append(label)
 
-                # 2) Infer true negatives from mutually exclusive classes in gt
-                # Use the dataset device to match the device of tensors returned by CellMapImage
                 empty_array = self.get_empty_store(
                     self.target_arrays[array_name], device=self.device
-                )  # type: ignore
+                )
 
                 def infer_label_array(label: str) -> tuple[str, torch.Tensor]:
-                    # Make array of true negatives
                     array = empty_array.clone()
-                    for other_label in self.target_sources[array_name][label]:  # type: ignore
-                        if class_arrays[other_label] is not None:
-                            mask = class_arrays[other_label] > 0
+                    other_labels = self.target_sources[array_name].get(label, [])
+                    for other_label in other_labels:
+                        other_array = class_arrays.get(other_label)
+                        if other_array is not None:
+                            mask = other_array > 0
                             array[mask] = 0
                     return label, array
 
-                futures = [
+                infer_futures = [
                     self.executor.submit(infer_label_array, label)
                     for label in inferred_arrays
                 ]
-                for future in as_completed(futures):
+                for future in as_completed(infer_futures):
                     label, array = future.result()
                     class_arrays[label] = array
-                # Ensure all tensors are on the correct device before stacking, and filter out None
-                array = torch.stack(
-                    [
-                        (
-                            arr
-                            if arr.device == self.device
-                            else arr.to(self.device, non_blocking=True)
+
+                stacked_arrays = []
+                for label in self.classes:
+                    arr = class_arrays.get(label)
+                    if arr is not None:
+                        stacked_arrays.append(
+                            arr.to(self.device, non_blocking=True)
+                            if arr.device != self.device
+                            else arr
                         )
-                        for arr in class_arrays.values()
-                        if arr is not None
-                    ]
-                )
-                assert array.shape[0] == len(
-                    self.classes
-                ), f"Number of classes in target array {array_name} does not match number of classes in dataset: {len(self.classes)} != {array.shape[0]}"
+
+                array = torch.stack(stacked_arrays)
+                if array.shape[0] != len(self.classes):
+                    raise ValueError(
+                        f"Target array {array_name} has {array.shape[0]} classes, "
+                        f"but {len(self.classes)} were expected."
+                    )
                 return array_name, array
 
         futures += [
@@ -641,7 +628,7 @@ class CellMapDataset(Dataset):
             for array_name in self.target_arrays.keys()
         ]
 
-        outputs = {
+        outputs: dict[str, Any] = {
             "__metadata__": self.metadata,
         }
 
@@ -669,40 +656,51 @@ class CellMapDataset(Dataset):
 
     def __repr__(self) -> str:
         """Returns a string representation of the dataset."""
-        return f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\tGT path(s): {self.target_path}\n\tClasses: {self.classes})"
+        return (
+            f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\t"
+            f"GT path(s): {self.target_path}\n\tClasses: {self.classes})"
+        )
 
     def get_empty_store(
-        self, array_info: Mapping[str, Sequence[int]], device: torch.device
+        self, array_info: Mapping[str, Sequence[int | float]], device: torch.device
     ) -> torch.Tensor:
         """Returns an empty store, based on the requested array."""
-        empty_store = torch.ones(array_info["shape"], device=device) * self.empty_value
+        shape = tuple(map(int, array_info["shape"]))
+        empty_store = torch.ones(shape, device=device) * self.empty_value
         return empty_store.squeeze()
 
     def get_target_array(
         self, array_info: Mapping[str, Sequence[int | float]]
     ) -> dict[str, CellMapImage | EmptyImage | Sequence[str]]:
-        """Returns a target array source for the dataset. Creates a dictionary of image sources for each class in the dataset. For classes that are not present in the ground truth data, the data can be inferred from the other classes in the dataset. This is useful for training segmentation networks with mutually exclusive classes."""
-        # Use CPU device to match the device of tensors returned by CellMapImage
-        empty_store = self.get_empty_store(array_info, device=torch.device("cpu"))  # type: ignore
+        """
+        Returns a target array source for the dataset.
+
+        Creates a dictionary of image sources for each class. If ground truth
+        data is missing for a class, it can be inferred from other mutually
+        exclusive classes.
+        """
+        empty_store = self.get_empty_store(array_info, device=torch.device("cpu"))
         target_array = {}
         for i, label in enumerate(self.classes):
             target_array[label] = self.get_label_array(
                 label, i, array_info, empty_store
             )
-        # Check to make sure we aren't trying to define true negatives with non-existent images
+
         for label in self.classes:
-            if isinstance(target_array[label], (CellMapImage, EmptyImage)):
+            if isinstance(target_array.get(label), (CellMapImage, EmptyImage)):
                 continue
+
             is_empty = True
-            for other_label in target_array[label]:
-                if other_label in target_array and isinstance(
-                    target_array[other_label], CellMapImage
-                ):
-                    is_empty = False
-                    break
+            related_labels = target_array.get(label)
+            if isinstance(related_labels, list):
+                for other_label in related_labels:
+                    if isinstance(target_array.get(other_label), CellMapImage):
+                        is_empty = False
+                        break
             if is_empty:
+                shape = tuple(map(int, array_info["shape"]))
                 target_array[label] = EmptyImage(
-                    label, array_info["scale"], array_info["shape"], empty_store  # type: ignore
+                    label, array_info["scale"], shape, empty_store  # type: ignore
                 )
 
         return target_array
@@ -716,17 +714,19 @@ class CellMapDataset(Dataset):
     ) -> CellMapImage | EmptyImage | Sequence[str]:
         """Returns a target array source for a specific class in the dataset."""
         if label in self.classes_with_path:
+            value_transform: Callable | None = None
             if isinstance(self.target_value_transforms, dict):
-                value_transform: Callable = self.target_value_transforms[label]
+                value_transform = self.target_value_transforms.get(label)
             elif isinstance(self.target_value_transforms, list):
                 value_transform = self.target_value_transforms[i]
-            else:
-                value_transform = self.target_value_transforms  # type: ignore
+            elif callable(self.target_value_transforms):
+                value_transform = self.target_value_transforms
+
             array = CellMapImage(
                 self.target_path_str.format(label=label),
                 label,
-                array_info["scale"],
-                array_info["shape"],  # type: ignore
+                array_info["scale"],  # type: ignore
+                tuple(map(int, array_info["shape"])),
                 value_transform=value_transform,
                 context=self.context,
                 pad=self.pad,
@@ -740,11 +740,11 @@ class CellMapDataset(Dataset):
                 self.class_relation_dict is not None
                 and label in self.class_relation_dict
             ):
-                # Add lookup of source images for true-negatives in absence of annotations
                 array = self.class_relation_dict[label]
             else:
+                shape = tuple(map(int, array_info["shape"]))
                 array = EmptyImage(
-                    label, array_info["scale"], array_info["shape"], empty_store  # type: ignore
+                    label, array_info["scale"], shape, empty_store  # type: ignore
                 )
         return array
 
@@ -760,25 +760,28 @@ class CellMapDataset(Dataset):
     def _get_box_intersection(
         self,
         source_box: Mapping[str, list[float]] | None,
-        current_box: Mapping[str, list[float]] | None,
-    ) -> Mapping[str, list[float]] | None:
+        current_box: dict[str, list[float]] | None,
+    ) -> dict[str, list[float]] | None:
         """Returns the intersection of the source and current boxes."""
-        if source_box is not None:
-            if current_box is None:
-                return source_box
-            for c, (start, stop) in source_box.items():
-                assert stop > start, f"Invalid box: {start} to {stop}"
-                current_box[c][0] = max(current_box[c][0], start)
-                current_box[c][1] = min(current_box[c][1], stop)
-        return current_box
+        if source_box is None:
+            return current_box
+        if current_box is None:
+            return {k: v[:] for k, v in source_box.items()}
+
+        result_box = {k: v[:] for k, v in current_box.items()}
+        for c, (start, stop) in source_box.items():
+            if stop <= start:
+                raise ValueError(f"Invalid box: start={start}, stop={stop}")
+            result_box[c][0] = max(result_box[c][0], start)
+            result_box[c][1] = min(result_box[c][1], stop)
+        return result_box
 
     def verify(self) -> bool:
         """Verifies that the dataset is valid to draw samples from."""
-        # TODO: make more robust
         try:
             return len(self) > 0
         except Exception as e:
-            logger.warning(f"Error: {e}")
+            logger.warning("Dataset verification failed: %s", e)
             return False
 
     def get_indices(self, chunk_size: Mapping[str, int]) -> Sequence[int]:
@@ -795,10 +798,10 @@ class CellMapDataset(Dataset):
                 )
 
         indices = []
-        # Generate linear indices by unraveling all combinations of axes indices
+        shape_values = [self.sampling_box_shape[c] for c in self.axis_order]
         for i in np.ndindex(*[len(indices_dict[c]) for c in self.axis_order]):
             index = [indices_dict[c][j] for c, j in zip(self.axis_order, i)]
-            index = np.ravel_multi_index(index, list(self.sampling_box_shape.values()))
+            index = np.ravel_multi_index(index, shape_values)
             indices.append(index)
         return indices
 
@@ -807,74 +810,66 @@ class CellMapDataset(Dataset):
     ) -> "CellMapDataset":
         """Sets the device for the dataset."""
         self._device = torch.device(device)
-        for source in list(self.input_sources.values()) + list(
+        device_str = str(self._device)
+        all_sources = list(self.input_sources.values()) + list(
             self.target_sources.values()
-        ):
+        )
+        for source in all_sources:
             if isinstance(source, dict):
-                for source in source.values():
-                    if not hasattr(source, "to"):
-                        continue
-                    source.to(device, non_blocking=non_blocking)
-            else:
-                if not hasattr(source, "to"):
-                    continue
-                source.to(device, non_blocking=non_blocking)
+                for sub_source in source.values():
+                    if hasattr(sub_source, "to"):
+                        sub_source.to(device_str, non_blocking=non_blocking)
+            elif hasattr(source, "to"):
+                source.to(device_str, non_blocking=non_blocking)
         return self
 
     def generate_spatial_transforms(self) -> Optional[Mapping[str, Any]]:
-        """When 'self.is_train' is True, generates random spatial transforms for the dataset, based on the user specified transforms.
+        """
+        Generates random spatial transforms for training.
 
-        Available spatial transforms:
-            - "mirror": Mirrors the data along the specified axes. Parameters are the probabilities of mirroring along each axis, formatted as a dictionary of axis: probability pairs. Example: {"mirror": {"axes": {"x": 0.5, "y": 0.5, "z":0.1}}} will mirror the data along the x and y axes with a 50% probability, and along the z axis with a 10% probability.
-            - "transpose": Transposes the data along the specified axes. Parameters are the axes to transpose, formatted as a list. Example: {"transpose": {"axes": ["x", "z"]}} will randomly transpose the data along the x and z axes.
-            - "rotate": Rotates the data around the specified axes within the specified angle ranges. Parameters are the axes to rotate and the angle ranges, formatted as a dictionary of axis: [min_angle, max_angle] pairs. Example: {"rotate": {"axes": {"x": [-180,180], "y": [-180,180], "z":[-180,180]}} will rotate the data around the x, y, and z axes from 180 to -180 degrees.
+        Available transforms:
+        - "mirror": {"axes": {"x": 0.5, "y": 0.5}}
+        - "transpose": {"axes": ["x", "z"]}
+        - "rotate": {"axes": {"z": [-90, 90]}}
         """
         if not self.is_train or self.spatial_transforms is None:
             return None
+
         spatial_transforms: dict[str, Any] = {}
         for transform, params in self.spatial_transforms.items():
             if transform == "mirror":
-                # input: "mirror": {"axes": {"x": 0.5, "y": 0.5, "z":0.1}}
-                # output: {"mirror": ["x", "y"]}
-                spatial_transforms[transform] = []
-                for axis, prob in params["axes"].items():
-                    if torch.rand(1, generator=self._rng).item() < prob:
-                        spatial_transforms[transform].append(axis)
+                mirrored_axes = [
+                    axis
+                    for axis, prob in params["axes"].items()
+                    if torch.rand(1, generator=self._rng).item() < prob
+                ]
+                if mirrored_axes:
+                    spatial_transforms[transform] = mirrored_axes
             elif transform == "transpose":
-                # only reorder axes specified in params
-                # input: "transpose": {"axes": ["x", "z"]}
-                # params["axes"] = ["x", "z"]
-                # axes = {"x": 0, "y": 1, "z": 2}
                 axes = {axis: i for i, axis in enumerate(self.axis_order)}
-                # shuffled_axes = [0, 2]
-                shuffled_axes = [axes[a] for a in params["axes"]]
-                # shuffled_axes = [2, 0]
-                shuffled_axes = [
-                    shuffled_axes[i]
-                    for i in torch.randperm(len(shuffled_axes), generator=self._rng)
-                ]  # shuffle indices
-                # shuffled_axes = {"x": 2, "z": 0}
-                shuffled_axes = {
-                    axis: shuffled_axes[i] for i, axis in enumerate(params["axes"])
-                }  # reassign axes
-                # axes = {"x": 2, "y": 1, "z": 0}
-                axes.update(shuffled_axes)
-                # output: {"transpose": {"x": 2, "y": 1, "z": 0}}
+                permuted_axes = [axes[a] for a in params["axes"]]
+                permuted_indices = torch.randperm(
+                    len(permuted_axes), generator=self._rng
+                )
+                shuffled_axes = [permuted_axes[i] for i in permuted_indices]
+                axes.update(
+                    {axis: shuffled_axes[i] for i, axis in enumerate(params["axes"])}
+                )
                 spatial_transforms[transform] = axes
             elif transform == "rotate":
-                # input: "rotate": {"axes": {"x": [-180,180], "y": [-180,180], "z":[-180,180]}}
-                # output: {"rotate": {"x": 45, "y": 90, "z": 0}}
-                spatial_transforms[transform] = {}
+                rotated_axes = {}
                 for axis, limits in params["axes"].items():
-                    spatial_transforms[transform][axis] = torch.rand(
-                        1, generator=self._rng
-                    ).item()
-                    spatial_transforms[transform][axis] = (
-                        spatial_transforms[transform][axis] * (limits[1] - limits[0])
+                    angle = (
+                        torch.rand(1, generator=self._rng).item()
+                        * (limits[1] - limits[0])
                         + limits[0]
                     )
+                    rotated_axes[axis] = angle
+                if rotated_axes:
+                    spatial_transforms[transform] = rotated_axes
             else:
                 raise ValueError(f"Unknown spatial transform: {transform}")
+
         self._current_spatial_transforms = spatial_transforms
         return spatial_transforms
 
@@ -892,39 +887,31 @@ class CellMapDataset(Dataset):
                 if isinstance(source, CellMapImage):
                     source.value_transform = transforms
 
-    def reset_arrays(self, type: str = "target") -> None:
-        """Sets the arrays for the dataset to return."""
-        if type.lower() == "input":
+    def reset_arrays(self, array_type: str = "target") -> None:
+        """Resets the specified arrays for the dataset."""
+        if array_type.lower() == "input":
             self.input_sources = {}
             for array_name, array_info in self.input_arrays.items():
                 self.input_sources[array_name] = CellMapImage(
                     self.raw_path,
                     "raw",
-                    array_info["scale"],
-                    array_info["shape"],  # type: ignore
+                    array_info["scale"],  # type: ignore
+                    tuple(map(int, array_info["shape"])),
                     value_transform=self.raw_value_transforms,
                     context=self.context,
                     pad=self.pad,
-                    pad_value=0,  # inputs to the network should be padded with 0
+                    pad_value=0,
                 )
-        elif type.lower() == "target":
+        elif array_type.lower() == "target":
             self.target_sources = {}
             self.has_data = False
             for array_name, array_info in self.target_arrays.items():
                 self.target_sources[array_name] = self.get_target_array(array_info)
         else:
-            raise ValueError(f"Unknown dataset array type: {type}")
+            raise ValueError(f"Unknown dataset array type: {array_type}")
 
-    def get_random_subset_indices(
+    def get_random_subset_sampler(
         self, num_samples: int, rng: Optional[torch.Generator] = None, **kwargs: Any
-    ) -> Sequence[int]:
-        return min_redundant_inds(len(self), num_samples, rng=rng).tolist()
-
-    def get_subset_random_sampler(
-        self,
-        num_samples: int,
-        rng: Optional[torch.Generator] = None,
-        **kwargs: Any,
     ) -> MutableSubsetRandomSampler:
         """
         Returns a random sampler that yields exactly `num_samples` indices from this subset.
@@ -935,23 +922,12 @@ class CellMapDataset(Dataset):
             self.get_random_subset_indices, num_samples, rng, **kwargs
         )
 
-        return MutableSubsetRandomSampler(
-            indices_generator,
-            rng=rng,
-        )
+        return MutableSubsetRandomSampler(indices_generator)
 
     @staticmethod
     def empty() -> "CellMapDataset":
         """Creates an empty dataset."""
-        empty_dataset = CellMapDataset("", "", [], {}, {})
-        empty_dataset.classes = []
-        empty_dataset._class_counts = {}
-        empty_dataset._class_weights = {}
-        empty_dataset._validation_indices = []
-        empty_dataset.has_data = False
-        empty_dataset._len = 0
-
-        return empty_dataset
-
-
-# %%
+        # Directly instantiate to bypass __new__ logic
+        instance = super(CellMapDataset, CellMapDataset).__new__(CellMapDataset)
+        instance.__init__("", "", [], {}, {}, force_has_data=False)
+        return instance

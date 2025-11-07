@@ -41,7 +41,7 @@ class EmptyImage:
         self.label_class = target_class
         self.target_scale = target_scale
         if len(target_voxel_shape) < len(axis_order):
-            axis_order = axis_order[-len(target_voxel_shape) :]
+            axis_order = axis_order[-len(target_voxel_shape):]
         self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
         self.output_size = {
             c: t * s for c, t, s in zip(axis_order, target_voxel_shape, target_scale)

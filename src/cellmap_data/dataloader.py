@@ -22,21 +22,16 @@ class CellMapDataLoader:
     and pin_memory support.
 
     Attributes:
-        dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): The dataset to load.
-        classes (Iterable[str]): The classes to load.
-        batch_size (int): The batch size.
-        num_workers (int): The number of workers to use.
+        dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): Dataset to load.
+        classes (Iterable[str]): Classes to load.
+        batch_size (int): Batch size.
+        num_workers (int): Number of workers.
         weighted_sampler (bool): Whether to use a weighted sampler.
-        sampler (Union[MutableSubsetRandomSampler, Callable, None]): The sampler to use.
-        is_train (bool): Whether the data is for training and thus should be shuffled.
-        rng (Optional[torch.Generator]): The random number generator to use.
-        loader (torch.utils.data.DataLoader): The underlying PyTorch DataLoader.
-        default_kwargs (dict): The default arguments (maintained for compatibility).
-
-    Methods:
-        refresh: If the sampler is a Callable, refresh the DataLoader with the current sampler.
-        collate_fn: Combine a list of dictionaries from different sources into a single dictionary for output.
-
+        sampler (Union[MutableSubsetRandomSampler, Callable, None]): Sampler to use.
+        is_train (bool): Whether data is for training (shuffled).
+        rng (Optional[torch.Generator]): Random number generator.
+        loader (torch.utils.data.DataLoader): Underlying PyTorch DataLoader.
+        default_kwargs (dict): Default arguments for compatibility.
     """
 
     def __init__(
@@ -56,21 +51,20 @@ class CellMapDataLoader:
         **kwargs,
     ):
         """
-        Initialize the CellMapDataLoader with optimized PyTorch DataLoader backend.
+        Initializes the CellMapDataLoader with an optimized PyTorch DataLoader backend.
 
         Args:
-            dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): The dataset to load.
-            classes (Iterable[str]): The classes to load.
-            batch_size (int): The batch size.
-            num_workers (int): The number of workers to use.
-            weighted_sampler (bool): Whether to use a weighted sampler. Defaults to False.
-            sampler (Union[MutableSubsetRandomSampler, Callable, None]): The sampler to use.
-            is_train (bool): Whether the data is for training and thus should be shuffled.
-            rng (Optional[torch.Generator]): The random number generator to use.
-            device (Optional[str | torch.device]): The device to use. Defaults to "cuda" or "mps" if available, else "cpu".
-            iterations_per_epoch (Optional[int]): Number of iterations per epoch, only necessary when a subset is used with a weighted sampler (i.e. if total samples in the dataset are > 2^24).
-            `**kwargs`: Additional PyTorch DataLoader arguments (pin_memory, drop_last, persistent_workers, prefetch_factor, etc.).
-
+            dataset: The dataset to load.
+            classes: The classes to load.
+            batch_size: The batch size.
+            num_workers: The number of workers.
+            weighted_sampler: Whether to use a weighted sampler.
+            sampler: The sampler to use.
+            is_train: Whether the data is for training (shuffled).
+            rng: The random number generator.
+            device: The device to use ("cuda", "mps", or "cpu").
+            iterations_per_epoch: Iterations per epoch for large datasets.
+            **kwargs: Additional PyTorch DataLoader arguments.
         """
         self.dataset = dataset
         self.classes = classes if classes is not None else dataset.classes
@@ -103,8 +97,8 @@ class CellMapDataLoader:
         # Validate pin_memory setting
         if self._pin_memory and not str(device).startswith("cuda"):
             logger.warning(
-                f"pin_memory=True is only supported with CUDA devices. "
-                f"Setting pin_memory=False for device={device}"
+                "pin_memory=True is only supported with CUDA. Disabling for %s.",
+                device,
             )
             self._pin_memory = False
 
@@ -115,32 +109,28 @@ class CellMapDataLoader:
         # Only applicable when num_workers > 0
         if num_workers > 0:
             prefetch_factor = kwargs.pop("prefetch_factor", 2)
-            # Validate prefetch_factor
             if not isinstance(prefetch_factor, int) or prefetch_factor < 1:
                 raise ValueError(
-                    f"prefetch_factor must be a positive integer (>= 1), "
-                    f"got {prefetch_factor!r} of type {type(prefetch_factor).__name__}"
+                    f"prefetch_factor must be a positive integer, got {prefetch_factor}"
                 )
             self._prefetch_factor = prefetch_factor
         else:
-            # Remove prefetch_factor from kwargs if present (not used with num_workers=0)
             kwargs.pop("prefetch_factor", None)
             self._prefetch_factor = None
-
-        # Note: We no longer move dataset to device here. PyTorch's DataLoader
-        # handles device transfer via pin_memory and the collate_fn when needed.
 
         # Setup sampler
         if self.sampler is None:
             if iterations_per_epoch is not None or (
                 weighted_sampler and len(self.dataset) > 2**24
             ):
-                assert (
-                    iterations_per_epoch is not None
-                ), "If the dataset has more than 2^24 samples, iterations_per_epoch must be specified to allow for subset selection. In between epochs, run `refresh()` to update the sampler."
-                assert not isinstance(
-                    self.dataset, CellMapDatasetWriter
-                ), "CellMapDatasetWriter does not support random sampling."
+                if iterations_per_epoch is None:
+                    raise ValueError(
+                        "iterations_per_epoch must be specified for large datasets."
+                    )
+                if isinstance(self.dataset, CellMapDatasetWriter):
+                    raise TypeError(
+                        "CellMapDatasetWriter does not support random sampling."
+                    )
                 self.sampler = self.dataset.get_subset_random_sampler(
                     num_samples=iterations_per_epoch * batch_size,
                     weighted=weighted_sampler,
@@ -151,7 +141,6 @@ class CellMapDataLoader:
                     self.batch_size, self.rng
                 )
 
-        # Store all kwargs for compatibility
         self.default_kwargs = kwargs.copy()
         self.default_kwargs.update(
             {
@@ -163,11 +152,8 @@ class CellMapDataLoader:
         if self._prefetch_factor is not None:
             self.default_kwargs["prefetch_factor"] = self._prefetch_factor
 
-        # Initialize PyTorch DataLoader (will be created in refresh())
         self._pytorch_loader = None
         self.refresh()
-
-        # For backward compatibility, expose loader attribute that iterates over self
         self.loader = self
 
     def __getitem__(self, indices: Union[int, Sequence[int]]) -> dict:
@@ -177,26 +163,28 @@ class CellMapDataLoader:
         return self.collate_fn([self.dataset[index] for index in indices])
 
     def __iter__(self):
-        """Create an iterator over the dataset using PyTorch DataLoader."""
+        """Create an iterator over the dataset."""
+        if self._pytorch_loader is None:
+            raise RuntimeError("PyTorch DataLoader is not initialized.")
         return iter(self._pytorch_loader)
 
     def __len__(self) -> int:
         """Return the number of batches per epoch."""
+        if self._pytorch_loader is None:
+            return 0
         return len(self._pytorch_loader)
 
     def to(self, device: str | torch.device, non_blocking: bool = True):
         """Move the dataset to the specified device."""
         self.dataset.to(device, non_blocking=non_blocking)
         self.device = device
-        # Recreate DataLoader for new device
         self.refresh()
 
     def refresh(self):
-        """Refresh the DataLoader (recreate with current sampler state)."""
+        """Refresh the DataLoader with the current sampler state."""
         if isinstance(self.sampler, MutableSubsetRandomSampler):
             self.sampler.refresh()
 
-        # Determine sampler for PyTorch DataLoader
         dataloader_sampler = None
         shuffle = False
 
@@ -208,10 +196,8 @@ class CellMapDataLoader:
             else:
                 dataloader_sampler = self.sampler
         else:
-            # Use shuffle if training and no custom sampler
             shuffle = self.is_train
 
-        # Create optimized PyTorch DataLoader
         dataloader_kwargs = {
             "batch_size": self.batch_size,
             "shuffle": shuffle if dataloader_sampler is None else False,
@@ -243,8 +229,7 @@ class CellMapDataLoader:
 
     def collate_fn(self, batch: Sequence) -> dict[str, torch.Tensor]:
         """
-        Combine a list of dictionaries from different sources into a single dictionary for output.
-        Simplified collate function that relies on PyTorch's optimized GPU transfer via pin_memory.
+        Collates a batch of samples into a single dictionary of tensors.
         """
         outputs = {}
         for b in batch:
@@ -253,7 +238,6 @@ class CellMapDataLoader:
                     outputs[key] = []
                 outputs[key].append(value)
 
-        # Stack tensors (do not move to device here; let DataLoader handle device transfer if pin_memory=True)
         for key, value in outputs.items():
             if key != "__metadata__":
                 outputs[key] = torch.stack(value)
