@@ -425,9 +425,7 @@ class CellMapDataset(Dataset):
         try:
             return self._size
         except AttributeError:
-            size = np.prod(
-                [stop - start for start, stop in self.bounding_box.items()]
-            )
+            size = np.prod([stop - start for start, stop in self.bounding_box.items()])
             self._size = int(size)
             return self._size
 
