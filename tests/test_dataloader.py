@@ -25,6 +25,31 @@ class DummyDataset(torch.utils.data.Dataset):
         return self
 
 
+class MockDatasetWithArrays:
+    def __init__(self, input_arrays, target_arrays):
+        self.input_arrays = input_arrays
+        self.target_arrays = target_arrays
+        self.classes = ["class1", "class2", "class3"]
+        self.length = 10
+        self.class_counts = {"class1": 5, "class2": 5, "class3": 5}
+        self.class_weights = {"class1": 0.33, "class2": 0.33, "class3": 0.34}
+        self.validation_indices = list(range(self.length // 2))
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        return {
+            "input1": torch.randn(1, 32, 32, 32),
+            "input2": torch.randn(1, 16, 16, 16),
+            "target1": torch.randn(3, 32, 32, 32),  # 3 classes
+            "__metadata__": {"idx": idx},
+        }
+
+    def to(self, device, non_blocking=True):
+        pass
+
+
 def test_dataloader_basic():
     dataset = DummyDataset()
     loader = CellMapDataLoader(dataset, batch_size=2, num_workers=0)
@@ -63,30 +88,6 @@ def test_memory_calculation_accuracy():
     This test verifies that the dataloader uses pin_memory and prefetch_factor
     for optimized GPU transfer, replacing the old custom memory calculation.
     """
-
-    class MockDatasetWithArrays:
-        def __init__(self, input_arrays, target_arrays):
-            self.input_arrays = input_arrays
-            self.target_arrays = target_arrays
-            self.classes = ["class1", "class2", "class3"]
-            self.length = 10
-            self.class_counts = {"class1": 5, "class2": 5, "class3": 5}
-            self.class_weights = {"class1": 0.33, "class2": 0.33, "class3": 0.34}
-            self.validation_indices = list(range(self.length // 2))
-
-        def __len__(self):
-            return self.length
-
-        def __getitem__(self, idx):
-            return {
-                "input1": torch.randn(1, 32, 32, 32),
-                "input2": torch.randn(1, 16, 16, 16),
-                "target1": torch.randn(3, 32, 32, 32),  # 3 classes
-                "__metadata__": {"idx": idx},
-            }
-
-        def to(self, device, non_blocking=True):
-            pass
 
     # Test arrays configuration
     input_arrays = {
