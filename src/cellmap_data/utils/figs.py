@@ -192,7 +192,7 @@ def get_fig_dict(
             if colorbar:
                 orientation = "vertical"
                 location = "right"
-                cbar = fig.colorbar(
+                fig.colorbar(
                     im, orientation=orientation, location=location, cax=ax[b, 4]
                 )
                 ax[b, 4].set_title("Intensity")
