@@ -31,7 +31,7 @@ class TestMutableSubsetRandomSampler:
     def test_initialization_basic(self):
         """Test basic sampler initialization."""
         indices = list(range(100))
-        sampler = MutableSubsetRandomSampler(indices)
+        sampler = MutableSubsetRandomSampler(lambda: indices)
         
         assert sampler is not None
         assert len(list(sampler)) > 0
@@ -42,7 +42,7 @@ class TestMutableSubsetRandomSampler:
         generator = torch.Generator()
         generator.manual_seed(42)
         
-        sampler = MutableSubsetRandomSampler(indices, generator=generator)
+        sampler = MutableSubsetRandomSampler(lambda: indices, rng=generator)
         
         assert sampler is not None
         # Sample some indices
@@ -56,13 +56,13 @@ class TestMutableSubsetRandomSampler:
         # First sampler
         gen1 = torch.Generator()
         gen1.manual_seed(42)
-        sampler1 = MutableSubsetRandomSampler(indices, generator=gen1)
+        sampler1 = MutableSubsetRandomSampler(lambda: indices, rng=gen1)
         samples1 = list(sampler1)
         
         # Second sampler with same seed
         gen2 = torch.Generator()
         gen2.manual_seed(42)
-        sampler2 = MutableSubsetRandomSampler(indices, generator=gen2)
+        sampler2 = MutableSubsetRandomSampler(lambda: indices, rng=gen2)
         samples2 = list(sampler2)
         
         # Should produce same sequence
@@ -75,13 +75,13 @@ class TestMutableSubsetRandomSampler:
         # First sampler
         gen1 = torch.Generator()
         gen1.manual_seed(42)
-        sampler1 = MutableSubsetRandomSampler(indices, generator=gen1)
+        sampler1 = MutableSubsetRandomSampler(lambda: indices, rng=gen1)
         samples1 = list(sampler1)
         
         # Second sampler with different seed
         gen2 = torch.Generator()
         gen2.manual_seed(123)
-        sampler2 = MutableSubsetRandomSampler(indices, generator=gen2)
+        sampler2 = MutableSubsetRandomSampler(lambda: indices, rng=gen2)
         samples2 = list(sampler2)
         
         # Should produce different sequences
@@ -90,14 +90,14 @@ class TestMutableSubsetRandomSampler:
     def test_length(self):
         """Test sampler length."""
         indices = list(range(50))
-        sampler = MutableSubsetRandomSampler(indices)
+        sampler = MutableSubsetRandomSampler(lambda: indices)
         
         assert len(sampler) == 50
     
     def test_iteration(self):
         """Test iterating through sampler."""
         indices = list(range(20))
-        sampler = MutableSubsetRandomSampler(indices)
+        sampler = MutableSubsetRandomSampler(lambda: indices)
         
         samples = list(sampler)
         
@@ -110,7 +110,7 @@ class TestMutableSubsetRandomSampler:
         indices = list(range(50))
         generator = torch.Generator()
         generator.manual_seed(42)
-        sampler = MutableSubsetRandomSampler(indices, generator=generator)
+        sampler = MutableSubsetRandomSampler(lambda: indices, rng=generator)
         
         samples1 = list(sampler)
         samples2 = list(sampler)
@@ -137,14 +137,14 @@ class TestMutableSubsetRandomSampler:
     
     def test_empty_indices(self):
         """Test sampler with empty indices."""
-        sampler = MutableSubsetRandomSampler([])
+        sampler = MutableSubsetRandomSampler(lambda: [])
         samples = list(sampler)
         
         assert len(samples) == 0
     
     def test_single_index(self):
         """Test sampler with single index."""
-        sampler = MutableSubsetRandomSampler([42])
+        sampler = MutableSubsetRandomSampler(lambda: [42])
         samples = list(sampler)
         
         assert len(samples) == 1
@@ -153,7 +153,7 @@ class TestMutableSubsetRandomSampler:
     def test_indices_mutation(self):
         """Test that indices can be mutated."""
         indices = list(range(10))
-        sampler = MutableSubsetRandomSampler(indices)
+        sampler = MutableSubsetRandomSampler(lambda: indices)
         
         # Get initial samples
         samples1 = list(sampler)
@@ -161,7 +161,7 @@ class TestMutableSubsetRandomSampler:
         
         # Mutate indices
         new_indices = list(range(10, 20))
-        sampler.indices = new_indices
+        sampler.indices_generator = lambda: new_indices; sampler.refresh()
         
         # New samples should be from new indices
         samples2 = list(sampler)
@@ -173,7 +173,7 @@ class TestMutableSubsetRandomSampler:
         
         dataset = DummyDataset(size=50)
         indices = list(range(25))  # Only use first half
-        sampler = MutableSubsetRandomSampler(indices)
+        sampler = MutableSubsetRandomSampler(lambda: indices)
         
         loader = DataLoader(dataset, batch_size=5, sampler=sampler)
         
@@ -194,7 +194,7 @@ class TestMutableSubsetRandomSampler:
         indices = list(range(100))
         
         # Could be used with weights (implementation specific)
-        sampler = MutableSubsetRandomSampler(indices)
+        sampler = MutableSubsetRandomSampler(lambda: indices)
         
         # Sampler should work
         samples = list(sampler)
@@ -208,7 +208,7 @@ class TestMutableSubsetRandomSampler:
         for _ in range(3):
             gen = torch.Generator()
             gen.manual_seed(42)
-            sampler = MutableSubsetRandomSampler(indices, generator=gen)
+            sampler = MutableSubsetRandomSampler(indices, rng=gen)
             results.append(list(sampler))
         
         # All should be identical
@@ -218,7 +218,7 @@ class TestMutableSubsetRandomSampler:
         """Test that sampler can be refreshed."""
         indices = list(range(50))
         gen = torch.Generator()
-        sampler = MutableSubsetRandomSampler(indices, generator=gen)
+        sampler = MutableSubsetRandomSampler(indices, rng=gen)
         
         # Get first sampling
         samples1 = list(sampler)

@@ -18,7 +18,7 @@ from pydantic_ome_ngff.v04.multiscale import (
     Dataset as MultiscaleDataset,
     Axis,
 )
-from pydantic_ome_ngff.v04.transform import Scale, VectorScale
+from pydantic_ome_ngff.v04.transform import VectorScale
 
 
 def create_test_zarr_array(
@@ -72,7 +72,7 @@ def create_test_zarr_array(
             MultiscaleDataset(
                 path="s0",
                 coordinateTransformations=[
-                    Scale(scale=list(scale), type="scale")
+                    VectorScale(scale=list(scale))
                 ],
             )
         ]
