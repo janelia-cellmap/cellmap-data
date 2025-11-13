@@ -58,6 +58,7 @@ class TestCellMapDataset:
             input_arrays=input_arrays,
             target_arrays=target_arrays,
             is_train=True,
+            force_has_data=True,
         )
         
         assert dataset.raw_path == config["raw_path"]
@@ -82,6 +83,7 @@ class TestCellMapDataset:
             classes=None,
             input_arrays=input_arrays,
             is_train=False,
+            force_has_data=True,
         )
         
         assert dataset.raw_only is True
@@ -179,6 +181,7 @@ class TestCellMapDataset:
             target_arrays=target_arrays,
             spatial_transforms=spatial_transforms,
             is_train=True,
+            force_has_data=True,
         )
         
         assert dataset.spatial_transforms is not None
@@ -286,6 +289,7 @@ class TestCellMapDataset:
             input_arrays=input_arrays,
             target_arrays=target_arrays,
             is_train=True,
+            force_has_data=True,
         )
         assert train_dataset.is_train is True
         
@@ -297,6 +301,7 @@ class TestCellMapDataset:
             input_arrays=input_arrays,
             target_arrays=target_arrays,
             is_train=False,
+            force_has_data=True,
         )
         assert val_dataset.is_train is False
     

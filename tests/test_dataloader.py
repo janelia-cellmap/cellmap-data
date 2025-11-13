@@ -47,6 +47,8 @@ class TestCellMapDataLoader:
             input_arrays=input_arrays,
             target_arrays=target_arrays,
             is_train=True,
+            force_has_data=True,
+# Force dataset to have data for testing
         )
         
         return dataset
@@ -110,6 +112,7 @@ class TestCellMapDataLoader:
             test_dataset,
             batch_size=2,
             is_train=True,
+            force_has_data=True,
             num_workers=0,
         )
         assert train_loader is not None
@@ -119,6 +122,7 @@ class TestCellMapDataLoader:
             test_dataset,
             batch_size=2,
             is_train=False,
+            force_has_data=True,
             num_workers=0,
         )
         assert val_loader is not None
@@ -323,6 +327,7 @@ class TestDataLoaderIntegration:
             target_arrays=target_arrays,
             spatial_transforms=spatial_transforms,
             is_train=True,
+            force_has_data=True,
         )
         
         loader = CellMapDataLoader(dataset, batch_size=2, num_workers=0)

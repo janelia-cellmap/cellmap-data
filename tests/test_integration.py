@@ -63,6 +63,7 @@ class TestTrainingWorkflow:
             raw_value_transforms=raw_transforms,
             target_value_transforms=target_transforms,
             is_train=True,
+            force_has_data=True,
         )
         
         # Create loader
@@ -139,6 +140,7 @@ class TestTrainingWorkflow:
                 input_arrays={"raw": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
                 target_arrays={"gt": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
                 is_train=True,
+            force_has_data=True,
             )
             datasets.append(dataset)
         
@@ -243,6 +245,7 @@ class TestTransformPipeline:
             raw_value_transforms=raw_transforms,
             target_value_transforms=target_transforms,
             is_train=True,
+            force_has_data=True,
         )
         
         loader = CellMapDataLoader(dataset, batch_size=2, num_workers=0)
@@ -329,6 +332,7 @@ class TestDataLoaderOptimization:
             input_arrays={"raw": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             target_arrays={"gt": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             is_train=True,
+            force_has_data=True,
         )
         
         # Use weighted sampler to balance classes
