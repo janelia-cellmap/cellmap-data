@@ -1,15 +1,15 @@
 # %%
-from typing import Callable, Mapping, Sequence, Optional
+import logging
+from typing import Callable, Mapping, Optional, Sequence
 
 import numpy as np
+import tensorstore
 import torch
 from torch.utils.data import Dataset, Subset
-import tensorstore
 from upath import UPath
 
 from .image import CellMapImage
 from .image_writer import ImageWriter
-import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -42,6 +42,7 @@ class CellMapDatasetWriter(Dataset):
         """Initializes the CellMapDatasetWriter.
 
         Args:
+        ----
             raw_path: Full path to the raw data Zarr, excluding multiscale level.
             target_path: Full path to the ground truth Zarr, excluding class name.
             classes: The classes in the dataset.
@@ -288,9 +289,11 @@ class CellMapDatasetWriter(Dataset):
         Gets the center coordinates for a given index.
 
         Args:
+        ----
             idx: The index to get the center for.
 
         Returns:
+        -------
             A dictionary of center coordinates.
         """
         if idx < 0:
@@ -316,7 +319,6 @@ class CellMapDatasetWriter(Dataset):
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
-
         self._current_idx = idx
         self._current_center = self.get_center(idx)
         outputs = {}
@@ -339,6 +341,7 @@ class CellMapDatasetWriter(Dataset):
         Writes values for the given arrays at the given index.
 
         Args:
+        ----
             idx: The index or indices to write to.
             arrays: Dictionary of arrays to write to disk. Data can be a
                     single array with channels for classes, or a dictionary

@@ -9,6 +9,7 @@ class GaussianBlur(torch.nn.Module):
         Initialize a Gaussian Blur module.
 
         Args:
+        ----
             kernel_size (int): Size of the Gaussian kernel (should be odd).
             sigma (float): Standard deviation of the Gaussian distribution.
             dim (int): Dimensionality (2 or 3) for applying the blur.

@@ -21,7 +21,8 @@ class CellMapDataLoader:
     with optimizations for GPU training including prefetch_factor, persistent_workers,
     and pin_memory support.
 
-    Attributes:
+    Attributes
+    ----------
         dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): Dataset to load.
         classes (Iterable[str]): Classes to load.
         batch_size (int): Batch size.
@@ -54,6 +55,7 @@ class CellMapDataLoader:
         Initializes the CellMapDataLoader with an optimized PyTorch DataLoader backend.
 
         Args:
+        ----
             dataset: The dataset to load.
             classes: The classes to load.
             batch_size: The batch size.

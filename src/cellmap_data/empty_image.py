@@ -1,5 +1,6 @@
-import torch
 from typing import Any, Mapping, Optional, Sequence
+
+import torch
 
 
 class EmptyImage:
@@ -8,7 +9,8 @@ class EmptyImage:
 
     This class is used to create an empty image object, which can be used as a placeholder for images that do not exist in the dataset. It can be used to maintain a consistent API for image objects even when no data is present.
 
-    Attributes:
+    Attributes
+    ----------
         label_class (str): The intended label class of the image.
         target_scale (Sequence[float]): The intended scale of the image in physical space.
         target_voxel_shape (Sequence[int]): The intended shape of the image in voxels.
@@ -16,7 +18,8 @@ class EmptyImage:
         axis_order (str): The intended order of the axes in the image.
         empty_value (float | int): The value to fill the image with.
 
-    Methods:
+    Methods
+    -------
         __getitem__(center: Mapping[str, float]) -> torch.Tensor: Returns the empty image data.
         to(device: str): Moves the image data to the given device.
         set_spatial_transforms(transforms: Mapping[str, Any] | None):

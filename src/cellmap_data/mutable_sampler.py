@@ -1,5 +1,6 @@
 from collections.abc import Iterator, Sequence
 from typing import Callable, Optional
+
 import torch
 
 
@@ -7,6 +8,7 @@ class MutableSubsetRandomSampler(torch.utils.data.Sampler[int]):
     """A mutable version of SubsetRandomSampler that allows changing the indices after initialization.
 
     Args:
+    ----
         indices_generator (Callable[[], Sequence[int]]): A callable that returns a sequence of indices to sample from.
         rng (Optional[torch.Generator]): Generator used in sampling.
     """

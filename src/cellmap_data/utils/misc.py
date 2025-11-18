@@ -1,6 +1,6 @@
-from difflib import SequenceMatcher
 import os
-from typing import Any, Mapping, Sequence, Optional, Callable
+from difflib import SequenceMatcher
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 import torch
 
@@ -10,9 +10,11 @@ def torch_max_value(dtype: torch.dtype) -> int:
     Get the maximum value for a given torch dtype.
 
     Args:
+    ----
         dtype (torch.dtype): Data type.
 
     Returns:
+    -------
         int: Maximum value.
     """
     if dtype == torch.uint8:

@@ -15,18 +15,17 @@ except PackageNotFoundError:
 __author__ = "Jeff Rhoades"
 __email__ = "rhoadesj@hhmi.org"
 
-from .multidataset import CellMapMultiDataset
+from . import transforms, utils
 from .dataloader import CellMapDataLoader
-from .datasplit import CellMapDataSplit
 from .dataset import CellMapDataset
 from .dataset_writer import CellMapDatasetWriter
-from .image import CellMapImage
+from .datasplit import CellMapDataSplit
 from .empty_image import EmptyImage
+from .image import CellMapImage
 from .image_writer import ImageWriter
-from .subdataset import CellMapSubset
+from .multidataset import CellMapMultiDataset
 from .mutable_sampler import MutableSubsetRandomSampler
-from . import transforms
-from . import utils
+from .subdataset import CellMapSubset
 
 __all__ = [
     "CellMapMultiDataset",

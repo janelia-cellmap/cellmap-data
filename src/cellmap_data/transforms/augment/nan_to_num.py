@@ -1,14 +1,17 @@
 from typing import Any, Dict
+
 import torchvision.transforms.v2 as T
 
 
 class NaNtoNum(T.Transform):
     """Replace NaNs with zeros in the input tensor. Subclasses torchvision.transforms.Transform.
 
-    Attributes:
+    Attributes
+    ----------
         params (Dict[str, Any]): Parameters for the transformation. Defaults to {}, see https://pytorch.org/docs/stable/generated/torch.nan_to_num.html for details.
 
-    Methods:
+    Methods
+    -------
         _transform: Transform the input.
     """
 
@@ -16,6 +19,7 @@ class NaNtoNum(T.Transform):
         """Initialize the NaN to number transformation.
 
         Args:
+        ----
             params (Dict[str, Any]): Parameters for the transformation. Defaults to {}, see https://pytorch.org/docs/stable/generated/torch.nan_to_num.html for details.
         """
         super().__init__()

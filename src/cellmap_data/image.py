@@ -17,12 +17,6 @@ from pydantic_ome_ngff.v04.transform import Scale, Translation, VectorScale
 from scipy.spatial.transform import Rotation as rot
 from xarray_ome_ngff.v04.multiscale import coords_from_transforms
 
-from cellmap_data.utils.misc import (
-    get_sliced_shape,
-    split_target_path,
-    torch_max_value,
-)
-
 logger = logging.getLogger(__name__)
 
 
@@ -50,6 +44,7 @@ class CellMapImage:
         """Initializes a CellMapImage object.
 
         Args:
+        ----
             path (str): The path to the image file.
             target_class (str): The label class of the image.
             target_scale (Sequence[float]): The scale of the image data to return in physical space.
@@ -59,7 +54,6 @@ class CellMapImage:
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
             device (Optional[str | torch.device], optional): The device to load the image data onto. Defaults to "cuda" if available, then "mps", then "cpu".
         """
-
         self.path = path
         self.label_class = target_class
         # Below makes assumptions about image scale, and also locks which axis is sliced to 2D (this should only be encountered if bypassing dataset)

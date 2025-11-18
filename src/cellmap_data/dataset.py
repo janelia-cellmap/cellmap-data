@@ -2,7 +2,6 @@
 import functools
 import logging
 import os
-import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Mapping, Optional, Sequence
 
@@ -59,6 +58,7 @@ class CellMapDataset(Dataset):
         """Initializes the CellMapDataset class.
 
         Args:
+        ----
             raw_path: Path to the raw data.
             target_path: Path to the ground truth data.
             classes: List of classes for segmentation training.

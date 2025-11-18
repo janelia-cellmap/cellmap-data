@@ -21,6 +21,7 @@ class CellMapDataSplit:
     A class to split the data into training and validation datasets.
 
     Attributes:
+    ----------
         input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::
             {
                 "array_name": {
@@ -70,9 +71,11 @@ class CellMapDataSplit:
         device (Optional[str | torch.device]): Device to use for the dataloaders. Defaults to None.
 
     Note:
+    ----
         The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.
 
     Methods:
+    -------
         __repr__(): Returns the string representation of the class.
         from_csv(csv_path: str): Loads the dataset data from a csv file.
         construct(dataset_dict: Mapping[str, Sequence[Mapping[str, str]]]): Constructs the datasets from the dataset dictionary.
@@ -128,6 +131,7 @@ class CellMapDataSplit:
         """Initializes the CellMapDatasets class.
 
         Args:
+        ----
             input_arrays (dict[str, dict[str, Sequence[int | float]]]): A dictionary containing the arrays of the dataset to input to the network. The dictionary should have the following structure::
 
                 {
@@ -182,6 +186,7 @@ class CellMapDataSplit:
             device (Optional[str | torch.device]): Device to use for the dataloaders. Defaults to None.
 
         Note:
+        ----
             The csv_path, dataset_dict, and datasets arguments are mutually exclusive, but one must be supplied.
 
         """

@@ -1,13 +1,13 @@
 import functools
 from typing import Any, Callable, Optional, Sequence
+
 import torch
 from torch.utils.data import Subset
 
+from .dataset import CellMapDataset
+from .multidataset import CellMapMultiDataset
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils.sampling import min_redundant_inds
-from .dataset import CellMapDataset
-
-from .multidataset import CellMapMultiDataset
 
 
 class CellMapSubset(Subset):
@@ -22,6 +22,7 @@ class CellMapSubset(Subset):
     ) -> None:
         """
         Args:
+        ----
             dataset: CellMapDataset | CellMapMultiDataset
                 The dataset to be subsetted.
             indices: Sequence[int]
@@ -89,7 +90,6 @@ class CellMapSubset(Subset):
         - If `num_samples` ≤ total number of available indices, samples without replacement.
         - If `num_samples` > total number of available indices, samples with replacement using repeated shuffles to minimize duplicates.
         """
-
         indices_generator = functools.partial(
             self.get_random_subset_indices, num_samples, rng, **kwargs
         )

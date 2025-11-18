@@ -1,15 +1,17 @@
 import os
+from typing import Mapping, Optional, Sequence, Union
+
 import numpy as np
+import tensorstore
 import torch
 import xarray
-import tensorstore
 import xarray_tensorstore as xt
-from typing import Any, Mapping, Optional, Sequence, Union
 from numpy.typing import ArrayLike
-from upath import UPath
 from pydantic_ome_ngff.v04.axis import Axis
 from pydantic_ome_ngff.v04.transform import VectorScale, VectorTranslation
+from upath import UPath
 from xarray_ome_ngff.v04.multiscale import coords_from_transforms
+
 from cellmap_data.utils import create_multiscale_metadata
 
 
@@ -124,9 +126,9 @@ class ImageWriter:
                 spec["driver"] = "zarr3"
                 array_future = tensorstore.open(spec, **open_kwargs)
                 array = array_future.result()
-            from xarray_ome_ngff.v04.multiscale import coords_from_transforms
             from pydantic_ome_ngff.v04.axis import Axis
             from pydantic_ome_ngff.v04.transform import VectorScale, VectorTranslation
+            from xarray_ome_ngff.v04.multiscale import coords_from_transforms
 
             data = xarray.DataArray(
                 data=xt._TensorStoreAdapter(array),
@@ -260,6 +262,7 @@ class ImageWriter:
         2. Batch coordinates: mapping axis names to sequences of coordinates
 
         Args:
+        ----
             coords: Either center coordinates or batch coordinates
             data: Data to write at the coordinates
         """
@@ -326,9 +329,13 @@ class ImageWriter:
     ) -> torch.Tensor:
         """
         Get the image data at the specified center coordinates.
+
         Args:
+        ----
             coords (Mapping[str, float] | Mapping[str, tuple[Sequence, np.ndarray]]): The center coordinates or aligned coordinates.
+
         Returns:
+        -------
             torch.Tensor: The image data at the specified center.
         """
         # Check if center or coords are provided

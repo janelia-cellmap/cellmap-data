@@ -1,5 +1,6 @@
 import io
 from typing import Optional, Sequence
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -17,7 +18,9 @@ def get_image_grid(
 ) -> plt.Figure:  # type: ignore
     """
     Create a grid of images for input, target, and output data.
+
     Args:
+    ----
         input_data (torch.Tensor): Input data.
         target_data (torch.Tensor): Target data.
         outputs (torch.Tensor): Model outputs.
@@ -28,6 +31,7 @@ def get_image_grid(
         cmap (str, optional): Colormap for the images. Defaults to None.
 
     Returns:
+    -------
         fig (matplotlib.figure.Figure): Figure object.
     """
     if batch_size is None:
@@ -105,7 +109,9 @@ def get_image_grid_numpy(
 ) -> np.ndarray:  # type: ignore
     """
     Create a grid of images for input, target, and output data using matplotlib and convert it to a numpy array.
+
     Args:
+    ----
         input_data (torch.Tensor): Input data.
         target_data (torch.Tensor): Target data.
         outputs (torch.Tensor): Model outputs.
@@ -116,6 +122,7 @@ def get_image_grid_numpy(
         cmap (str, optional): Colormap for the images. Defaults to None.
 
     Returns:
+    -------
         fig (numpy.ndarray): Image data.
     """
     fig = get_image_grid(
@@ -145,7 +152,9 @@ def get_fig_dict(
 ) -> dict:
     """
     Create a dictionary of figures for input, target, and output data.
+
     Args:
+    ----
         input_data (torch.Tensor): Input data.
         target_data (torch.Tensor): Target data.
         outputs (torch.Tensor): Model outputs.
@@ -158,6 +167,7 @@ def get_fig_dict(
         gt_clim (tuple, optional): Color limits for the ground truth images. Defaults to (0, 1).
 
     Returns:
+    -------
         image_dict (dict): Dictionary of figure objects.
     """
     if batch_size is None:
@@ -238,7 +248,9 @@ def get_image_dict(
 ) -> dict:
     """
     Create a dictionary of images for input, target, and output data.
+
     Args:
+    ----
         input_data (torch.Tensor): Input data.
         target_data (torch.Tensor): Target data.
         outputs (torch.Tensor): Model outputs.
@@ -249,6 +261,7 @@ def get_image_dict(
         colorbar (bool, optional): Whether to display a colorbar for the model outputs. Defaults to True.
 
     Returns:
+    -------
         image_dict (dict): Dictionary of image data.
     """
     # TODO: Get list of figs for the batches, instead of one fig per class

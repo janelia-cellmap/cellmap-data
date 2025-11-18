@@ -1,14 +1,15 @@
 import functools
+import logging
 from typing import Any, Callable, Mapping, Optional, Sequence
+
 import numpy as np
 import torch
 from torch.utils.data import ConcatDataset, WeightedRandomSampler
 from tqdm import tqdm
-import logging
 
+from .dataset import CellMapDataset
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils.sampling import min_redundant_inds
-from .dataset import CellMapDataset
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,8 @@ class CellMapMultiDataset(ConcatDataset):
     """
     This class is used to combine multiple datasets into a single dataset. It is a subclass of PyTorch's ConcatDataset. It maintains the same API as the ConcatDataset class. It retrieves raw and groundtruth data from multiple CellMapDataset objects. See the CellMapDataset class for more information on the dataset object.
 
-    Attributes:
+    Attributes
+    ----------
         classes: Sequence[str]
             The classes in the dataset.
         input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]]
@@ -27,7 +29,8 @@ class CellMapMultiDataset(ConcatDataset):
         datasets: Sequence[CellMapDataset]
             The datasets to be combined into the multi-dataset.
 
-    Methods:
+    Methods
+    -------
         to(device: str | torch.device) -> "CellMapMultiDataset":
             Moves the multi-dataset to the specified device.
         get_weighted_sampler(batch_size: int = 1, rng: Optional[torch.Generator] = None) -> WeightedRandomSampler:
@@ -71,7 +74,7 @@ class CellMapMultiDataset(ConcatDataset):
         self.datasets = datasets
 
     def __repr__(self) -> str:
-        out_string = f"CellMapMultiDataset(["
+        out_string = "CellMapMultiDataset(["
         for dataset in self.datasets:
             out_string += f"\n\t{dataset},"
         out_string += "\n])"
@@ -287,12 +290,14 @@ class CellMapMultiDataset(ConcatDataset):
                 but never exceed capacities in `caps`.
 
                 Args:
+                ----
                     counts       (List[int]): current final_counts per dataset
                     caps         (List[int]): remaining capacity per dataset
                     free_weights (torch.Tensor): clone of dataset_weights
                     over         (int): number of overflow samples to distribute
 
                 Returns:
+                -------
                     (new_counts, new_caps) after assigning as many as possible;
                     any leftover overflow will be handled by deeper recursion.
                 """

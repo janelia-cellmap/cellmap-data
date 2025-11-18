@@ -4,18 +4,18 @@ import operator
 import os
 import re
 import time
+import urllib.parse
 import webbrowser
 from multiprocessing.pool import ThreadPool
 
 import neuroglancer
 import numpy as np
-import urllib.parse
 import s3fs
 import zarr
-from tensorstore import open as ts_open, d as ts_d
-
 from IPython.core.getipython import get_ipython
 from IPython.display import IFrame, display
+from tensorstore import d as ts_d
+from tensorstore import open as ts_open
 from upath import UPath
 
 logger = logging.getLogger(__name__)
@@ -267,7 +267,7 @@ def get_image(data_path: str):
 
     try:
         return open_ds_tensorstore(data_path)
-    except ValueError as e:
+    except ValueError:
         spec = xt._zarr_spec_from_path(data_path, zarr_format=2)
         array_future = tensorstore.open(spec, read=True, write=False)
         try:
@@ -325,7 +325,7 @@ class ScalePyramid(neuroglancer.LocalVolume):
     From https://github.com/funkelab/funlib.show.neuroglancer/blob/master/funlib/show/neuroglancer/scale_pyramid.py
 
     Args:
-
+    ----
             volume_layers (``list`` of ``LocalVolume``):
 
                 One ``LocalVolume`` per provided resolution.

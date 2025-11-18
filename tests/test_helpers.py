@@ -5,20 +5,19 @@ This module provides utilities to create real Zarr/OME-NGFF datasets
 for testing purposes.
 """
 
-import tempfile
 from pathlib import Path
-from typing import Sequence, Dict, Any, Optional
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
-import tensorstore as ts
 import zarr
 from pydantic_ome_ngff.v04.multiscale import (
-    MultiscaleGroupAttrs,
-    MultiscaleMetadata,
-    Dataset as MultiscaleDataset,
     Axis,
+    MultiscaleMetadata,
 )
-from pydantic_ome_ngff.v04.transform import VectorScale
+from pydantic_ome_ngff.v04.multiscale import (
+    Dataset as MultiscaleDataset,
+)
+from pydantic_ome_ngff.v04.transform import Scale
 
 
 def create_test_zarr_array(
@@ -31,7 +30,7 @@ def create_test_zarr_array(
 ) -> zarr.Array:
     """
     Create a test Zarr array with OME-NGFF metadata.
-    
+
     Args:
         path: Path to create the Zarr array
         data: Numpy array data
@@ -39,19 +38,19 @@ def create_test_zarr_array(
         scale: Scale for each axis in physical units
         chunks: Chunk size for Zarr array
         multiscale: Whether to create multiscale metadata
-        
+
     Returns:
         Created zarr.Array
     """
     path.mkdir(parents=True, exist_ok=True)
-    
+
     if chunks is None:
         chunks = tuple(min(32, s) for s in data.shape)
-    
+
     # Create zarr group
     store = zarr.DirectoryStore(str(path))
     root = zarr.group(store=store, overwrite=True)
-    
+
     if multiscale:
         # Create multiscale group with s0 level
         s0 = root.create_dataset(
@@ -61,31 +60,35 @@ def create_test_zarr_array(
             dtype=data.dtype,
             overwrite=True,
         )
-        
+
         # Create OME-NGFF multiscale metadata
         axis_list = [
-            Axis(name=name, type="space" if name in ["x", "y", "z"] else "channel", unit="nanometer" if name in ["x", "y", "z"] else None)
+            Axis(
+                name=name,
+                type="space" if name in ["x", "y", "z"] else "channel",
+                unit="nanometer" if name in ["x", "y", "z"] else None,
+            )
             for name in axes
         ]
-        
+
         datasets = [
             MultiscaleDataset(
                 path="s0",
-                coordinateTransformations=[
-                    VectorScale(scale=list(scale))
-                ],
+                coordinateTransformations=[Scale(scale=list(scale), type="scale")],
             )
         ]
-        
+
         multiscale_metadata = MultiscaleMetadata(
             version="0.4",
             name="test_data",
             axes=axis_list,
             datasets=datasets,
         )
-        
-        root.attrs["multiscales"] = [multiscale_metadata.model_dump(mode="json", exclude_none=True)]
-        
+
+        root.attrs["multiscales"] = [
+            multiscale_metadata.model_dump(mode="json", exclude_none=True)
+        ]
+
         return s0
     else:
         # Create simple array without multiscale
@@ -107,18 +110,18 @@ def create_test_image_data(
 ) -> np.ndarray:
     """
     Create test image data with various patterns.
-    
+
     Args:
         shape: Shape of the array
         dtype: Data type
         pattern: Type of pattern ("gradient", "checkerboard", "random", "constant", "sphere")
         seed: Random seed
-        
+
     Returns:
         Generated numpy array
     """
     rng = np.random.default_rng(seed)
-    
+
     if pattern == "gradient":
         # Create a gradient along the last axis
         data = np.zeros(shape, dtype=dtype)
@@ -140,7 +143,7 @@ def create_test_image_data(
         data = np.zeros(shape, dtype=dtype)
         center = tuple(s // 2 for s in shape)
         radius = min(shape) // 4
-        
+
         indices = np.indices(shape)
         distances = np.sqrt(
             sum((indices[i] - center[i]) ** 2 for i in range(len(shape)))
@@ -148,7 +151,7 @@ def create_test_image_data(
         data[distances <= radius] = 1.0
     else:
         raise ValueError(f"Unknown pattern: {pattern}")
-    
+
     return data
 
 
@@ -160,19 +163,19 @@ def create_test_label_data(
 ) -> Dict[str, np.ndarray]:
     """
     Create test label data for multiple classes.
-    
+
     Args:
         shape: Shape of the arrays
         num_classes: Number of classes to generate
         pattern: Type of pattern ("regions", "random", "stripes")
         seed: Random seed
-        
+
     Returns:
         Dictionary mapping class names to label arrays
     """
     rng = np.random.default_rng(seed)
     labels = {}
-    
+
     if pattern == "regions":
         # Divide the volume into regions for different classes
         for i in range(num_classes):
@@ -197,7 +200,7 @@ def create_test_label_data(
             labels[f"class_{i}"] = class_label
     else:
         raise ValueError(f"Unknown pattern: {pattern}")
-    
+
     return labels
 
 
@@ -215,7 +218,7 @@ def create_test_dataset(
 ) -> Dict[str, Any]:
     """
     Create a complete test dataset with raw and label data.
-    
+
     Args:
         tmp_path: Temporary directory path
         raw_shape: Shape of raw data
@@ -227,7 +230,7 @@ def create_test_dataset(
         raw_pattern: Pattern for raw data
         label_pattern: Pattern for label data
         seed: Random seed
-        
+
     Returns:
         Dictionary with paths and metadata
     """
@@ -235,28 +238,30 @@ def create_test_dataset(
         label_shape = raw_shape
     if label_scale is None:
         label_scale = raw_scale
-    
+
     # Create paths
     raw_path = tmp_path / "raw.zarr"
     gt_path = tmp_path / "gt.zarr"
-    
+
     # Create raw data
     raw_data = create_test_image_data(raw_shape, pattern=raw_pattern, seed=seed)
     create_test_zarr_array(raw_path, raw_data, axes=axes, scale=raw_scale)
-    
+
     # Create label data
     gt_path.mkdir(parents=True, exist_ok=True)
     store = zarr.DirectoryStore(str(gt_path))
     root = zarr.group(store=store, overwrite=True)
-    
-    labels = create_test_label_data(label_shape, num_classes=num_classes, pattern=label_pattern, seed=seed)
+
+    labels = create_test_label_data(
+        label_shape, num_classes=num_classes, pattern=label_pattern, seed=seed
+    )
     class_names = []
-    
+
     for class_name, label_data in labels.items():
         class_path = gt_path / class_name
         create_test_zarr_array(class_path, label_data, axes=axes, scale=label_scale)
         class_names.append(class_name)
-    
+
     return {
         "raw_path": str(raw_path),
         "gt_path": str(gt_path),
@@ -272,10 +277,10 @@ def create_test_dataset(
 def create_minimal_test_dataset(tmp_path: Path) -> Dict[str, Any]:
     """
     Create a minimal test dataset for quick tests.
-    
+
     Args:
         tmp_path: Temporary directory path
-        
+
     Returns:
         Dictionary with paths and metadata
     """

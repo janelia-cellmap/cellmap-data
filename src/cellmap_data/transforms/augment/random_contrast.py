@@ -1,5 +1,7 @@
 from typing import Sequence
+
 import torch
+
 from cellmap_data.utils import torch_max_value
 
 
@@ -7,10 +9,12 @@ class RandomContrast(torch.nn.Module):
     """
     Randomly change the contrast of the input.
 
-    Attributes:
+    Attributes
+    ----------
         contrast_range (tuple): Contrast range.
 
-    Methods:
+    Methods
+    -------
         forward: Forward pass.
     """
 
@@ -19,6 +23,7 @@ class RandomContrast(torch.nn.Module):
         Initialize the random contrast.
 
         Args:
+        ----
             contrast_range (tuple, optional): Contrast range. Defaults to (0.5, 1.5).
         """
         super().__init__()
