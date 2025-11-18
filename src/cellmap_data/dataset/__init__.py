@@ -16,7 +16,7 @@ from .validator import DatasetValidator
 
 __all__ = [
     "CellMapDataset",
-    "DatasetConfig", 
+    "DatasetConfig",
     "DeviceManager",
     "CoordinateTransformer",
     "DataLoader",

@@ -20,21 +20,22 @@ logger = get_logger("dataset_config")
 
 class ArrayConfigSpec(BaseModel):
     """Configuration specification for array metadata.
-    
+
     Defines the structure and validation for array configuration
     dictionaries used throughout the dataset system.
     """
+
     shape: Sequence[Union[int, float]] = Field(..., min_items=3, max_items=3)
     scale: Sequence[Union[int, float]] = Field(..., min_items=3, max_items=3)
-    
-    @validator('shape')
+
+    @validator("shape")
     def validate_shape(cls, v):
         """Validate array shape specification."""
         if not all(isinstance(x, (int, float)) and x > 0 for x in v):
             raise ValueError("Array shape must contain positive numbers")
         return v
-        
-    @validator('scale')
+
+    @validator("scale")
     def validate_scale(cls, v):
         """Validate array scale specification."""
         if not all(isinstance(x, (int, float)) and x > 0 for x in v):
@@ -44,11 +45,11 @@ class ArrayConfigSpec(BaseModel):
 
 class DatasetConfig:
     """Configuration manager for CellMapDataset with validation and migration.
-    
+
     Handles parameter validation, deprecation warnings, type conversion,
     and configuration integrity checking. Provides a centralized point
     for all dataset configuration management.
-    
+
     Attributes:
         input_path: Validated input data path
         target_path: Validated target data path
@@ -68,7 +69,7 @@ class DatasetConfig:
         pad: Padding enabled flag
         device: Device specification
         max_workers: Maximum worker threads
-        
+
     Examples:
         >>> config = DatasetConfig(
         ...     input_path="/data/raw",
@@ -80,14 +81,18 @@ class DatasetConfig:
         >>> config.validate()
         >>> # Configuration ready for use
     """
-    
+
     def __init__(
         self,
         input_path: Optional[str] = None,
         target_path: Optional[str] = None,
         classes: Optional[Sequence[str]] = None,
-        input_arrays: Optional[Mapping[str, Mapping[str, Sequence[Union[int, float]]]]] = None,
-        target_arrays: Optional[Mapping[str, Mapping[str, Sequence[Union[int, float]]]]] = None,
+        input_arrays: Optional[
+            Mapping[str, Mapping[str, Sequence[Union[int, float]]]]
+        ] = None,
+        target_arrays: Optional[
+            Mapping[str, Mapping[str, Sequence[Union[int, float]]]]
+        ] = None,
         spatial_transforms: Optional[Mapping[str, Mapping]] = None,
         raw_value_transforms: Optional[Callable] = None,
         target_value_transforms: Optional[
@@ -108,7 +113,7 @@ class DatasetConfig:
         class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
     ):
         """Initialize dataset configuration with validation.
-        
+
         Args:
             input_path: Path to input/raw data files
             target_path: Path to target/ground truth data files
@@ -130,7 +135,7 @@ class DatasetConfig:
             max_workers: Maximum worker threads
             raw_path: **Deprecated** - use input_path instead
             class_relation_dict: **Deprecated** - use class_relationships instead
-            
+
         Raises:
             ValueError: If configuration is invalid or conflicting parameters provided
         """
@@ -138,7 +143,7 @@ class DatasetConfig:
         self._handle_deprecated_parameters(
             input_path, raw_path, class_relationships, class_relation_dict
         )
-        
+
         # Store normalized parameters
         self.input_path = input_path if input_path is not None else raw_path
         self.target_path = target_path
@@ -146,13 +151,15 @@ class DatasetConfig:
         self.raw_only = classes is None
         self.input_arrays = dict(input_arrays) if input_arrays is not None else {}
         self.target_arrays = dict(target_arrays) if target_arrays is not None else {}
-        self.spatial_transforms = dict(spatial_transforms) if spatial_transforms is not None else {}
+        self.spatial_transforms = (
+            dict(spatial_transforms) if spatial_transforms is not None else {}
+        )
         self.raw_value_transforms = raw_value_transforms
         self.target_value_transforms = target_value_transforms
         self.class_relationships = (
-            dict(class_relationships) if class_relationships is not None 
-            else dict(class_relation_dict) if class_relation_dict is not None 
-            else {}
+            dict(class_relationships)
+            if class_relationships is not None
+            else dict(class_relation_dict) if class_relation_dict is not None else {}
         )
         self.is_train = is_train
         self.axis_order = axis_order
@@ -163,12 +170,12 @@ class DatasetConfig:
         self.pad = pad
         self.device = device
         self.max_workers = max_workers
-        
+
         # Validate configuration
         self.validate()
-        
+
         logger.debug("DatasetConfig initialized with validation complete")
-        
+
     def _handle_deprecated_parameters(
         self,
         input_path: Optional[str],
@@ -177,13 +184,13 @@ class DatasetConfig:
         class_relation_dict: Optional[Mapping[str, Sequence[str]]],
     ) -> None:
         """Handle deprecated parameter migration with warnings.
-        
+
         Args:
             input_path: New parameter name
             raw_path: Deprecated parameter name
             class_relationships: New parameter name
             class_relation_dict: Deprecated parameter name
-            
+
         Raises:
             ValueError: If both new and deprecated parameters provided
         """
@@ -200,7 +207,7 @@ class DatasetConfig:
                 DeprecationWarning,
                 stacklevel=3,
             )
-            
+
         # Handle class_relation_dict -> class_relationships migration
         if class_relation_dict is not None:
             if class_relationships is not None:
@@ -214,10 +221,10 @@ class DatasetConfig:
                 DeprecationWarning,
                 stacklevel=3,
             )
-            
+
     def validate(self) -> None:
         """Validate configuration parameters.
-        
+
         Raises:
             ValueError: If configuration is invalid
         """
@@ -225,35 +232,39 @@ class DatasetConfig:
         validate_parameter_required("input_path", self.input_path)
         validate_parameter_required("target_path", self.target_path)
         validate_parameter_required("input_arrays", self.input_arrays)
-        
+
         # Validate array configurations
         self._validate_array_configs()
-        
+
         # Validate axis order
         self._validate_axis_order()
-        
+
         # Validate class configuration
         self._validate_classes()
-        
+
         # Validate transforms
         self._validate_transforms()
-        
+
         logger.debug("Configuration validation passed")
-        
+
     def _validate_array_configs(self) -> None:
         """Validate array configuration dictionaries."""
         for array_name, array_config in self.input_arrays.items():
             try:
                 ArrayConfigSpec(**array_config)
             except Exception as e:
-                raise ValueError(f"Invalid input array config for '{array_name}': {e}") from e
-                
+                raise ValueError(
+                    f"Invalid input array config for '{array_name}': {e}"
+                ) from e
+
         for array_name, array_config in self.target_arrays.items():
             try:
                 ArrayConfigSpec(**array_config)
             except Exception as e:
-                raise ValueError(f"Invalid target array config for '{array_name}': {e}") from e
-                
+                raise ValueError(
+                    f"Invalid target array config for '{array_name}': {e}"
+                ) from e
+
     def _validate_axis_order(self) -> None:
         """Validate axis order specification."""
         if not isinstance(self.axis_order, str):
@@ -262,34 +273,38 @@ class DatasetConfig:
             raise ValueError("axis_order must contain exactly 3 characters")
         if set(self.axis_order.lower()) != {"x", "y", "z"}:
             raise ValueError("axis_order must contain exactly 'x', 'y', 'z' characters")
-            
+
     def _validate_classes(self) -> None:
         """Validate class configuration."""
         if not self.raw_only and not self.classes:
             raise ValueError("Classes must be specified for non-raw-only mode")
         if self.classes and len(set(self.classes)) != len(self.classes):
             raise ValueError("Class names must be unique")
-            
+
     def _validate_transforms(self) -> None:
         """Validate transform configurations."""
         # Validate spatial transforms structure
         if self.spatial_transforms:
             for transform_name, transform_config in self.spatial_transforms.items():
                 if not isinstance(transform_config, dict):
-                    raise ValueError(f"Spatial transform '{transform_name}' must be a dictionary")
-                    
+                    raise ValueError(
+                        f"Spatial transform '{transform_name}' must be a dictionary"
+                    )
+
         # Validate target value transforms structure
         if self.target_value_transforms is not None:
             if not (
-                callable(self.target_value_transforms) or
-                isinstance(self.target_value_transforms, (list, tuple)) or
-                isinstance(self.target_value_transforms, dict)
+                callable(self.target_value_transforms)
+                or isinstance(self.target_value_transforms, (list, tuple))
+                or isinstance(self.target_value_transforms, dict)
             ):
-                raise ValueError("target_value_transforms must be callable, sequence, or mapping")
-                
+                raise ValueError(
+                    "target_value_transforms must be callable, sequence, or mapping"
+                )
+
     def get_array_names(self) -> dict[str, list[str]]:
         """Get dictionary of array names by type.
-        
+
         Returns:
             Dictionary with 'input' and 'target' keys containing array names
         """
@@ -297,10 +312,10 @@ class DatasetConfig:
             "input": list(self.input_arrays.keys()),
             "target": list(self.target_arrays.keys()),
         }
-        
+
     def get_array_shapes(self) -> dict[str, dict[str, Sequence[Union[int, float]]]]:
         """Get dictionary of array shapes by name.
-        
+
         Returns:
             Dictionary mapping array names to their shape specifications
         """
@@ -310,10 +325,10 @@ class DatasetConfig:
         for name, config in self.target_arrays.items():
             shapes[name] = config["shape"]
         return shapes
-        
+
     def get_array_scales(self) -> dict[str, dict[str, Sequence[Union[int, float]]]]:
         """Get dictionary of array scales by name.
-        
+
         Returns:
             Dictionary mapping array names to their scale specifications
         """
@@ -323,19 +338,20 @@ class DatasetConfig:
         for name, config in self.target_arrays.items():
             scales[name] = config["scale"]
         return scales
-        
+
     def is_2d_array_config(self) -> bool:
         """Check if configuration specifies 2D arrays.
-        
+
         Returns:
             True if any array has 2D shape specification
         """
         from ..utils import is_array_2D
+
         return is_array_2D(self.input_arrays) or is_array_2D(self.target_arrays)
-        
+
     def copy(self) -> "DatasetConfig":
         """Create a copy of the configuration.
-        
+
         Returns:
             New DatasetConfig instance with copied parameters
         """
@@ -359,10 +375,10 @@ class DatasetConfig:
             device=self.device,
             max_workers=self.max_workers,
         )
-        
+
     def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary.
-        
+
         Returns:
             Dictionary representation of configuration
         """
@@ -383,13 +399,15 @@ class DatasetConfig:
             "device": str(self.device) if self.device else None,
             "max_workers": self.max_workers,
         }
-        
+
     def __str__(self) -> str:
         """String representation of configuration."""
-        return (f"DatasetConfig(input_path='{self.input_path}', "
-                f"target_path='{self.target_path}', classes={len(self.classes)}, "
-                f"input_arrays={len(self.input_arrays)}, target_arrays={len(self.target_arrays)})")
-        
+        return (
+            f"DatasetConfig(input_path='{self.input_path}', "
+            f"target_path='{self.target_path}', classes={len(self.classes)}, "
+            f"input_arrays={len(self.input_arrays)}, target_arrays={len(self.target_arrays)})"
+        )
+
     def __repr__(self) -> str:
         """Detailed representation of configuration."""
         return f"DatasetConfig({self.to_dict()})"
