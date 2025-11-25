@@ -4,6 +4,7 @@ Tests for MutableSubsetRandomSampler class.
 Tests weighted sampling and mutable subset functionality.
 """
 
+import numpy as np
 import torch
 from torch.utils.data import Dataset
 
@@ -125,14 +126,17 @@ class TestMutableSubsetRandomSampler:
         """Test sampler with subset of indices."""
         # Only sample from subset
         all_indices = list(range(100))
-        subset_indices = list(range(0, 100, 2))  # Even indices only
+        num_samples = 50
+        subset_ind_gen = lambda: np.random.choice(
+            all_indices, num_samples, replace=False
+        )
 
-        sampler = MutableSubsetRandomSampler(subset_indices)
+        sampler = MutableSubsetRandomSampler(subset_ind_gen)
         samples = list(sampler)
 
         # All samples should be from subset
-        assert all(s in subset_indices for s in samples)
-        assert len(samples) == len(subset_indices)
+        assert all(s in all_indices for s in samples)
+        assert len(samples) == num_samples
 
     def test_empty_indices(self):
         """Test sampler with empty indices."""
