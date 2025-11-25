@@ -37,7 +37,7 @@ class ImageWriter:
     ) -> None:
         self.base_path = str(path)
         self.path = (UPath(path) / f"s{scale_level}").path
-        self.target_class = target_class
+        self.label_class = self.target_class = target_class
         if isinstance(scale, Sequence):
             if len(axis_order) > len(scale):
                 scale = [scale[0]] * (len(axis_order) - len(scale)) + list(scale)
