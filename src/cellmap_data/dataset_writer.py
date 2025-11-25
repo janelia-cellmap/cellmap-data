@@ -411,7 +411,7 @@ class CellMapDatasetWriter(Dataset):
 
         return ImageWriter(
             path=str(UPath(self.target_path) / label),
-            label_class=label,
+            target_class=label,
             scale=scale,  # type: ignore
             bounding_box=self.target_bounds[array_name],
             write_voxel_shape=shape,  # type: ignore

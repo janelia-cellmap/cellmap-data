@@ -7,6 +7,7 @@ import torch
 from torch.utils.data import ConcatDataset, WeightedRandomSampler
 from tqdm import tqdm
 
+from .base_dataset import CellMapBaseDataset
 from .dataset import CellMapDataset
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils.sampling import min_redundant_inds
@@ -14,7 +15,7 @@ from .utils.sampling import min_redundant_inds
 logger = logging.getLogger(__name__)
 
 
-class CellMapMultiDataset(ConcatDataset):
+class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
     """
     This class is used to combine multiple datasets into a single dataset. It is a subclass of PyTorch's ConcatDataset. It maintains the same API as the ConcatDataset class. It retrieves raw and groundtruth data from multiple CellMapDataset objects. See the CellMapDataset class for more information on the dataset object.
 
@@ -71,7 +72,6 @@ class CellMapMultiDataset(ConcatDataset):
         self.input_arrays = input_arrays
         self.target_arrays = target_arrays if target_arrays is not None else {}
         self.classes = classes if classes is not None else []
-        self.datasets = datasets
 
     def __repr__(self) -> str:
         out_string = "CellMapMultiDataset(["
@@ -118,24 +118,25 @@ class CellMapMultiDataset(ConcatDataset):
             return self._class_counts
 
     @property
-    def class_weights(self) -> Mapping[str, float]:
+    def class_weights(self) -> dict[str, float]:
         """
         Returns the class weights for the multi-dataset based on the number of samples in each class.
         """
-        # TODO: review this implementation
         try:
             return self._class_weights
         except AttributeError:
-            class_weights = {
-                c: (
-                    self.class_counts["totals"][c + "_bg"]
-                    / self.class_counts["totals"][c]
-                    if self.class_counts["totals"][c] != 0
-                    else 1
-                )
-                for c in self.classes
-            }
-            self._class_weights = class_weights
+            if self.classes is None:
+                self._class_weights = {}
+            else:
+                self._class_weights = {
+                    c: (
+                        self.class_counts["totals"][c + "_bg"]
+                        / self.class_counts["totals"][c]
+                        if self.class_counts["totals"][c] != 0
+                        else 1
+                    )
+                    for c in self.classes
+                }
             return self._class_weights
 
     @property
@@ -154,11 +155,11 @@ class CellMapMultiDataset(ConcatDataset):
                 else:
                     dataset_weight = np.sum(
                         [
-                            dataset.class_counts["totals"][c] * self.class_weights[c]
+                            dataset.class_counts["totals"][c] * self.class_weights[c]  # type: ignore
                             for c in self.classes
                         ]
                     )
-                    dataset_weight *= (1 / len(dataset)) if len(dataset) > 0 else 0
+                    dataset_weight *= (1 / len(dataset)) if len(dataset) > 0 else 0  # type: ignore
                 dataset_weights[dataset] = dataset_weight
             self._dataset_weights = dataset_weights
             return self._dataset_weights
@@ -193,7 +194,7 @@ class CellMapMultiDataset(ConcatDataset):
                         offset = 0
                     else:
                         offset = self.cumulative_sizes[i - 1]
-                    sample_indices = np.array(dataset.validation_indices) + offset
+                    sample_indices = np.array(dataset.validation_indices) + offset  # type: ignore
                     indices.extend(list(sample_indices))
                 except AttributeError:
                     UserWarning(
@@ -211,16 +212,16 @@ class CellMapMultiDataset(ConcatDataset):
 
         n_verified_datasets = 0
         for dataset in self.datasets:
-            n_verified_datasets += int(dataset.verify())
+            n_verified_datasets += int(dataset.verify())  # type: ignore
             try:
                 assert (
-                    dataset.classes == self.classes
+                    dataset.classes == self.classes  # type: ignore
                 ), "All datasets must have the same classes."
-                assert set(dataset.input_arrays.keys()) == set(
+                assert set(dataset.input_arrays.keys()) == set(  # type: ignore
                     self.input_arrays.keys()
                 ), "All datasets must have the same input arrays."
                 if self.target_arrays is not None:
-                    assert set(dataset.target_arrays.keys()) == set(
+                    assert set(dataset.target_arrays.keys()) == set(  # type: ignore
                         self.target_arrays.keys()
                     ), "All datasets must have the same target arrays."
             except AssertionError as e:
@@ -234,7 +235,7 @@ class CellMapMultiDataset(ConcatDataset):
         self, device: str | torch.device, non_blocking: bool = True
     ) -> "CellMapMultiDataset":
         for dataset in self.datasets:
-            dataset.to(device, non_blocking=non_blocking)
+            dataset.to(device, non_blocking=non_blocking)  # type: ignore
         return self
 
     def get_weighted_sampler(
@@ -255,7 +256,7 @@ class CellMapMultiDataset(ConcatDataset):
         else:
             # 1) Draw raw counts per dataset
             dataset_weights = torch.tensor(
-                [self.dataset_weights[ds] for ds in self.datasets], dtype=torch.double
+                [self.dataset_weights[ds] for ds in self.datasets], dtype=torch.double  # type: ignore
             )
             dataset_weights[dataset_weights < 0.1] = 0.1
 
@@ -273,7 +274,7 @@ class CellMapMultiDataset(ConcatDataset):
             final_counts = []
             overflow = 0
             for i, ds in enumerate(self.datasets):
-                size_i = len(ds)
+                size_i = len(ds)  # type: ignore
                 c = raw_counts[i]
                 if c > size_i:
                     overflow += c - size_i
@@ -281,7 +282,7 @@ class CellMapMultiDataset(ConcatDataset):
                 final_counts.append(c)
 
             # 3) Distribute overflow via recursion, using dataset_weights
-            capacity = [len(ds) - final_counts[i] for i, ds in enumerate(self.datasets)]
+            capacity = [len(ds) - final_counts[i] for i, ds in enumerate(self.datasets)]  # type: ignore
             weights = dataset_weights.clone()
 
             def redistribute(counts, caps, free_weights, over):
@@ -356,7 +357,7 @@ class CellMapMultiDataset(ConcatDataset):
             index_offset = 0
             for i, ds in enumerate(self.datasets):
                 c = final_counts[i]
-                size_i = len(ds)
+                size_i = len(ds)  # type: ignore
                 if c == 0:
                     index_offset += size_i
                     continue
@@ -393,26 +394,26 @@ class CellMapMultiDataset(ConcatDataset):
                 offset = 0
             else:
                 offset = self.cumulative_sizes[i - 1]
-            sample_indices = np.array(dataset.get_indices(chunk_size)) + offset
+            sample_indices = np.array(dataset.get_indices(chunk_size)) + offset  # type: ignore
             indices.extend(list(sample_indices))
         return indices
 
     def set_raw_value_transforms(self, transforms: Callable) -> None:
         """Sets the raw value transforms for each dataset in the multi-dataset."""
         for dataset in self.datasets:
-            dataset.set_raw_value_transforms(transforms)
+            dataset.set_raw_value_transforms(transforms)  # type: ignore
 
     def set_target_value_transforms(self, transforms: Callable) -> None:
         """Sets the target value transforms for each dataset in the multi-dataset."""
         for dataset in self.datasets:
-            dataset.set_target_value_transforms(transforms)
+            dataset.set_target_value_transforms(transforms)  # type: ignore
 
     def set_spatial_transforms(
         self, spatial_transforms: Mapping[str, Any] | None
     ) -> None:
         """Sets the raw value transforms for each dataset in the training multi-dataset."""
         for dataset in self.datasets:
-            dataset.spatial_transforms = spatial_transforms
+            dataset.spatial_transforms = spatial_transforms  # type: ignore
 
     @staticmethod
     def empty() -> "CellMapMultiDataset":

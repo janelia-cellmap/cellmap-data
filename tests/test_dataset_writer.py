@@ -42,12 +42,20 @@ class TestCellMapDatasetWriter:
             "predictions": {"shape": (32, 32, 32), "scale": (8.0, 8.0, 8.0)}
         }
 
+        target_bounds = {
+            "predictions": {
+                "x": [0, 256],
+                "y": [0, 256],
+                "z": [0, 256],
+            }
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=writer_config["output_path"],
             classes=["class_0", "class_1"],
             input_arrays=input_arrays,
             target_arrays=target_arrays,
+            target_bounds=target_bounds,
         )
 
         assert writer is not None
@@ -60,12 +68,20 @@ class TestCellMapDatasetWriter:
 
         classes = ["class_0", "class_1", "class_2"]
 
+        target_bounds = {
+            "pred": {
+                "x": [0, 128],
+                "y": [0, 128],
+                "z": [0, 128],
+            }
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=writer_config["output_path"],
             classes=classes,
             input_arrays={"raw": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             target_arrays={"pred": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
+            target_bounds=target_bounds,
         )
 
         assert writer.classes == classes
@@ -79,12 +95,20 @@ class TestCellMapDatasetWriter:
             "raw_8nm": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)},
         }
 
+        target_bounds = {
+            "pred": {
+                "x": [0, 128],
+                "y": [0, 128],
+                "z": [0, 128],
+            }
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=writer_config["output_path"],
             classes=["class_0"],
             input_arrays=input_arrays,
             target_arrays={"pred": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
+            target_bounds=target_bounds,
         )
 
         assert "raw_4nm" in writer.input_arrays
@@ -99,12 +123,25 @@ class TestCellMapDatasetWriter:
             "confidences": {"shape": (32, 32, 32), "scale": (8.0, 8.0, 8.0)},
         }
 
+        target_bounds = {
+            "predictions": {
+                "x": [0, 256],
+                "y": [0, 256],
+                "z": [0, 256],
+            },
+            "confidences": {
+                "x": [0, 256],
+                "y": [0, 256],
+                "z": [0, 256],
+            },
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=writer_config["output_path"],
             classes=["class_0"],
             input_arrays={"raw": {"shape": (32, 32, 32), "scale": (8.0, 8.0, 8.0)}},
             target_arrays=target_arrays,
+            target_bounds=target_bounds,
         )
 
         assert "predictions" in writer.target_arrays
@@ -115,7 +152,7 @@ class TestCellMapDatasetWriter:
         config = writer_config["input_config"]
 
         target_bounds = {
-            "array": {
+            "pred": {
                 "x": [0, 512],
                 "y": [0, 512],
                 "z": [0, 64],
@@ -137,6 +174,13 @@ class TestCellMapDatasetWriter:
         """Test axis order parameter."""
         config = writer_config["input_config"]
 
+        target_bounds = {
+            "pred": {
+                "x": [0, 128],
+                "y": [0, 128],
+                "z": [0, 128],
+            }
+        }
         for axis_order in ["zyx", "xyz", "yxz"]:
             writer = CellMapDatasetWriter(
                 raw_path=config["raw_path"],
@@ -147,6 +191,7 @@ class TestCellMapDatasetWriter:
                     "pred": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}
                 },
                 axis_order=axis_order,
+                target_bounds=target_bounds,
             )
             assert writer.axis_order == axis_order
 
@@ -154,15 +199,22 @@ class TestCellMapDatasetWriter:
         """Test pad parameter."""
         config = writer_config["input_config"]
 
+        target_bounds = {
+            "pred": {
+                "x": [0, 128],
+                "y": [0, 128],
+                "z": [0, 128],
+            }
+        }
         writer_pad = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=writer_config["output_path"],
             classes=["class_0"],
             input_arrays={"raw": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             target_arrays={"pred": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
-            pad=True,
+            target_bounds=target_bounds,
         )
-        assert writer_pad.pad is True
+        assert writer_pad.input_sources["raw"].pad is True
 
         writer_no_pad = CellMapDatasetWriter(
             raw_path=config["raw_path"],
@@ -170,14 +222,21 @@ class TestCellMapDatasetWriter:
             classes=["class_0"],
             input_arrays={"raw": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             target_arrays={"pred": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
-            pad=False,
+            target_bounds=target_bounds,
         )
-        assert writer_no_pad.pad is False
+        assert writer_no_pad.input_sources["raw"].pad is True
 
     def test_device_parameter(self, writer_config):
         """Test device parameter."""
         config = writer_config["input_config"]
 
+        target_bounds = {
+            "pred": {
+                "x": [0, 128],
+                "y": [0, 128],
+                "z": [0, 128],
+            }
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=writer_config["output_path"],
@@ -185,6 +244,7 @@ class TestCellMapDatasetWriter:
             input_arrays={"raw": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             target_arrays={"pred": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             device="cpu",
+            target_bounds=target_bounds,
         )
 
         assert writer is not None
@@ -196,6 +256,13 @@ class TestCellMapDatasetWriter:
         config = writer_config["input_config"]
         context = ts.Context()
 
+        target_bounds = {
+            "pred": {
+                "x": [0, 128],
+                "y": [0, 128],
+                "z": [0, 128],
+            }
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=writer_config["output_path"],
@@ -203,6 +270,7 @@ class TestCellMapDatasetWriter:
             input_arrays={"raw": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             target_arrays={"pred": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             context=context,
+            target_bounds=target_bounds,
         )
 
         assert writer.context is context
@@ -225,6 +293,13 @@ class TestWriterOperations:
 
         raw_transform = Normalize(scale=1.0 / 255.0)
 
+        target_bounds = {
+            "pred": {
+                "x": [0, 128],
+                "y": [0, 128],
+                "z": [0, 128],
+            }
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=str(output_path),
@@ -232,6 +307,7 @@ class TestWriterOperations:
             input_arrays={"raw": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             target_arrays={"pred": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
             raw_value_transforms=raw_transform,
+            target_bounds=target_bounds,
         )
 
         assert writer.raw_value_transforms is not None
@@ -247,12 +323,20 @@ class TestWriterOperations:
         output_path = tmp_path / "output.zarr"
 
         # Input larger than output
+        target_bounds = {
+            "pred": {
+                "x": [0, 128],
+                "y": [0, 128],
+                "z": [0, 128],
+            }
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=str(output_path),
             classes=["class_0"],
             input_arrays={"raw": {"shape": (32, 32, 32), "scale": (8.0, 8.0, 8.0)}},
             target_arrays={"pred": {"shape": (16, 16, 16), "scale": (8.0, 8.0, 8.0)}},
+            target_bounds=target_bounds,
         )
 
         assert writer.input_arrays["raw"]["shape"] == (32, 32, 32)
@@ -269,12 +353,20 @@ class TestWriterOperations:
 
         output_path = tmp_path / "output.zarr"
 
+        target_bounds = {
+            "pred": {
+                "x": [0, 128],
+                "y": [0, 256],
+                "z": [0, 512],
+            }
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=str(output_path),
             classes=["class_0"],
             input_arrays={"raw": {"shape": (16, 32, 32), "scale": (16.0, 4.0, 4.0)}},
             target_arrays={"pred": {"shape": (16, 32, 32), "scale": (16.0, 4.0, 4.0)}},
+            target_bounds=target_bounds,
         )
 
         assert writer.input_arrays["raw"]["scale"] == (16.0, 4.0, 4.0)
@@ -295,12 +387,20 @@ class TestWriterIntegration:
         output_path = tmp_path / "predictions.zarr"
 
         # Create writer
+        target_bounds = {
+            "pred": {
+                "x": [0, 512],
+                "y": [0, 512],
+                "z": [0, 512],
+            }
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=str(output_path),
             classes=["class_0", "class_1"],
             input_arrays={"raw": {"shape": (32, 32, 32), "scale": (8.0, 8.0, 8.0)}},
             target_arrays={"pred": {"shape": (32, 32, 32), "scale": (8.0, 8.0, 8.0)}},
+            target_bounds=target_bounds,
         )
 
         # Writer should be ready
@@ -318,7 +418,7 @@ class TestWriterIntegration:
 
         # Only write to specific region
         target_bounds = {
-            "array": {
+            "pred": {
                 "x": [32, 96],
                 "y": [32, 96],
                 "z": [0, 64],
@@ -353,12 +453,30 @@ class TestWriterIntegration:
             "embeddings": {"shape": (32, 32, 32), "scale": (8.0, 8.0, 8.0)},
         }
 
+        target_bounds = {
+            "predictions": {
+                "x": [0, 512],
+                "y": [0, 512],
+                "z": [0, 512],
+            },
+            "uncertainties": {
+                "x": [0, 512],
+                "y": [0, 512],
+                "z": [0, 512],
+            },
+            "embeddings": {
+                "x": [0, 512],
+                "y": [0, 512],
+                "z": [0, 512],
+            },
+        }
         writer = CellMapDatasetWriter(
             raw_path=config["raw_path"],
             target_path=str(output_path),
             classes=["class_0", "class_1", "class_2"],
             input_arrays={"raw": {"shape": (32, 32, 32), "scale": (8.0, 8.0, 8.0)}},
             target_arrays=target_arrays,
+            target_bounds=target_bounds,
         )
 
         assert len(writer.target_arrays) == 3
@@ -374,6 +492,12 @@ class TestWriterIntegration:
 
         output_path = tmp_path / "output_2d.zarr"
 
+        target_bounds = {
+            "pred": {
+                "x": [0, 512],
+                "y": [0, 512],
+            }
+        }
         writer = CellMapDatasetWriter(
             raw_path=str(input_path),
             target_path=str(output_path),
@@ -381,6 +505,7 @@ class TestWriterIntegration:
             input_arrays={"raw": {"shape": (64, 64), "scale": (4.0, 4.0)}},
             target_arrays={"pred": {"shape": (64, 64), "scale": (4.0, 4.0)}},
             axis_order="yx",
+            target_bounds=target_bounds,
         )
 
         assert writer.axis_order == "yx"

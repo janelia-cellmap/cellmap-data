@@ -17,9 +17,9 @@ class TestEmptyImage:
     def test_initialization_basic(self):
         """Test basic EmptyImage initialization."""
         empty_image = EmptyImage(
-            target_class="test_class",
-            target_scale=(8.0, 8.0, 8.0),
-            target_voxel_shape=(16, 16, 16),
+            label_class="test_class",
+            scale=(8.0, 8.0, 8.0),
+            voxel_shape=(16, 16, 16),
             axis_order="zyx",
         )
 
@@ -31,9 +31,9 @@ class TestEmptyImage:
         """Test that EmptyImage has correct shape."""
         shape = (32, 32, 32)
         empty_image = EmptyImage(
-            target_class="empty",
-            target_scale=(4.0, 4.0, 4.0),
-            target_voxel_shape=shape,
+            label_class="empty",
+            scale=(4.0, 4.0, 4.0),
+            voxel_shape=shape,
             axis_order="zyx",
         )
 
@@ -42,9 +42,9 @@ class TestEmptyImage:
     def test_empty_image_2d(self):
         """Test EmptyImage with 2D shape."""
         empty_image = EmptyImage(
-            target_class="empty_2d",
-            target_scale=(4.0, 4.0),
-            target_voxel_shape=(64, 64),
+            label_class="empty_2d",
+            scale=(4.0, 4.0),
+            voxel_shape=(64, 64),
             axis_order="yx",
         )
 
@@ -54,9 +54,9 @@ class TestEmptyImage:
     def test_empty_image_different_scales(self):
         """Test EmptyImage with different scales per axis."""
         empty_image = EmptyImage(
-            target_class="anisotropic",
-            target_scale=(16.0, 4.0, 4.0),
-            target_voxel_shape=(16, 32, 32),
+            label_class="anisotropic",
+            scale=(16.0, 4.0, 4.0),
+            voxel_shape=(16, 32, 32),
             axis_order="zyx",
         )
 
@@ -70,34 +70,34 @@ class TestEmptyImage:
             return x * 2
 
         empty_image = EmptyImage(
-            target_class="test",
-            target_scale=(4.0, 4.0, 4.0),
-            target_voxel_shape=(8, 8, 8),
-            value_transform=dummy_transform,
+            label_class="test",
+            scale=(4.0, 4.0, 4.0),
+            voxel_shape=(8, 8, 8),
         )
+        empty_image.value_transform = dummy_transform
 
         assert empty_image.value_transform is not None
 
     def test_empty_image_device(self):
         """Test EmptyImage device assignment."""
         empty_image = EmptyImage(
-            target_class="test",
-            target_scale=(4.0, 4.0, 4.0),
-            target_voxel_shape=(8, 8, 8),
-            device="cpu",
+            label_class="test",
+            scale=(4.0, 4.0, 4.0),
+            voxel_shape=(8, 8, 8),
         )
+        empty_image.to("cpu")
 
-        assert empty_image.device == "cpu"
+        assert empty_image.store.device.type == "cpu"
 
     def test_empty_image_pad_parameter(self):
         """Test EmptyImage with pad parameter."""
         empty_image = EmptyImage(
-            target_class="test",
-            target_scale=(4.0, 4.0, 4.0),
-            target_voxel_shape=(8, 8, 8),
-            pad=True,
-            pad_value=0.0,
+            label_class="test",
+            scale=(4.0, 4.0, 4.0),
+            voxel_shape=(8, 8, 8),
         )
+        empty_image.pad = True
+        empty_image.pad_value = 0.0
 
         assert empty_image.pad is True
         assert empty_image.pad_value == 0.0
@@ -116,13 +116,14 @@ class TestImageWriter:
         writer = ImageWriter(
             path=str(output_path),
             target_class="output_class",
-            target_scale=(8.0, 8.0, 8.0),
-            target_voxel_shape=(32, 32, 32),
+            scale=(8.0, 8.0, 8.0),
+            write_voxel_shape=(32, 32, 32),
             axis_order="zyx",
+            bounding_box={"z": [0, 256], "y": [0, 256], "x": [0, 256]},
         )
 
-        assert writer.path == str(output_path)
-        assert writer.label_class == "output_class"
+        assert writer.path.endswith(str(output_path) + "/s0")
+        assert writer.target_class == "output_class"
 
     def test_image_writer_with_existing_data(self, tmp_path):
         """Test ImageWriter with pre-existing data."""
@@ -135,11 +136,12 @@ class TestImageWriter:
         writer = ImageWriter(
             path=str(path),
             target_class="test",
-            target_scale=(4.0, 4.0, 4.0),
-            target_voxel_shape=(16, 16, 16),
+            scale=(4.0, 4.0, 4.0),
+            write_voxel_shape=(16, 16, 16),
+            bounding_box={"z": [0, 128], "y": [0, 128], "x": [0, 128]},
         )
 
-        assert writer.path == str(path)
+        assert writer.path.endswith(str(path) + "/s0")
 
     def test_image_writer_different_shapes(self, tmp_path):
         """Test ImageWriter with different output shapes."""
@@ -150,11 +152,16 @@ class TestImageWriter:
             writer = ImageWriter(
                 path=str(path),
                 target_class="test",
-                target_scale=(4.0, 4.0, 4.0),
-                target_voxel_shape=shape,
+                scale=(4.0, 4.0, 4.0),
+                write_voxel_shape=shape,
+                bounding_box={"z": [0, 256], "y": [0, 128], "x": [0, 64]},
             )
 
-            assert writer.output_shape == {"z": shape[0], "y": shape[1], "x": shape[2]}
+            assert writer.write_voxel_shape == {
+                "z": shape[0],
+                "y": shape[1],
+                "x": shape[2],
+            }
 
     def test_image_writer_2d(self, tmp_path):
         """Test ImageWriter for 2D images."""
@@ -162,13 +169,14 @@ class TestImageWriter:
         writer = ImageWriter(
             path=str(path),
             target_class="test_2d",
-            target_scale=(4.0, 4.0),
-            target_voxel_shape=(64, 64),
+            scale=(4.0, 4.0),
+            write_voxel_shape=(64, 64),
             axis_order="yx",
+            bounding_box={"y": [0, 256], "x": [0, 256]},
         )
 
         assert writer.axes == "yx"
-        assert len(writer.output_shape) == 2
+        assert len(writer.write_voxel_shape) == 2
 
     def test_image_writer_value_transform(self, tmp_path):
         """Test ImageWriter with value transform."""
@@ -180,10 +188,11 @@ class TestImageWriter:
         writer = ImageWriter(
             path=str(path),
             target_class="test",
-            target_scale=(4.0, 4.0, 4.0),
-            target_voxel_shape=(16, 16, 16),
-            value_transform=normalize,
+            scale=(4.0, 4.0, 4.0),
+            write_voxel_shape=(16, 16, 16),
+            bounding_box={"z": [0, 64], "y": [0, 64], "x": [0, 64]},
         )
+        writer.value_transform = normalize
 
         assert writer.value_transform is not None
 
@@ -194,10 +203,11 @@ class TestImageWriter:
             writer = ImageWriter(
                 path=str(path),
                 target_class="test",
-                target_scale=(4.0, 4.0, 4.0),
-                target_voxel_shape=(16, 16, 16),
-                interpolation=interp,
+                scale=(4.0, 4.0, 4.0),
+                write_voxel_shape=(16, 16, 16),
+                bounding_box={"z": [0, 64], "y": [0, 64], "x": [0, 64]},
             )
+            writer.interpolation = interp
 
             assert writer.interpolation == interp
 
@@ -207,14 +217,15 @@ class TestImageWriter:
         writer = ImageWriter(
             path=str(path),
             target_class="test",
-            target_scale=(16.0, 4.0, 4.0),  # Anisotropic
-            target_voxel_shape=(16, 32, 32),
+            scale=(16.0, 4.0, 4.0),  # Anisotropic
+            write_voxel_shape=(16, 32, 32),
             axis_order="zyx",
+            bounding_box={"z": [0, 256], "y": [0, 128], "x": [0, 128]},
         )
 
         assert writer.scale == {"z": 16.0, "y": 4.0, "x": 4.0}
         # Output size should account for scale
-        assert writer.output_size == {"z": 256.0, "y": 128.0, "x": 128.0}
+        assert writer.write_world_shape == {"z": 256.0, "y": 128.0, "x": 128.0}
 
     def test_image_writer_context(self, tmp_path):
         """Test ImageWriter with TensorStore context."""
@@ -226,9 +237,10 @@ class TestImageWriter:
         writer = ImageWriter(
             path=str(path),
             target_class="test",
-            target_scale=(4.0, 4.0, 4.0),
-            target_voxel_shape=(16, 16, 16),
+            scale=(4.0, 4.0, 4.0),
+            write_voxel_shape=(16, 16, 16),
             context=context,
+            bounding_box={"z": [0, 64], "y": [0, 64], "x": [0, 64]},
         )
 
         assert writer.context is context
@@ -241,9 +253,9 @@ class TestEmptyImageIntegration:
         """Test using EmptyImage as placeholder in dataset."""
         # EmptyImage can be used when data is missing
         empty = EmptyImage(
-            target_class="missing_class",
-            target_scale=(8.0, 8.0, 8.0),
-            target_voxel_shape=(32, 32, 32),
+            label_class="missing_class",
+            scale=(8.0, 8.0, 8.0),
+            voxel_shape=(32, 32, 32),
         )
 
         # Should have proper attributes
@@ -256,9 +268,9 @@ class TestEmptyImageIntegration:
         empty_images = []
         for i in range(3):
             empty = EmptyImage(
-                target_class=f"class_{i}",
-                target_scale=(4.0, 4.0, 4.0),
-                target_voxel_shape=(16, 16, 16),
+                label_class=f"class_{i}",
+                scale=(4.0, 4.0, 4.0),
+                voxel_shape=(16, 16, 16),
             )
             empty_images.append(empty)
 
@@ -276,13 +288,14 @@ class TestImageWriterIntegration:
         writer = ImageWriter(
             path=str(path),
             target_class="predictions",
-            target_scale=(8.0, 8.0, 8.0),
-            target_voxel_shape=(32, 32, 32),
+            scale=(8.0, 8.0, 8.0),
+            write_voxel_shape=(32, 32, 32),
+            bounding_box={"z": [0, 256], "y": [0, 256], "x": [0, 256]},
         )
 
         # Writer should be ready to write
-        assert writer.path == str(path)
-        assert writer.output_shape is not None
+        assert writer.path.endswith(str(path) + "/s0")
+        assert writer.write_voxel_shape is not None
 
     def test_multiple_writers_different_classes(self, tmp_path):
         """Test multiple writers for different classes."""
@@ -294,10 +307,11 @@ class TestImageWriterIntegration:
             writer = ImageWriter(
                 path=str(path),
                 target_class=class_name,
-                target_scale=(4.0, 4.0, 4.0),
-                target_voxel_shape=(16, 16, 16),
+                scale=(4.0, 4.0, 4.0),
+                write_voxel_shape=(16, 16, 16),
+                bounding_box={"z": [0, 64], "y": [0, 64], "x": [0, 64]},
             )
             writers.append(writer)
 
         assert len(writers) == 3
-        assert all(w.label_class in classes for w in writers)
+        assert all(w.target_class in classes for w in writers)

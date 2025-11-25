@@ -107,14 +107,13 @@ class TestCellMapMultiDataset:
 
     def test_empty_datasets_list(self):
         """Test with empty datasets list."""
-        multi_dataset = CellMapMultiDataset(
-            classes=["class_0"],
-            input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
-            target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
-            datasets=[],
-        )
-
-        assert len(multi_dataset.datasets) == 0
+        with pytest.raises(ValueError):
+            CellMapDataSplit(
+                classes=["class_0"],
+                input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+                target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+                datasets={"train": []},
+            )
 
     def test_single_dataset(self, multiple_datasets):
         """Test with single dataset."""
@@ -134,15 +133,16 @@ class TestCellMapMultiDataset:
             "rotate": {"axes": {"z": [-45, 45]}},
         }
 
-        multi_dataset = CellMapMultiDataset(
+        datasplit = CellMapDataSplit(
             classes=["class_0", "class_1"],
             input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
             target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
-            datasets=multiple_datasets,
+            datasets={"train": multiple_datasets},
             spatial_transforms=spatial_transforms,
+            force_has_data=True,
         )
 
-        assert multi_dataset.spatial_transforms is not None
+        assert datasplit.spatial_transforms is not None
 
 
 class TestCellMapDataSplit:
@@ -215,6 +215,7 @@ class TestCellMapDataSplit:
             classes=["class_0", "class_1"],
             input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
             target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            force_has_data=True,
         )
 
         # Should have train and validation datasets
@@ -245,6 +246,7 @@ class TestCellMapDataSplit:
             classes=classes,
             input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
             target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            force_has_data=True,
         )
 
         assert datasplit.classes == classes
@@ -272,6 +274,7 @@ class TestCellMapDataSplit:
             classes=["class_0", "class_1"],
             input_arrays=input_arrays,
             target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            force_has_data=True,
         )
 
         assert datasplit.input_arrays is not None
@@ -300,6 +303,7 @@ class TestCellMapDataSplit:
             input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
             target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
             spatial_transforms=spatial_transforms,
+            force_has_data=True,
         )
 
         assert datasplit is not None
@@ -319,6 +323,7 @@ class TestCellMapDataSplit:
             classes=["class_0", "class_1"],
             input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
             target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            force_has_data=True,
         )
 
         assert datasplit is not None
@@ -338,6 +343,7 @@ class TestCellMapDataSplit:
             classes=["class_0", "class_1"],
             input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
             target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            force_has_data=True,
         )
 
         assert datasplit is not None

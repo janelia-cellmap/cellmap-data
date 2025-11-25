@@ -244,18 +244,17 @@ class TestDataLoaderOperations:
             target_arrays=target_arrays,
         )
 
+        print(config)
+        assert len(dataset) > 0
+
         return CellMapDataLoader(dataset, batch_size=2, num_workers=0)
 
     def test_length(self, simple_loader):
         """Test that loader has a length."""
-        # Loader may or may not implement __len__
-        # depending on configuration
-        try:
-            length = len(simple_loader)
-            assert length >= 0
-        except TypeError:
-            # Some configurations may not support len
-            pass
+        # Loader should implement __len__
+        length = len(simple_loader)
+        assert isinstance(length, int)
+        assert length > 0
 
     def test_device_transfer(self, simple_loader):
         """Test transferring loader to device."""

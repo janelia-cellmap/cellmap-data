@@ -9,8 +9,9 @@ import numpy as np
 import tensorstore
 import torch
 from numpy.typing import ArrayLike
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, WeightedRandomSampler
 
+from .base_dataset import CellMapBaseDataset
 from .empty_image import EmptyImage
 from .image import CellMapImage
 from .mutable_sampler import MutableSubsetRandomSampler
@@ -21,7 +22,7 @@ logger.setLevel(logging.INFO)
 
 
 # %%
-class CellMapDataset(Dataset):
+class CellMapDataset(CellMapBaseDataset, Dataset):
     """
     Subclasses PyTorch Dataset to load CellMap data for training.
 
@@ -139,13 +140,19 @@ class CellMapDataset(Dataset):
         if max_workers is not None:
             self._max_workers = max_workers
         else:
+            # For HPC with I/O lag: prioritize I/O parallelism over CPU count
+            # Estimate based on number of concurrent I/O operations needed
+            estimated_concurrent_io = len(self.input_arrays) + len(self.target_arrays)
+            # Use at least 2 workers (input + target), cap at reasonable limit
+            # to avoid thread overhead while allowing parallel I/O requests
             self._max_workers = min(
-                os.cpu_count() or 1, int(os.environ.get("CELLMAP_MAX_WORKERS", 4))
+                max(estimated_concurrent_io, 2),  # At least 2 workers
+                int(os.environ.get("CELLMAP_MAX_WORKERS", 8)),  # Cap at 8 by default
             )
 
         logger.debug(
             "CellMapDataset initialized with %d inputs, %d targets, %d classes. "
-            "Using ThreadPoolExecutor with %d workers.",
+            "Using ThreadPoolExecutor with %d workers for parallel I/O.",
             len(self.input_arrays),
             len(self.target_arrays),
             len(self.classes),
@@ -452,20 +459,23 @@ class CellMapDataset(Dataset):
             return self._class_counts
 
     @property
-    def class_weights(self) -> Mapping[str, float]:
-        """Returns the class weights for the dataset based on the number of samples in each class. Classes without any samples will have a weight of NaN."""
+    def class_weights(self) -> dict[str, float]:
+        """Returns the class weights for the dataset based on the number of samples in each class. Classes without any samples will have a weight of 1."""
         try:
             return self._class_weights
         except AttributeError:
-            class_weights = {}
-            for c in self.classes:
-                total_c = self.class_counts["totals"][c]
-                total_bg = self.class_counts["totals"][c + "_bg"]
-                if total_c > 0:
-                    class_weights[c] = total_bg / total_c
-                else:
-                    class_weights[c] = 1.0
-            self._class_weights = class_weights
+            if self.classes is None:
+                self._class_weights = {}
+            else:
+                self._class_weights = {
+                    c: (
+                        self.class_counts["totals"][c + "_bg"]
+                        / self.class_counts["totals"][c]
+                        if self.class_counts["totals"][c] != 0
+                        else 1
+                    )
+                    for c in self.classes
+                }
             return self._class_weights
 
     @property
@@ -496,15 +506,11 @@ class CellMapDataset(Dataset):
             return self._device
 
     def __len__(self) -> int:
-        """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for an array request."""
+        """Returns the number of patches in the dataset."""
         if not self.has_data and not self.force_has_data:
             return 0
-        try:
-            return self._len
-        except AttributeError:
-            size = np.prod([self.sampling_box_shape[c] for c in self.axis_order])
-            self._len = int(size)
-            return self._len
+        # Return at least 1 if the dataset has data, so that samplers can be initialized
+        return int(max(np.prod(list(self.sampling_box_shape.values())), 1))
 
     def __getitem__(self, idx: ArrayLike) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
@@ -732,7 +738,8 @@ class CellMapDataset(Dataset):
                 interpolation="nearest",
             )
             if not self.has_data:
-                self.has_data = array.class_counts != 0
+                self.has_data = array.class_counts > 0
+            logger.info(f"Dataset has data: {self.has_data}")
         else:
             if (
                 self.class_relation_dict is not None
@@ -927,6 +934,37 @@ class CellMapDataset(Dataset):
     ) -> Sequence[int]:
         inds = min_redundant_inds(len(self), num_samples, rng=rng)
         return inds.tolist()
+
+    def get_subset_random_sampler(
+        self,
+        num_samples: int,
+        weighted: bool = False,
+        rng: Optional[torch.Generator] = None,
+    ) -> MutableSubsetRandomSampler:
+        """
+        Returns a subset random sampler for the dataset.
+
+        Args:
+        ----
+            num_samples: The number of samples.
+            weighted: Whether to use weighted sampling.
+            rng: The random number generator.
+
+        Returns:
+        -------
+            A subset random sampler.
+        """
+        if num_samples is None:
+            num_samples = len(self) * 2
+
+        if weighted:
+            raise NotImplementedError("Weighted sampling is not yet implemented.")
+        else:
+            indices_generator = lambda: min_redundant_inds(
+                len(self), num_samples, rng=rng
+            )
+
+        return MutableSubsetRandomSampler(indices_generator, rng=rng)
 
     @staticmethod
     def empty() -> "CellMapDataset":

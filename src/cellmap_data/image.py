@@ -17,10 +17,12 @@ from pydantic_ome_ngff.v04.transform import Scale, Translation, VectorScale
 from scipy.spatial.transform import Rotation as rot
 from xarray_ome_ngff.v04.multiscale import coords_from_transforms
 
+from .base_image import CellMapImageBase
+
 logger = logging.getLogger(__name__)
 
 
-class CellMapImage:
+class CellMapImage(CellMapImageBase):
     """
     A class for handling image data from a CellMap dataset.
 
@@ -84,6 +86,7 @@ class CellMapImage:
         self._current_spatial_transforms = None
         self._current_coords: Any = None
         self._current_center = None
+        self._coord_offsets = None  # Cache for coordinate offsets (optimization)
         if device is not None:
             self.device = device
         elif torch.cuda.is_available():
@@ -98,26 +101,20 @@ class CellMapImage:
         if isinstance(list(center.values())[0], int | float):
             self._current_center = center
 
-            # Find vectors of coordinates in world space to pull data from
-            coords = {}
+            # Use cached coordinate offsets + translation (much faster than np.linspace)
+            # This eliminates repeated coordinate grid generation
+            coords = {c: self.coord_offsets[c] + center[c] for c in self.axes}
+
+            # Bounds checking
             for c in self.axes:
                 if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
-                    # raise ValueError(
                     UserWarning(
                         f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
                     )
-                    # center[c] = self.bounding_box[c][0] + self.output_size[c] / 2
                 if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
-                    # raise ValueError(
                     UserWarning(
                         f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
                     )
-                    # center[c] = self.bounding_box[c][1] - self.output_size[c] / 2
-                coords[c] = np.linspace(
-                    center[c] - self.output_size[c] / 2 + self.scale[c] / 2,
-                    center[c] + self.output_size[c] / 2 - self.scale[c] / 2,
-                    self.output_shape[c],
-                )
 
             # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
             data = self.apply_spatial_transforms(coords)
@@ -142,6 +139,31 @@ class CellMapImage:
     def __repr__(self) -> str:
         """Returns a string representation of the CellMapImage object."""
         return f"CellMapImage({self.array_path})"
+
+    @property
+    def coord_offsets(self) -> Mapping[str, np.ndarray]:
+        """
+        Cached coordinate offsets from center.
+
+        These offsets are constant for a given scale/shape and are used to
+        construct coordinate grids by simply adding the center position.
+        This eliminates repeated np.linspace calls in __getitem__.
+
+        Returns
+        -------
+        Mapping[str, np.ndarray]
+            Dictionary mapping axis names to coordinate offset arrays.
+        """
+        if self._coord_offsets is None:
+            self._coord_offsets = {
+                c: np.linspace(
+                    -self.output_size[c] / 2 + self.scale[c] / 2,
+                    self.output_size[c] / 2 - self.scale[c] / 2,
+                    self.output_shape[c],
+                )
+                for c in self.axes
+            }
+        return self._coord_offsets
 
     @property
     def shape(self) -> Mapping[str, int]:
@@ -256,7 +278,7 @@ class CellMapImage:
                 )
             else:
                 # Construct an xarray with Tensorstore backend
-                spec = xt._zarr_spec_from_path(self.array_path, zarr_format=2)
+                spec = xt._zarr_spec_from_path(self.array_path)
                 array_future = ts.open(
                     spec, read=True, write=False, context=self.context
                 )
@@ -363,13 +385,23 @@ class CellMapImage:
                 else:
                     raise ValueError("s0_scale not found")
             except Exception as e:
-                logger.warning(f"Error: {e}")
-                logger.warning(f"Unable to get class counts for {self.path}")
-                # logger.warning("from metadata, falling back to giving foreground 1 pixel, and the rest to background.")
-                self._class_counts = np.prod(np.array(list(self.scale.values())))
-                self._bg_count = (
-                    np.prod(np.array(self.group[self.scale_level].shape)) - 1
-                ) * np.prod(np.array(list(self.scale.values())))
+                logger.warning(
+                    "Unable to get class counts for %s from metadata, "
+                    "falling back to calculating from array. Error: %s, %s",
+                    self.path,
+                    e,
+                    type(e),
+                )
+                # Fallback to calculating from array
+                array_data = self.array.compute()
+                self._class_counts = float(
+                    np.count_nonzero(array_data)
+                    * np.prod(np.array(list(self.scale.values())))
+                )
+                self._bg_count = float(
+                    (array_data.size - np.count_nonzero(array_data))
+                    * np.prod(np.array(list(self.scale.values())))
+                )
             return self._class_counts
 
     def to(self, device: str, *args, **kwargs) -> None:

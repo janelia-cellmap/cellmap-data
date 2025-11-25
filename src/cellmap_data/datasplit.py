@@ -239,8 +239,8 @@ class CellMapDataSplit:
             self.construct(self.dataset_dict)
         self.verify_datasets()
         # Require training datasets unless force_has_data is True
-        if not self.force_has_data:
-            assert len(self.train_datasets) > 0, "No valid training datasets found."
+        if not self.force_has_data and not (len(self.train_datasets) > 0):
+            raise ValueError("No valid training datasets found.")
         logger.info("CellMapDataSplit initialized.")
 
     def __repr__(self) -> str:
@@ -335,34 +335,29 @@ class CellMapDataSplit:
         self.validation_datasets = []
         self.datasets = {}
         logger.info("Constructing datasets...")
-        for data_paths in tqdm(dataset_dict["train"], desc="Training datasets"):
-            try:
-                self.train_datasets.append(
-                    CellMapDataset(
-                        data_paths["raw"],
-                        data_paths["gt"],
-                        self.classes,
-                        self.input_arrays,
-                        self.target_arrays,
-                        self.spatial_transforms,
-                        raw_value_transforms=self.train_raw_value_transforms,
-                        target_value_transforms=self.target_value_transforms,
-                        is_train=True,
-                        context=self.context,
-                        force_has_data=self.force_has_data,
-                        empty_value=self.empty_value,
-                        class_relation_dict=self.class_relation_dict,
-                        pad=self.pad_training,
-                        device=self.device,
+        if "train" in dataset_dict:
+            for data_paths in tqdm(dataset_dict["train"], desc="Training datasets"):
+                try:
+                    self.train_datasets.append(
+                        CellMapDataset(
+                            data_paths["raw"],
+                            data_paths["gt"],
+                            self.classes,
+                            self.input_arrays,
+                            self.target_arrays,
+                            spatial_transforms=self.spatial_transforms,
+                            raw_value_transforms=self.train_raw_value_transforms,
+                            target_value_transforms=self.target_value_transforms,
+                            is_train=True,
+                            context=self.context,
+                            force_has_data=self.force_has_data,
+                            empty_value=self.empty_value,
+                            class_relation_dict=self.class_relation_dict,
+                            pad=self.pad_training,
+                        )
                     )
-                )
-            except ValueError as e:
-                logger.warning(f"Error loading dataset: {e}")
-
-        self.datasets["train"] = self.train_datasets
-
-        # TODO: probably want larger arrays for validation
-
+                except Exception as e:
+                    logger.warning(f"Skipping training dataset due to error: {e}")
         if "validate" in dataset_dict:
             for data_paths in tqdm(
                 dataset_dict["validate"], desc="Validation datasets"
@@ -375,6 +370,7 @@ class CellMapDataSplit:
                             self.classes,
                             self.input_arrays,
                             self.target_arrays,
+                            spatial_transforms=self.spatial_transforms,
                             raw_value_transforms=self.val_raw_value_transforms,
                             target_value_transforms=self.target_value_transforms,
                             is_train=False,
@@ -383,13 +379,14 @@ class CellMapDataSplit:
                             empty_value=self.empty_value,
                             class_relation_dict=self.class_relation_dict,
                             pad=self.pad_validation,
-                            device=self.device,
                         )
                     )
-                except ValueError as e:
-                    logger.warning(f"Error loading dataset: {e}")
-
-            self.datasets["validate"] = self.validation_datasets
+                except Exception as e:
+                    logger.warning(f"Skipping validation dataset due to error: {e}")
+        self.datasets = {
+            "train": self.train_datasets,
+            "validate": self.validation_datasets,
+        }
 
     def verify_datasets(self) -> None:
         """Verifies that the datasets have data, and removes ones that don't from ``self.train_datasets`` and ``self.validation_datasets``."""

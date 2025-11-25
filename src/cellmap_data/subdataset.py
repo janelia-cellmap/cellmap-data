@@ -4,13 +4,14 @@ from typing import Any, Callable, Optional, Sequence
 import torch
 from torch.utils.data import Subset
 
+from .base_dataset import CellMapBaseDataset
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils.sampling import min_redundant_inds
 
 
-class CellMapSubset(Subset):
+class CellMapSubset(CellMapBaseDataset, Subset):
     """
     This subclasses PyTorch Subset to wrap a CellMapDataset or CellMapMultiDataset object under a common API, which can be used for dataloading. It maintains the same API as the Subset class. It retrieves raw and groundtruth data from a CellMapDataset or CellMapMultiDataset object.
     """

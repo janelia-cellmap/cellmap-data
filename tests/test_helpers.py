@@ -10,14 +10,14 @@ from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import zarr
+from pydantic_ome_ngff.v04.axis import Axis
 from pydantic_ome_ngff.v04.multiscale import (
-    Axis,
     MultiscaleMetadata,
 )
 from pydantic_ome_ngff.v04.multiscale import (
     Dataset as MultiscaleDataset,
 )
-from pydantic_ome_ngff.v04.transform import Scale
+from pydantic_ome_ngff.v04.transform import Scale, Translation, VectorScale
 
 
 def create_test_zarr_array(
@@ -27,6 +27,7 @@ def create_test_zarr_array(
     scale: Sequence[float] = (1.0, 1.0, 1.0),
     chunks: Optional[Sequence[int]] = None,
     multiscale: bool = True,
+    absent: int = 0,
 ) -> zarr.Array:
     """
     Create a test Zarr array with OME-NGFF metadata.
@@ -62,21 +63,23 @@ def create_test_zarr_array(
         )
 
         # Create OME-NGFF multiscale metadata
-        axis_list = [
+        axis_list = tuple(
             Axis(
                 name=name,
                 type="space" if name in ["x", "y", "z"] else "channel",
                 unit="nanometer" if name in ["x", "y", "z"] else None,
             )
             for name in axes
-        ]
+        )
 
-        datasets = [
+        datasets = (
             MultiscaleDataset(
                 path="s0",
-                coordinateTransformations=[Scale(scale=list(scale), type="scale")],
-            )
-        ]
+                coordinateTransformations=(
+                    VectorScale(type="scale", scale=tuple(scale)),
+                ),
+            ),
+        )
 
         multiscale_metadata = MultiscaleMetadata(
             version="0.4",
@@ -88,6 +91,8 @@ def create_test_zarr_array(
         root.attrs["multiscales"] = [
             multiscale_metadata.model_dump(mode="json", exclude_none=True)
         ]
+
+        s0.attrs["cellmap"] = {"annotation": {"complement_counts": {"absent": absent}}}
 
         return s0
     else:
@@ -197,6 +202,8 @@ def create_test_label_data(
             for j in range(shape[-1]):
                 if j % num_classes == i:
                     class_label[..., j] = 1
+            if np.sum(class_label) == 0 and shape[-1] > 0:
+                class_label[..., 0] = 1  # Ensure at least one pixel
             labels[f"class_{i}"] = class_label
     else:
         raise ValueError(f"Unknown pattern: {pattern}")
@@ -207,70 +214,64 @@ def create_test_label_data(
 def create_test_dataset(
     tmp_path: Path,
     raw_shape: Sequence[int] = (64, 64, 64),
-    label_shape: Optional[Sequence[int]] = None,
+    gt_shape: Optional[Sequence[int]] = None,
     num_classes: int = 3,
-    raw_scale: Sequence[float] = (8.0, 8.0, 8.0),
-    label_scale: Optional[Sequence[float]] = None,
-    axes: Sequence[str] = ("z", "y", "x"),
-    raw_pattern: str = "gradient",
+    raw_scale: Sequence[float] = (4.0, 4.0, 4.0),
+    gt_scale: Optional[Sequence[float]] = None,
+    seed: int = 0,
+    raw_pattern: str = "random",
     label_pattern: str = "regions",
-    seed: int = 42,
 ) -> Dict[str, Any]:
     """
-    Create a complete test dataset with raw and label data.
+    Create a test dataset with raw and ground truth Zarr arrays.
 
     Args:
-        tmp_path: Temporary directory path
-        raw_shape: Shape of raw data
-        label_shape: Shape of label data (defaults to raw_shape)
-        num_classes: Number of label classes
-        raw_scale: Scale of raw data
-        label_scale: Scale of label data (defaults to raw_scale)
-        axes: Axis names
+        tmp_path: Path to create the dataset
+        raw_shape: Shape of the raw data
+        gt_shape: Shape of the ground truth data
+        num_classes: Number of classes in ground truth
+        raw_scale: Scale of the raw data
+        gt_scale: Scale of the ground truth data
+        seed: Random seed for data generation
         raw_pattern: Pattern for raw data
         label_pattern: Pattern for label data
-        seed: Random seed
 
     Returns:
-        Dictionary with paths and metadata
+        Dictionary with paths and parameters of the created dataset
     """
-    if label_shape is None:
-        label_shape = raw_shape
-    if label_scale is None:
-        label_scale = raw_scale
-
-    # Create paths
-    raw_path = tmp_path / "raw.zarr"
-    gt_path = tmp_path / "gt.zarr"
-
-    # Create raw data
-    raw_data = create_test_image_data(raw_shape, pattern=raw_pattern, seed=seed)
-    create_test_zarr_array(raw_path, raw_data, axes=axes, scale=raw_scale)
-
-    # Create label data
-    gt_path.mkdir(parents=True, exist_ok=True)
-    store = zarr.DirectoryStore(str(gt_path))
-    root = zarr.group(store=store, overwrite=True)
-
-    labels = create_test_label_data(
-        label_shape, num_classes=num_classes, pattern=label_pattern, seed=seed
+    dataset_path = tmp_path / "dataset.zarr"
+    raw_data = create_test_image_data(
+        raw_shape, dtype=np.dtype(np.uint8), pattern=raw_pattern, seed=seed
     )
-    class_names = []
+    create_test_zarr_array(dataset_path / "raw", raw_data, scale=raw_scale)
 
-    for class_name, label_data in labels.items():
-        class_path = gt_path / class_name
-        create_test_zarr_array(class_path, label_data, axes=axes, scale=label_scale)
-        class_names.append(class_name)
+    classes = [f"class_{i}" for i in range(num_classes)]
+    if gt_shape is None:
+        gt_shape = raw_shape
+    if gt_scale is None:
+        gt_scale = raw_scale
+
+    label_data = create_test_label_data(
+        gt_shape, num_classes, pattern=label_pattern, seed=seed
+    )
+
+    for class_name, gt_data in label_data.items():
+        class_path = dataset_path / class_name
+        create_test_zarr_array(
+            class_path,
+            gt_data,
+            scale=gt_scale,
+            absent=np.count_nonzero(gt_data == 0),
+        )
 
     return {
-        "raw_path": str(raw_path),
-        "gt_path": str(gt_path),
-        "classes": class_names,
+        "raw_path": str(dataset_path / "raw"),
+        "gt_path": str(dataset_path / f"[{','.join(classes)}]"),
+        "classes": classes,
         "raw_shape": raw_shape,
-        "label_shape": label_shape,
+        "gt_shape": gt_shape,
         "raw_scale": raw_scale,
-        "label_scale": label_scale,
-        "axes": axes,
+        "gt_scale": gt_scale,
     }
 
 
@@ -290,3 +291,27 @@ def create_minimal_test_dataset(tmp_path: Path) -> Dict[str, Any]:
         num_classes=2,
         raw_scale=(4.0, 4.0, 4.0),
     )
+
+
+def check_device_transfer(loader, device):
+    """
+    Check if data transfer between CPU and GPU works as expected.
+
+    Args:
+        loader: Data loader providing the data
+        device: Device to transfer the data to (e.g., "cuda" or "cpu")
+
+    Returns:
+        None
+    """
+    # Iterate through the data loader
+    for batch in loader:
+        # Transfer the batch to the specified device
+        batch = {k: v.to(device) for k, v in batch.items()}
+
+        # Check if the transfer was successful
+        for k, v in batch.items():
+            assert v.device == device
+
+        # Break after the first batch to avoid transferring all data
+        break

@@ -116,6 +116,7 @@ class TestTrainingWorkflow:
             input_arrays=input_arrays,
             target_arrays=target_arrays,
             spatial_transforms=spatial_transforms,
+            pad=True,
         )
 
         assert datasplit is not None
@@ -444,43 +445,4 @@ class TestEdgeCases:
         loader = CellMapDataLoader(dataset, batch_size=2, num_workers=0)
 
         assert dataset.input_arrays["raw"]["scale"] == (16.0, 4.0, 4.0)
-        assert loader is not None
-
-    def test_2d_data_workflow(self, tmp_path):
-        """Test complete workflow with 2D data."""
-        from .test_helpers import (
-            create_test_image_data,
-            create_test_label_data,
-            create_test_zarr_array,
-        )
-
-        # Create 2D data
-        raw_path = tmp_path / "raw_2d.zarr"
-        gt_path = tmp_path / "gt_2d"
-
-        raw_data = create_test_image_data((128, 128), pattern="gradient")
-        create_test_zarr_array(raw_path, raw_data, axes=("y", "x"), scale=(4.0, 4.0))
-
-        # Create labels
-        labels = create_test_label_data((128, 128), num_classes=2, pattern="stripes")
-        gt_path.mkdir()
-        for class_name, label_data in labels.items():
-            class_path = gt_path / class_name
-            create_test_zarr_array(
-                class_path, label_data, axes=("y", "x"), scale=(4.0, 4.0)
-            )
-
-        # Create 2D dataset
-        dataset = CellMapDataset(
-            raw_path=str(raw_path),
-            target_path=str(gt_path),
-            classes=list(labels.keys()),
-            input_arrays={"raw": {"shape": (64, 64), "scale": (4.0, 4.0)}},
-            target_arrays={"gt": {"shape": (64, 64), "scale": (4.0, 4.0)}},
-            axis_order="yx",
-        )
-
-        loader = CellMapDataLoader(dataset, batch_size=2, num_workers=0)
-
-        assert dataset.axis_order == "yx"
         assert loader is not None

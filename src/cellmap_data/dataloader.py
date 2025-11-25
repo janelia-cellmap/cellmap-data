@@ -143,7 +143,7 @@ class CellMapDataLoader:
                     self.batch_size, self.rng
                 )
 
-        self.default_kwargs = kwargs.copy()
+        self.default_kwargs = kwargs
         self.default_kwargs.update(
             {
                 "pin_memory": self._pin_memory,
@@ -156,7 +156,11 @@ class CellMapDataLoader:
 
         self._pytorch_loader = None
         self.refresh()
-        self.loader = self
+
+    @property
+    def loader(self) -> torch.utils.data.DataLoader | None:
+        """Return the DataLoader."""
+        return self._pytorch_loader
 
     def __getitem__(self, indices: Union[int, Sequence[int]]) -> dict:
         """Get an item from the DataLoader."""
@@ -167,20 +171,20 @@ class CellMapDataLoader:
     def __iter__(self):
         """Create an iterator over the dataset."""
         if self._pytorch_loader is None:
-            raise RuntimeError("PyTorch DataLoader is not initialized.")
+            self.refresh()
         return iter(self._pytorch_loader)
 
-    def __len__(self) -> int:
+    def __len__(self) -> int | None:
         """Return the number of batches per epoch."""
         if self._pytorch_loader is None:
-            return 0
+            return None
         return len(self._pytorch_loader)
 
     def to(self, device: str | torch.device, non_blocking: bool = True):
         """Move the dataset to the specified device."""
         self.dataset.to(device, non_blocking=non_blocking)
         self.device = device
-        self.refresh()
+        return self
 
     def refresh(self):
         """Refresh the DataLoader with the current sampler state."""
@@ -224,6 +228,8 @@ class CellMapDataLoader:
         for key, value in self.default_kwargs.items():
             if key not in dataloader_kwargs:
                 dataloader_kwargs[key] = value
+
+        dataloader_kwargs.pop("force_has_data", None)
 
         self._pytorch_loader = torch.utils.data.DataLoader(
             self.dataset, **dataloader_kwargs

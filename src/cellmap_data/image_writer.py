@@ -24,7 +24,7 @@ class ImageWriter:
     def __init__(
         self,
         path: str | UPath,
-        label_class: str,
+        target_class: str,
         scale: Mapping[str, float] | Sequence[float],
         bounding_box: Mapping[str, list[float]],
         write_voxel_shape: Mapping[str, int] | Sequence[int],
@@ -37,7 +37,7 @@ class ImageWriter:
     ) -> None:
         self.base_path = str(path)
         self.path = (UPath(path) / f"s{scale_level}").path
-        self.label_class = label_class
+        self.target_class = target_class
         if isinstance(scale, Sequence):
             if len(axis_order) > len(scale):
                 scale = [scale[0]] * (len(axis_order) - len(scale)) + list(scale)
@@ -238,6 +238,7 @@ class ImageWriter:
     def aligned_coords_from_center(self, center: Mapping[str, float]):
         coords = {}
         for c in self.axes:
+            # Use center-of-voxel alignment
             start_requested = (
                 center[c] - self.write_world_shape[c] / 2 + self.scale[c] / 2
             )
@@ -278,7 +279,7 @@ class ImageWriter:
     def _write_single_item(
         self,
         center_coords: Mapping[str, float],
-        data: Union[torch.Tensor, ArrayLike, float, int],
+        data: Union[torch.Tensor, ArrayLike],
     ) -> None:
         """Write a single data item using center coordinates."""
         # Convert center coordinates to aligned array coordinates
@@ -289,37 +290,41 @@ class ImageWriter:
             data = data.cpu().numpy()
         data_array = np.array(data).astype(self.dtype)
 
-        # Write to array, handling shape mismatches
-        try:
-            self.array.loc[aligned_coords] = data_array
-        except ValueError:
-            # If data shape doesn't match coordinate space, slice data to fit
-            slices = [slice(None, len(coord)) for coord in aligned_coords.values()]
-            resized_data = data_array[tuple(slices)]
-            self.array.loc[aligned_coords] = resized_data
+        # Remove batch dimension if present
+        if data_array.ndim == len(self.axes) + 1 and data_array.shape[0] == 1:
+            data_array = np.squeeze(data_array, axis=0)
+
+        # Check for shape mismatches
+        expected_shape = tuple(self.write_voxel_shape[c] for c in self.axes)
+        if data_array.shape != expected_shape:
+            raise ValueError(
+                f"Data shape {data_array.shape} does not match expected shape {expected_shape}."
+            )
+        coord_shape = tuple(len(aligned_coords[c]) for c in self.axes)
+        if coord_shape != expected_shape:
+            raise ValueError(
+                f"Aligned coordinates shape {coord_shape} does not match expected shape {expected_shape}."
+            )
+
+        # Write to array
+        self.array.loc[aligned_coords] = data_array
 
     def _write_batch_items(
         self,
         batch_coords: Mapping[str, tuple[Sequence, np.ndarray]],
-        data: Union[torch.Tensor, ArrayLike, float, int],
+        data: Union[torch.Tensor, ArrayLike],
     ) -> None:
         """Write multiple data items by iterating through coordinate batches."""
-        # Get batch size from first axis
-        first_axis = self.axes[0]
-        batch_size = len(batch_coords[first_axis])
-
-        for i in range(batch_size):
+        # Do for each item in the batch
+        for i in range(data.shape[0]):
             # Extract center coordinates for this item
             item_coords = {axis: batch_coords[axis][i] for axis in self.axes}
 
             # Extract data for this item
-            if isinstance(data, (int, float)):
-                item_data = data
-            else:
-                item_data = data[i]  # type: ignore
+            item_data = data[i]  # type: ignore
 
             # Write this single item using center coordinates
-            self._write_single_item(item_coords, item_data)  # type: ignore
+            self._write_single_item(item_coords, item_data)
 
     def __repr__(self) -> str:
         return f"ImageWriter({self.path}: {self.label_class} @ {list(self.scale.values())} {self.metadata['units']})"

@@ -2,8 +2,10 @@ from typing import Any, Mapping, Optional, Sequence
 
 import torch
 
+from .base_image import CellMapImageBase
 
-class EmptyImage:
+
+class EmptyImage(CellMapImageBase):
     """
     A class for handling empty image data.
 
@@ -34,26 +36,24 @@ class EmptyImage:
 
     def __init__(
         self,
-        target_class: str,
-        target_scale: Sequence[float],
-        target_voxel_shape: Sequence[int],
+        label_class: str,
+        scale: Sequence[float],
+        voxel_shape: Sequence[int],
         store: Optional[torch.Tensor] = None,
         axis_order: str = "zyx",
         empty_value: float | int = -100,
     ):
-        self.label_class = target_class
-        self.target_scale = target_scale
-        if len(target_voxel_shape) < len(axis_order):
-            axis_order = axis_order[-len(target_voxel_shape) :]
-        self.output_shape = {c: target_voxel_shape[i] for i, c in enumerate(axis_order)}
-        self.output_size = {
-            c: t * s for c, t, s in zip(axis_order, target_voxel_shape, target_scale)
-        }
+        self.label_class = label_class
+        self.scale_tuple = scale
+        if len(voxel_shape) < len(axis_order):
+            axis_order = axis_order[-len(voxel_shape) :]
+        self.output_shape = {c: voxel_shape[i] for i, c in enumerate(axis_order)}
+        self.output_size = {c: t * s for c, t, s in zip(axis_order, voxel_shape, scale)}
         self.axes = axis_order
         self._bounding_box = None
         self._class_counts = 0.0
         self._bg_count = 0.0
-        self.scale = {c: sc for c, sc in zip(self.axes, self.target_scale)}
+        self.scale = {c: sc for c, sc in zip(self.axes, self.scale_tuple)}
         self.empty_value = empty_value
         if store is not None:
             self.store = store
