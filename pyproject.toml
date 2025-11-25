@@ -32,7 +32,7 @@ dependencies = [
     "xarray_ome_ngff",
     "tensorstore",
     # "xarray=2024.10.0",
-    "xarray-tensorstore>=0.1.5",
+    "xarray-tensorstore==0.1.5",
     "universal_pathlib>=0.2.0",
     "fsspec[s3,http]",
     "cellpose",
