@@ -17,7 +17,7 @@ from pydantic_ome_ngff.v04.multiscale import (
 from pydantic_ome_ngff.v04.multiscale import (
     Dataset as MultiscaleDataset,
 )
-from pydantic_ome_ngff.v04.transform import Scale, Translation, VectorScale
+from pydantic_ome_ngff.v04.transform import VectorScale
 
 
 def create_test_zarr_array(
