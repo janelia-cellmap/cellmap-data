@@ -5,11 +5,24 @@ Tests empty image handling and image writing functionality.
 """
 
 import pytest
+from upath import UPath
+from pathlib import Path
 import os
 
 from cellmap_data import EmptyImage, ImageWriter
 
 from .test_helpers import create_test_image_data, create_test_zarr_array
+
+
+@pytest.fixture
+def tmp_upath(tmp_path: Path):
+    """Return a temporary directory (as :class:`upathlib.UPath` object)
+    which is unique to each test function invocation.
+    The temporary directory is created as a subdirectory
+    of the base temporary directory, with configurable retention,
+    as discussed in :ref:`temporary directory location and retention`.
+    """
+    return UPath(tmp_path)
 
 
 class TestEmptyImage:
@@ -108,9 +121,9 @@ class TestImageWriter:
     """Test suite for ImageWriter class."""
 
     @pytest.fixture
-    def output_path(self, tmp_path):
+    def output_path(self, tmp_upath):
         """Create output path for writing."""
-        return tmp_path / "output.zarr"
+        return tmp_upath / "output.zarr"
 
     def test_image_writer_initialization(self, output_path):
         """Test ImageWriter initialization."""
@@ -123,14 +136,14 @@ class TestImageWriter:
             bounding_box={"z": [0, 256], "y": [0, 256], "x": [0, 256]},
         )
 
-        assert writer.path.endswith(str(output_path) + os.path.sep + "s0")
+        assert writer.path.endswith(output_path.path + os.path.sep + "s0")
         assert writer.target_class == "output_class"
 
-    def test_image_writer_with_existing_data(self, tmp_path):
+    def test_image_writer_with_existing_data(self, tmp_upath):
         """Test ImageWriter with pre-existing data."""
         # Create existing zarr array
         data = create_test_image_data((32, 32, 32), pattern="gradient")
-        path = tmp_path / "existing.zarr"
+        path = tmp_upath / "existing.zarr"
         create_test_zarr_array(path, data)
 
         # Create writer for same path
@@ -142,14 +155,14 @@ class TestImageWriter:
             bounding_box={"z": [0, 128], "y": [0, 128], "x": [0, 128]},
         )
 
-        assert writer.path.endswith(str(path) + os.path.sep + "s0")
+        assert writer.path.endswith(path.path + os.path.sep + "s0")
 
-    def test_image_writer_different_shapes(self, tmp_path):
+    def test_image_writer_different_shapes(self, tmp_upath):
         """Test ImageWriter with different output shapes."""
         shapes = [(16, 16, 16), (32, 32, 32), (64, 32, 16)]
 
         for i, shape in enumerate(shapes):
-            path = tmp_path / f"output_{i}.zarr"
+            path = tmp_upath / f"output_{i}.zarr"
             writer = ImageWriter(
                 path=str(path),
                 target_class="test",
@@ -164,9 +177,9 @@ class TestImageWriter:
                 "x": shape[2],
             }
 
-    def test_image_writer_2d(self, tmp_path):
+    def test_image_writer_2d(self, tmp_upath):
         """Test ImageWriter for 2D images."""
-        path = tmp_path / "output_2d.zarr"
+        path = tmp_upath / "output_2d.zarr"
         writer = ImageWriter(
             path=str(path),
             target_class="test_2d",
@@ -179,13 +192,13 @@ class TestImageWriter:
         assert writer.axes == "yx"
         assert len(writer.write_voxel_shape) == 2
 
-    def test_image_writer_value_transform(self, tmp_path):
+    def test_image_writer_value_transform(self, tmp_upath):
         """Test ImageWriter with value transform."""
 
         def normalize(x):
             return x / 255.0
 
-        path = tmp_path / "output.zarr"
+        path = tmp_upath / "output.zarr"
         writer = ImageWriter(
             path=str(path),
             target_class="test",
@@ -197,10 +210,10 @@ class TestImageWriter:
 
         assert writer.value_transform is not None
 
-    def test_image_writer_interpolation(self, tmp_path):
+    def test_image_writer_interpolation(self, tmp_upath):
         """Test ImageWriter with different interpolation modes."""
         for interp in ["nearest", "linear"]:
-            path = tmp_path / f"output_{interp}.zarr"
+            path = tmp_upath / f"output_{interp}.zarr"
             writer = ImageWriter(
                 path=str(path),
                 target_class="test",
@@ -212,9 +225,9 @@ class TestImageWriter:
 
             assert writer.interpolation == interp
 
-    def test_image_writer_anisotropic_scale(self, tmp_path):
+    def test_image_writer_anisotropic_scale(self, tmp_upath):
         """Test ImageWriter with anisotropic voxel sizes."""
-        path = tmp_path / "anisotropic.zarr"
+        path = tmp_upath / "anisotropic.zarr"
         writer = ImageWriter(
             path=str(path),
             target_class="test",
@@ -228,11 +241,11 @@ class TestImageWriter:
         # Output size should account for scale
         assert writer.write_world_shape == {"z": 256.0, "y": 128.0, "x": 128.0}
 
-    def test_image_writer_context(self, tmp_path):
+    def test_image_writer_context(self, tmp_upath):
         """Test ImageWriter with TensorStore context."""
         import tensorstore as ts
 
-        path = tmp_path / "output.zarr"
+        path = tmp_upath / "output.zarr"
         context = ts.Context()
 
         writer = ImageWriter(
@@ -282,9 +295,9 @@ class TestEmptyImageIntegration:
 class TestImageWriterIntegration:
     """Integration tests for ImageWriter functionality."""
 
-    def test_writer_output_preparation(self, tmp_path):
+    def test_writer_output_preparation(self, tmp_upath):
         """Test preparing outputs for writing."""
-        path = tmp_path / "predictions.zarr"
+        path = tmp_upath / "predictions.zarr"
 
         writer = ImageWriter(
             path=str(path),
@@ -295,16 +308,16 @@ class TestImageWriterIntegration:
         )
 
         # Writer should be ready to write
-        assert writer.path.endswith(str(path) + os.path.sep + "s0")
+        assert writer.path.endswith(path.path + os.path.sep + "s0")
         assert writer.write_voxel_shape is not None
 
-    def test_multiple_writers_different_classes(self, tmp_path):
+    def test_multiple_writers_different_classes(self, tmp_upath):
         """Test multiple writers for different classes."""
         classes = ["class_0", "class_1", "class_2"]
         writers = []
 
         for class_name in classes:
-            path = tmp_path / f"{class_name}.zarr"
+            path = tmp_upath / f"{class_name}.zarr"
             writer = ImageWriter(
                 path=str(path),
                 target_class=class_name,
