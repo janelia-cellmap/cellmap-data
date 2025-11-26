@@ -5,6 +5,7 @@ Tests empty image handling and image writing functionality.
 """
 
 import pytest
+import os
 
 from cellmap_data import EmptyImage, ImageWriter
 
@@ -122,7 +123,7 @@ class TestImageWriter:
             bounding_box={"z": [0, 256], "y": [0, 256], "x": [0, 256]},
         )
 
-        assert writer.path.endswith(str(output_path) + "/s0")
+        assert writer.path.endswith(str(output_path) + os.path.sep + "s0")
         assert writer.target_class == "output_class"
 
     def test_image_writer_with_existing_data(self, tmp_path):
@@ -141,7 +142,7 @@ class TestImageWriter:
             bounding_box={"z": [0, 128], "y": [0, 128], "x": [0, 128]},
         )
 
-        assert writer.path.endswith(str(path) + "/s0")
+        assert writer.path.endswith(str(path) + os.path.sep + "s0")
 
     def test_image_writer_different_shapes(self, tmp_path):
         """Test ImageWriter with different output shapes."""
@@ -294,7 +295,7 @@ class TestImageWriterIntegration:
         )
 
         # Writer should be ready to write
-        assert writer.path.endswith(str(path) + "/s0")
+        assert writer.path.endswith(str(path) + os.path.sep + "s0")
         assert writer.write_voxel_shape is not None
 
     def test_multiple_writers_different_classes(self, tmp_path):
