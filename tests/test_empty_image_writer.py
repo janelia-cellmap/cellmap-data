@@ -128,7 +128,7 @@ class TestImageWriter:
     def test_image_writer_initialization(self, output_path):
         """Test ImageWriter initialization."""
         writer = ImageWriter(
-            path=str(output_path),
+            path=output_path.path,
             target_class="output_class",
             scale=(8.0, 8.0, 8.0),
             write_voxel_shape=(32, 32, 32),
@@ -148,7 +148,7 @@ class TestImageWriter:
 
         # Create writer for same path
         writer = ImageWriter(
-            path=str(path),
+            path=path.path,
             target_class="test",
             scale=(4.0, 4.0, 4.0),
             write_voxel_shape=(16, 16, 16),
@@ -300,7 +300,7 @@ class TestImageWriterIntegration:
         path = tmp_upath / "predictions.zarr"
 
         writer = ImageWriter(
-            path=str(path),
+            path=path.path,
             target_class="predictions",
             scale=(8.0, 8.0, 8.0),
             write_voxel_shape=(32, 32, 32),
