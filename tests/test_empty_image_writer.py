@@ -136,7 +136,9 @@ class TestImageWriter:
             bounding_box={"z": [0, 256], "y": [0, 256], "x": [0, 256]},
         )
 
-        assert writer.path.endswith(output_path.path + os.path.sep + "s0")
+        assert os.path.normpath(writer.path).endswith(
+            os.path.normpath(output_path.path + os.path.sep + "s0")
+        )
         assert writer.target_class == "output_class"
 
     def test_image_writer_with_existing_data(self, tmp_upath):
@@ -155,7 +157,9 @@ class TestImageWriter:
             bounding_box={"z": [0, 128], "y": [0, 128], "x": [0, 128]},
         )
 
-        assert writer.path.endswith(path.path + os.path.sep + "s0")
+        assert os.path.normpath(writer.path).endswith(
+            os.path.normpath(path.path + os.path.sep + "s0")
+        )
 
     def test_image_writer_different_shapes(self, tmp_upath):
         """Test ImageWriter with different output shapes."""
@@ -308,7 +312,9 @@ class TestImageWriterIntegration:
         )
 
         # Writer should be ready to write
-        assert writer.path.endswith(path.path + os.path.sep + "s0")
+        assert os.path.normpath(writer.path).endswith(
+            os.path.normpath(path.path + os.path.sep + "s0")
+        )
         assert writer.write_voxel_shape is not None
 
     def test_multiple_writers_different_classes(self, tmp_upath):
