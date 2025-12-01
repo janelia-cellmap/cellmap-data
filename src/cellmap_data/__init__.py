@@ -22,8 +22,8 @@ from .empty_image import EmptyImage
 from .image import CellMapImage
 from .image_writer import ImageWriter
 from .multidataset import CellMapMultiDataset
-from .subdataset import CellMapSubset
 from .mutable_sampler import MutableSubsetRandomSampler
+from .subdataset import CellMapSubset
 
 __all__ = [
     "CellMapBaseDataset",

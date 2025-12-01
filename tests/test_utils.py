@@ -7,10 +7,7 @@ Tests dtype utilities, sampling utilities, and miscellaneous utilities.
 import numpy as np
 import torch
 
-from cellmap_data.utils.misc import (
-    get_sliced_shape,
-    torch_max_value,
-)
+from cellmap_data.utils.misc import get_sliced_shape, torch_max_value
 
 
 class TestUtilsMisc:

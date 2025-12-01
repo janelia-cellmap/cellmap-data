@@ -1,9 +1,10 @@
 """Tests for CellMapDataset edge cases and special methods."""
 
 import pickle
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
 
 from cellmap_data import CellMapDataset, CellMapMultiDataset
 
@@ -104,6 +105,7 @@ class TestCellMapDatasetEdgeCases:
 
         # Simulate a fork by changing the PID tracking
         import os
+
         dataset._executor_pid = os.getpid() + 1
 
         # Access executor again - should create new one
@@ -219,10 +221,10 @@ class TestCellMapDatasetEdgeCases:
         assert isinstance(counts, dict)
         # class_counts structure has changed - it's now nested with 'totals'
         # Check that the totals key exists and has class entries
-        if 'totals' in counts:
+        if "totals" in counts:
             for cls in dataset.classes:
                 # Class names might have _bg suffix
-                assert any(cls in key for key in counts['totals'].keys())
+                assert any(cls in key for key in counts["totals"].keys())
         else:
             # Old structure - direct class keys
             for cls in dataset.classes:
@@ -249,7 +251,7 @@ class TestCellMapDatasetEdgeCases:
         indices = dataset.validation_indices
 
         # Should be a sequence
-        assert hasattr(indices, '__iter__')
+        assert hasattr(indices, "__iter__")
 
     def test_2d_array_creates_multidataset(self, tmp_path):
         """Test that 2D array without slicing axis triggers special handling."""
@@ -285,7 +287,7 @@ class TestCellMapDatasetEdgeCases:
         # Should create some kind of dataset (either regular or multi)
         # The key is that it doesn't raise an error
         assert dataset is not None
-        assert hasattr(dataset, '__getitem__')
+        assert hasattr(dataset, "__getitem__")
 
     def test_set_raw_value_transforms(self, minimal_dataset):
         """Test setting raw value transforms."""

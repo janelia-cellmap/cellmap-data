@@ -11,12 +11,8 @@ from typing import Any, Dict, Optional, Sequence
 import numpy as np
 import zarr
 from pydantic_ome_ngff.v04.axis import Axis
-from pydantic_ome_ngff.v04.multiscale import (
-    MultiscaleMetadata,
-)
-from pydantic_ome_ngff.v04.multiscale import (
-    Dataset as MultiscaleDataset,
-)
+from pydantic_ome_ngff.v04.multiscale import Dataset as MultiscaleDataset
+from pydantic_ome_ngff.v04.multiscale import MultiscaleMetadata
 from pydantic_ome_ngff.v04.transform import VectorScale
 
 

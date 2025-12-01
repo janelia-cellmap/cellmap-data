@@ -6,11 +6,7 @@ Tests combining multiple datasets and train/validation splits.
 
 import pytest
 
-from cellmap_data import (
-    CellMapDataset,
-    CellMapDataSplit,
-    CellMapMultiDataset,
-)
+from cellmap_data import CellMapDataset, CellMapDataSplit, CellMapMultiDataset
 
 from .test_helpers import create_test_dataset
 

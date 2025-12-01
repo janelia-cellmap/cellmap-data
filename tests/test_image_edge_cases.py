@@ -1,8 +1,8 @@
 """Tests for CellMapImage edge cases and special methods."""
 
+import numpy as np
 import pytest
 import torch
-import numpy as np
 
 from cellmap_data import CellMapImage
 

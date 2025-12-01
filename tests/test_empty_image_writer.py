@@ -4,10 +4,11 @@ Tests for EmptyImage and ImageWriter classes.
 Tests empty image handling and image writing functionality.
 """
 
+import os
+from pathlib import Path
+
 import pytest
 from upath import UPath
-from pathlib import Path
-import os
 
 from cellmap_data import EmptyImage, ImageWriter
 
