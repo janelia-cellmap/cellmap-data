@@ -1,12 +1,14 @@
 from typing import Any, Dict
-import torchvision.transforms.v2 as T
+
 import torch
+import torchvision.transforms.v2 as T
 
 
 class Binarize(T.Transform):
     """Binarize the input tensor. Subclasses torchvision.transforms.Transform.
 
-    Methods:
+    Methods
+    -------
         _transform: Transform the input.
     """
 

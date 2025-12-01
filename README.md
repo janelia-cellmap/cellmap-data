@@ -211,15 +211,18 @@ sampler = multi_dataset.get_weighted_sampler(batch_size=4)
 
 ### CellMapDataLoader
 
-High-performance data loader with optimization features:
+High-performance data loader built on PyTorch's optimized DataLoader:
 
 ```python
 loader = CellMapDataLoader(
     dataset,
-    batch_size=16,
+    batch_size=32,
     num_workers=12,
     weighted_sampler=True,
     device="cuda",
+    prefetch_factor=4,        # Preload batches for better GPU utilization
+    persistent_workers=True,  # Keep workers alive between epochs
+    pin_memory=True,          # Fast CPU-to-GPU transfer
     iterations_per_epoch=1000  # For large datasets
 )
 
@@ -227,12 +230,15 @@ loader = CellMapDataLoader(
 loader.to("cuda", non_blocking=True)
 ```
 
-**Optimizations**:
+**Optimizations** (powered by PyTorch DataLoader):
 
-- CUDA streams for parallel GPU transfer
-- Persistent workers for reduced overhead  
-- Automatic memory estimation and optimization
-- Thread-safe multiprocessing
+- **Prefetch Factor**: Background data loading to maximize GPU utilization
+- **Pin Memory**: Fast CPU-to-GPU transfers via pinned memory (auto-enabled on CUDA)
+- **Persistent Workers**: Reduced overhead by keeping workers alive between epochs
+- **PyTorch's Optimized Multiprocessing**: Battle-tested parallel data loading
+- **Smart Defaults**: Automatic optimization based on hardware configuration
+
+See [DataLoader Optimization Guide](docs/DATALOADER_OPTIMIZATION.md) for performance tuning tips.
 
 ### CellMapDataSplit
 

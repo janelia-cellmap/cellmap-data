@@ -1,27 +1,25 @@
-import os
 import logging
+import os
 from typing import Any, Callable, Mapping, Optional, Sequence
 
-logger = logging.getLogger(__name__)
-
-import numpy as np
-import tensorstore
 import dask.array as da
+import numpy as np
+import tensorstore as ts
 import torch
 import xarray
 import xarray_tensorstore as xt
 import zarr
 from pydantic_ome_ngff.v04.multiscale import MultiscaleGroupAttrs, MultiscaleMetadata
-from pydantic_ome_ngff.v04.transform import (
-    Scale,
-    Translation,
-    VectorScale,
-)
+from pydantic_ome_ngff.v04.transform import Scale, Translation, VectorScale
 from scipy.spatial.transform import Rotation as rot
 from xarray_ome_ngff.v04.multiscale import coords_from_transforms
 
+from .base_image import CellMapImageBase
 
-class CellMapImage:
+logger = logging.getLogger(__name__)
+
+
+class CellMapImage(CellMapImageBase):
     """
     A class for handling image data from a CellMap dataset.
 
@@ -39,12 +37,13 @@ class CellMapImage:
         interpolation: str = "nearest",
         axis_order: str | Sequence[str] = "zyx",
         value_transform: Optional[Callable] = None,
-        context: Optional[tensorstore.Context] = None,  # type: ignore
+        context: Optional[ts.Context] = None,  # type: ignore
         device: Optional[str | torch.device] = None,
     ) -> None:
         """Initializes a CellMapImage object.
 
         Args:
+        ----
             path (str): The path to the image file.
             target_class (str): The label class of the image.
             target_scale (Sequence[float]): The scale of the image data to return in physical space.
@@ -54,7 +53,6 @@ class CellMapImage:
             context (Optional[tensorstore.Context], optional): The context for the image data. Defaults to None.
             device (Optional[str | torch.device], optional): The device to load the image data onto. Defaults to "cuda" if available, then "mps", then "cpu".
         """
-
         self.path = path
         self.label_class = target_class
         # Below makes assumptions about image scale, and also locks which axis is sliced to 2D (this should only be encountered if bypassing dataset)
@@ -83,8 +81,9 @@ class CellMapImage:
         self.value_transform = value_transform
         self.context = context
         self._current_spatial_transforms = None
-        self._current_coords = None
+        self._current_coords: Any = None
         self._current_center = None
+        self._coord_offsets = None  # Cache for coordinate offsets (optimization)
         if device is not None:
             self.device = device
         elif torch.cuda.is_available():
@@ -99,26 +98,20 @@ class CellMapImage:
         if isinstance(list(center.values())[0], int | float):
             self._current_center = center
 
-            # Find vectors of coordinates in world space to pull data from
-            coords = {}
+            # Use cached coordinate offsets + translation (much faster than np.linspace)
+            # This eliminates repeated coordinate grid generation
+            coords = {c: self.coord_offsets[c] + center[c] for c in self.axes}
+
+            # Bounds checking
             for c in self.axes:
                 if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
-                    # raise ValueError(
                     UserWarning(
                         f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
                     )
-                    # center[c] = self.bounding_box[c][0] + self.output_size[c] / 2
                 if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
-                    # raise ValueError(
                     UserWarning(
                         f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
                     )
-                    # center[c] = self.bounding_box[c][1] - self.output_size[c] / 2
-                coords[c] = np.linspace(
-                    center[c] - self.output_size[c] / 2 + self.scale[c] / 2,
-                    center[c] + self.output_size[c] / 2 - self.scale[c] / 2,
-                    self.output_shape[c],
-                )
 
             # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
             data = self.apply_spatial_transforms(coords)
@@ -130,7 +123,7 @@ class CellMapImage:
             if isinstance(array_data, np.ndarray):
                 data = torch.from_numpy(array_data)
             else:
-                data = torch.tensor(array_data)  # type: ignore
+                data = torch.tensor(array_data)
 
         # Apply any value transformations to the data
         if self.value_transform is not None:
@@ -145,15 +138,38 @@ class CellMapImage:
         return f"CellMapImage({self.array_path})"
 
     @property
+    def coord_offsets(self) -> Mapping[str, np.ndarray]:
+        """
+        Cached coordinate offsets from center.
+
+        These offsets are constant for a given scale/shape and are used to
+        construct coordinate grids by simply adding the center position.
+        This eliminates repeated np.linspace calls in __getitem__.
+
+        Returns
+        -------
+        Mapping[str, np.ndarray]
+            Dictionary mapping axis names to coordinate offset arrays.
+        """
+        if self._coord_offsets is None:
+            self._coord_offsets = {
+                c: np.linspace(
+                    -self.output_size[c] / 2 + self.scale[c] / 2,
+                    self.output_size[c] / 2 - self.scale[c] / 2,
+                    self.output_shape[c],
+                )
+                for c in self.axes
+            }
+        return self._coord_offsets
+
+    @property
     def shape(self) -> Mapping[str, int]:
         """Returns the shape of the image."""
         try:
             return self._shape
         except AttributeError:
-            self._shape: dict[str, int] = {
-                c: self.group[self.scale_level].shape[i]
-                for i, c in enumerate(self.axes)
-            }
+            shape = self.group[self.scale_level].shape
+            self._shape: dict[str, int] = {c: int(s) for c, s in zip(self.axes, shape)}
             return self._shape
 
     @property
@@ -260,7 +276,7 @@ class CellMapImage:
             else:
                 # Construct an xarray with Tensorstore backend
                 spec = xt._zarr_spec_from_path(self.array_path)
-                array_future = tensorstore.open(
+                array_future = ts.open(
                     spec, read=True, write=False, context=self.context
                 )
                 try:
@@ -269,7 +285,7 @@ class CellMapImage:
                     Warning(e)
                     UserWarning("Falling back to zarr3 driver")
                     spec["driver"] = "zarr3"
-                    array_future = tensorstore.open(
+                    array_future = ts.open(
                         spec, read=True, write=False, context=self.context
                     )
                     array = array_future.result()
@@ -295,11 +311,14 @@ class CellMapImage:
         except AttributeError:
             self._bounding_box = {}
             for coord in self.full_coords:
-                self._bounding_box[coord.dims[0]] = [coord.data.min(), coord.data.max()]
+                self._bounding_box[coord.dims[0]] = [
+                    coord.data.min(),
+                    coord.data.max(),
+                ]
             return self._bounding_box
 
     @property
-    def sampling_box(self) -> Mapping[str, list[float]]:
+    def sampling_box(self) -> Optional[Mapping[str, list[float]]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units."""
         try:
             return self._sampling_box
@@ -340,9 +359,10 @@ class CellMapImage:
     def class_counts(self) -> float:
         """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
         try:
-            return self._class_counts  # type: ignore
+            return self._class_counts
         except AttributeError:
             # Get from cellmap-schemas metadata, then normalize by resolution
+            s0_scale = None
             try:
                 bg_count = self.group["s0"].attrs["cellmap"]["annotation"][
                     "complement_counts"
@@ -354,19 +374,32 @@ class CellMapImage:
                                 s0_scale = transform["scale"]
                                 break
                         break
-                self._class_counts = (
-                    np.prod(self.group["s0"].shape) - bg_count
-                ) * np.prod(s0_scale)
-                self._bg_count = bg_count * np.prod(s0_scale)
+                if s0_scale is not None:
+                    self._class_counts = (
+                        np.prod(np.array(self.group["s0"].shape)) - bg_count
+                    ) * np.prod(np.array(s0_scale))
+                    self._bg_count = bg_count * np.prod(np.array(s0_scale))
+                else:
+                    raise ValueError("s0_scale not found")
             except Exception as e:
-                logger.warning(f"Error: {e}")
-                logger.warning(f"Unable to get class counts for {self.path}")
-                # logger.warning("from metadata, falling back to giving foreground 1 pixel, and the rest to background.")
-                self._class_counts = np.prod(list(self.scale.values()))
-                self._bg_count = (
-                    np.prod(self.group[self.scale_level].shape) - 1
-                ) * np.prod(list(self.scale.values()))
-            return self._class_counts  # type: ignore
+                logger.warning(
+                    "Unable to get class counts for %s from metadata, "
+                    "falling back to calculating from array. Error: %s, %s",
+                    self.path,
+                    e,
+                    type(e),
+                )
+                # Fallback to calculating from array
+                array_data = self.array.compute()
+                self._class_counts = float(
+                    np.count_nonzero(array_data)
+                    * np.prod(np.array(list(self.scale.values())))
+                )
+                self._bg_count = float(
+                    (array_data.size - np.count_nonzero(array_data))
+                    * np.prod(np.array(list(self.scale.values())))
+                )
+            return self._class_counts
 
     def to(self, device: str, *args, **kwargs) -> None:
         """Sets what device returned image data will be loaded onto."""
@@ -510,28 +543,24 @@ class CellMapImage:
         ),
     ) -> xarray.DataArray:
         """Pulls data from the image based on the given coordinates, applying interpolation if necessary, and returns the data as an xarray DataArray."""
-        if not isinstance(list(coords.values())[0][0], float | int):
+        if not isinstance(list(coords.values())[0][0], (float, int)):
             data = self.array.interp(
                 coords=coords,
                 method=self.interpolation,  # type: ignore
             )
         elif self.pad:
             data = self.array.reindex(
-                **coords,
+                **(coords),  # type: ignore
                 method="nearest",
                 tolerance=self.tolerance,
                 fill_value=self.pad_value,
             )
         else:
-            data = self.array.sel(
-                **coords,
-                method="nearest",
-            )
+            data = self.array.sel(**(coords), method="nearest")  # type: ignore
         if (
             os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower()
             != "tensorstore"
         ):
             # NOTE: Forcing eager loading of dask array here may cause high memory usage and block further lazy optimizations.
-            # Consider removing this or delaying loading until strictly necessary.
-            data.load(scheduler="threads")
+            data = data.compute()
         return data

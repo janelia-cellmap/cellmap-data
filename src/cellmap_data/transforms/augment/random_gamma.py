@@ -1,8 +1,8 @@
+import logging
 from typing import Sequence
+
 import torch
 from torchvision.transforms.v2 import ToDtype
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -11,10 +11,12 @@ class RandomGamma(torch.nn.Module):
     """
     Apply a random gamma augmentation to the input.
 
-    Attributes:
+    Attributes
+    ----------
         gamma_range (tuple): Gamma range.
 
-    Methods:
+    Methods
+    -------
         forward: Forward pass.
     """
 
@@ -23,6 +25,7 @@ class RandomGamma(torch.nn.Module):
         Initialize the random gamma augmentation.
 
         Args:
+        ----
             gamma_range (tuple, optional): Gamma range. Defaults to (0.5, 1.5).
         """
         super().__init__()

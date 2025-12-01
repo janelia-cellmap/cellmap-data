@@ -1,6 +1,6 @@
-from difflib import SequenceMatcher
 import os
-from typing import Any, Mapping, Sequence, Optional, Callable
+from difflib import SequenceMatcher
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 import torch
 
@@ -10,9 +10,11 @@ def torch_max_value(dtype: torch.dtype) -> int:
     Get the maximum value for a given torch dtype.
 
     Args:
+    ----
         dtype (torch.dtype): Data type.
 
     Returns:
+    -------
         int: Maximum value.
     """
     if dtype == torch.uint8:
@@ -97,9 +99,36 @@ def get_sliced_shape(shape: Sequence[int], axis: int) -> Sequence[int]:
     else:
         # If no singleton, just add a singleton dimension at the current axis
         shape.insert(axis, 1)
-    return tuple(shape)
+    return shape
 
 
 def permute_singleton_dimension(arr_dict, axis):
     for arr_name, arr_info in arr_dict.items():
         arr_info["shape"] = get_sliced_shape(arr_info["shape"], axis)
+
+
+def min_redundant_inds(
+    n: int, k: int, replacement: bool, rng: Optional[torch.Generator] = None
+) -> torch.Tensor:
+    """Returns k indices from 0 to n-1 with minimum redundancy.
+
+    If replacement is False, the indices are unique.
+    If replacement is True, the indices can have duplicates.
+
+    Args:
+        n (int): The upper bound of the range of indices.
+        k (int): The number of indices to return.
+        replacement (bool): Whether to sample with replacement.
+        rng (torch.Generator, optional): The random number generator. Defaults to None.
+
+    Returns:
+        torch.Tensor: A tensor of k indices.
+    """
+    if replacement:
+        return torch.randint(n, (k,), generator=rng)
+    else:
+        if k > n:
+            # Repeat the unique indices until we have k indices
+            return torch.cat([torch.randperm(n, generator=rng) for _ in range(k // n)])
+        else:
+            return torch.randperm(n, generator=rng)[:k]

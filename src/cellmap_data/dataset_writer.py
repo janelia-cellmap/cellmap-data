@@ -1,16 +1,15 @@
 # %%
-import os
-from typing import Callable, Mapping, Sequence, Optional
+import logging
+from typing import Callable, Mapping, Optional, Sequence
+
 import numpy as np
-import torch
-from torch.utils.data import Dataset, Subset, DataLoader
 import tensorstore
+import torch
+from torch.utils.data import Dataset, Subset
 from upath import UPath
 
 from .image import CellMapImage
 from .image_writer import ImageWriter
-from .utils import split_target_path
-import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -19,12 +18,14 @@ logger.setLevel(logging.INFO)
 # %%
 class CellMapDatasetWriter(Dataset):
     """
-    This class is used to write a dataset to disk in a format that can be read by the CellMapDataset class. It is useful, for instance, for writing predictions from a model to disk.
+    Writes a dataset to disk in a format readable by CellMapDataset.
+
+    This is useful for saving model predictions to disk.
     """
 
     def __init__(
         self,
-        raw_path: str,  # TODO: Switch "raw_path" to "input_path"
+        raw_path: str,
         target_path: str,
         classes: Sequence[str],
         input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
@@ -41,33 +42,21 @@ class CellMapDatasetWriter(Dataset):
         """Initializes the CellMapDatasetWriter.
 
         Args:
-
-            raw_path (str): The full path to the raw data zarr, excluding the mulstiscale level.
-            target_path (str): The full path to the ground truth data zarr, excluding the mulstiscale level and the class name.
-            classes (Sequence[str]): The classes in the dataset.
-            input_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): The input arrays to return for processing. The dictionary should have the following structure::
-
-                {
-                    "array_name": {
-                        "shape": tuple[int],
-                        "scale": Sequence[float],
-
-                        and optionally:
-                        "scale_level": int,
-                    },
-                    ...
-                }
-
-            where 'array_name' is the name of the array, 'shape' is the shape of the array in voxels, and 'scale' is the scale of the array in world units. The 'scale_level' is the multiscale level to use for the array, otherwise set to 0 if not supplied.
-            target_arrays (Mapping[str, Mapping[str, Sequence[int | float]]]): The target arrays to write to disk, with format matching that for input_arrays.
-            target_bounds (Mapping[str, Mapping[str, list[float]]]): The bounding boxes for each target array, in world units. Example: {"array_1": {"x": [12.0, 102.0], "y": [12.0, 102.0], "z": [12.0, 102.0]}}.
-            raw_value_transforms (Optional[Callable]): The value transforms to apply to the raw data.
-            axis_order (str): The order of the axes in the data.
-            context (Optional[tensorstore.Context]): The context to use for the tensorstore.
-            rng (Optional[torch.Generator]): The random number generator to use.
-            empty_value (float | int): The value to use for empty data in an array.
-            overwrite (bool): Whether to overwrite existing data.
-            device (Optional[str | torch.device]): The device to use for the dataset. If None, will default to "cuda" if available, then "mps", otherwise "cpu".
+        ----
+            raw_path: Full path to the raw data Zarr, excluding multiscale level.
+            target_path: Full path to the ground truth Zarr, excluding class name.
+            classes: The classes in the dataset.
+            input_arrays: Input arrays for processing, with shape, scale, and
+                          optional scale_level.
+            target_arrays: Target arrays to write, with the same format as input_arrays.
+            target_bounds: Bounding boxes for each target array in world units.
+            raw_value_transforms: Value transforms for raw data.
+            axis_order: Order of axes (e.g., "zyx").
+            context: TensorStore context.
+            rng: Random number generator.
+            empty_value: Value for empty data.
+            overwrite: Whether to overwrite existing data.
+            device: Device for torch tensors ("cuda", "mps", or "cpu").
         """
         self.raw_path = raw_path
         self.target_path = target_path
@@ -93,7 +82,7 @@ class CellMapDatasetWriter(Dataset):
                 value_transform=self.raw_value_transforms,
                 context=self.context,
                 pad=True,
-                pad_value=0,  # inputs to the network should be padded with 0
+                pad_value=0,
                 interpolation="linear",
             )
         self.target_array_writers: dict[str, dict[str, ImageWriter]] = {}
@@ -127,22 +116,24 @@ class CellMapDatasetWriter(Dataset):
             return self._smallest_voxel_sizes
         except AttributeError:
             smallest_voxel_size = {c: np.inf for c in self.axis_order}
-            for source in list(self.input_sources.values()) + list(
+            all_sources = list(self.input_sources.values()) + list(
                 self.target_array_writers.values()
-            ):
+            )
+            for source in all_sources:
                 if isinstance(source, dict):
-                    for _, source in source.items():
-                        if not hasattr(source, "scale") or source.scale is None:  # type: ignore
-                            continue
-                        for c, size in source.scale.items():  # type: ignore
-                            smallest_voxel_size[c] = min(smallest_voxel_size[c], size)
-                else:
-                    if not hasattr(source, "scale") or source.scale is None:
-                        continue
+                    for sub_source in source.values():
+                        if (
+                            hasattr(sub_source, "scale")
+                            and sub_source.scale is not None
+                        ):
+                            for c, size in sub_source.scale.items():
+                                smallest_voxel_size[c] = min(
+                                    smallest_voxel_size[c], size
+                                )
+                elif hasattr(source, "scale") and source.scale is not None:
                     for c, size in source.scale.items():
                         smallest_voxel_size[c] = min(smallest_voxel_size[c], size)
             self._smallest_voxel_sizes = smallest_voxel_size
-
             return self._smallest_voxel_sizes
 
     @property
@@ -170,7 +161,7 @@ class CellMapDatasetWriter(Dataset):
                 bounding_box = self._get_box_union(current_box, bounding_box)
             if bounding_box is None:
                 logger.warning(
-                    "Bounding box is None. This may result in errors when trying to sample from the dataset."
+                    "Bounding box is None. This may cause errors during sampling."
                 )
                 bounding_box = {c: [-np.inf, np.inf] for c in self.axis_order}
             self._bounding_box = bounding_box
@@ -193,7 +184,12 @@ class CellMapDatasetWriter(Dataset):
         except AttributeError:
             sampling_box = None
             for array_name, array_info in self.target_arrays.items():
-                padding = {c: np.ceil((shape * scale) / 2) for c, shape, scale in zip(self.axis_order, array_info["shape"], array_info["scale"])}  # type: ignore
+                padding = {
+                    c: np.ceil((shape * scale) / 2)
+                    for c, shape, scale in zip(
+                        self.axis_order, array_info["shape"], array_info["scale"]
+                    )
+                }
                 this_box = {
                     c: [bounds[0] + padding[c], bounds[1] - padding[c]]
                     for c, bounds in self.target_bounds[array_name].items()
@@ -201,7 +197,7 @@ class CellMapDatasetWriter(Dataset):
                 sampling_box = self._get_box_union(this_box, sampling_box)
             if sampling_box is None:
                 logger.warning(
-                    "Sampling box is None. This may result in errors when trying to sample from the dataset."
+                    "Sampling box is None. This may cause errors during sampling."
                 )
                 sampling_box = {c: [-np.inf, np.inf] for c in self.axis_order}
             self._sampling_box = sampling_box
@@ -209,7 +205,7 @@ class CellMapDatasetWriter(Dataset):
 
     @property
     def sampling_box_shape(self) -> dict[str, int]:
-        """Returns the shape of the sampling box of the dataset in voxels of the smallest voxel size requested."""
+        """Returns the shape of the sampling box."""
         try:
             return self._sampling_box_shape
         except AttributeError:
@@ -217,14 +213,21 @@ class CellMapDatasetWriter(Dataset):
             for c, size in self._sampling_box_shape.items():
                 if size <= 0:
                     logger.debug(
-                        f"Sampling box shape is <= 0 for axis {c} with size {size}. Setting to 1 and padding"
+                        "Sampling box for axis %s has size %d <= 0. "
+                        "Setting to 1 and padding.",
+                        c,
+                        size,
                     )
                     self._sampling_box_shape[c] = 1
             return self._sampling_box_shape
 
+    def __len__(self) -> int:
+        """Returns the number of samples in the dataset."""
+        return int(np.prod(list(self.sampling_box_shape.values())))
+
     @property
     def size(self) -> int:
-        """Returns the size of the dataset in voxels of the smallest voxel size requested."""
+        """Returns the number of samples in the dataset."""
         try:
             return self._size
         except AttributeError:
@@ -260,75 +263,67 @@ class CellMapDatasetWriter(Dataset):
         num_workers: int = 0,
         **kwargs,
     ):
-        """Returns a CellMapDataLoader for the dataset with GPU transfer support."""
+        """Returns a CellMapDataLoader for the dataset."""
         from .dataloader import CellMapDataLoader
 
-        # Don't pass collate_fn, let CellMapDataLoader handle GPU transfer
         return CellMapDataLoader(
             self,
             batch_size=batch_size,
             num_workers=num_workers,
             device=self.device,
-            is_train=False,  # Writer datasets are typically not for training
+            is_train=False,
             **kwargs,
         ).loader
 
     @property
-    def device(self) -> torch.device:
+    def device(self) -> str | torch.device:
         """Returns the device for the dataset."""
         try:
             return self._device
         except AttributeError:
-            if torch.cuda.is_available():
-                self._device = torch.device("cuda")
-            elif torch.backends.mps.is_available():
-                self._device = torch.device("mps")
-            else:
-                self._device = torch.device("cpu")
-            self.to(self._device, non_blocking=True)
+            self._device = "cpu"
             return self._device
 
-    def __len__(self) -> int:
-        """Returns the length of the dataset, determined by the number of coordinates that could be sampled as the center for an array request."""
-        try:
-            return self._len
-        except AttributeError:
-            size = np.prod([self.sampling_box_shape[c] for c in self.axis_order])
-            self._len = int(size)
-            return self._len
-
     def get_center(self, idx: int) -> dict[str, float]:
-        idx = np.array(idx.cpu()) if isinstance(idx, torch.Tensor) else np.array(idx)
-        idx[idx < 0] = len(self) + idx[idx < 0]
+        """
+        Gets the center coordinates for a given index.
+
+        Args:
+        ----
+            idx: The index to get the center for.
+
+        Returns:
+        -------
+            A dictionary of center coordinates.
+        """
+        if idx < 0:
+            idx = len(self) + idx
         try:
-            center = np.unravel_index(
+            center_indices = np.unravel_index(
                 idx, [self.sampling_box_shape[c] for c in self.axis_order]
             )
         except ValueError:
-            raise ValueError(
-                f"Index {idx} out of bounds for dataset {self} of length {len(self)}"
-            )
             logger.error(
-                f"Index {idx} out of bounds for dataset {self} of length {len(self)}"
+                "Index %s out of bounds for dataset of length %d", idx, len(self)
             )
-            logger.warning(f"Returning closest index in bounds")
-            # TODO: This is a hacky temprorary fix. Need to figure out why this is happening
-            center = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
+            logger.warning("Returning closest index in bounds")
+            center_indices = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
         center = {
-            c: center[i] * self.smallest_voxel_sizes[c] + self.sampling_box[c][0]
+            c: float(
+                center_indices[i] * self.smallest_voxel_sizes[c]
+                + self.sampling_box[c][0]
+            )
             for i, c in enumerate(self.axis_order)
         }
         return center
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
-
         self._current_idx = idx
         self._current_center = self.get_center(idx)
         outputs = {}
         for array_name in self.input_arrays.keys():
-            array = self.input_sources[array_name][self._current_center]  # type: ignore
-            # TODO: Assumes 1 channel (i.e. grayscale)
+            array = self.input_sources[array_name][self._current_center]
             if array.shape[0] != 1:
                 outputs[array_name] = array[None, ...]
             else:
@@ -343,22 +338,27 @@ class CellMapDatasetWriter(Dataset):
         arrays: dict[str, torch.Tensor | np.ndarray],
     ) -> None:
         """
-        Writes the values for the given arrays at the given index.
+        Writes values for the given arrays at the given index.
 
         Args:
-            idx (int | torch.Tensor | np.ndarray | Sequence[int]): The index or indices to write the arrays to.
-            arrays (dict[str, torch.Tensor | np.ndarray]): The arrays to write to disk, with data either split by label class into a dictionary, or divided by class along the channel dimension of an array/tensor. The dictionary should have the following structure::
-
-                {
-                    "array_name": torch.Tensor | np.ndarray | dict[str, torch.Tensor | np.ndarray],
-                    ...
-                }
+        ----
+            idx: The index or indices to write to.
+            arrays: Dictionary of arrays to write to disk. Data can be a
+                    single array with channels for classes, or a dictionary
+                    of arrays per class.
         """
+        if isinstance(idx, (torch.Tensor, np.ndarray, Sequence)):
+            if isinstance(idx, torch.Tensor):
+                idx = idx.cpu().numpy()
+            for i in idx:
+                self.__setitem__(i, arrays)
+            return
+
         self._current_idx = idx
         self._current_center = self.get_center(self._current_idx)
         for array_name, array in arrays.items():
-            if isinstance(array, int) or isinstance(array, float):
-                for c, label in enumerate(self.classes):
+            if isinstance(array, (int, float)):
+                for label in self.classes:
                     self.target_array_writers[array_name][label][
                         self._current_center
                     ] = array
@@ -375,7 +375,10 @@ class CellMapDatasetWriter(Dataset):
 
     def __repr__(self) -> str:
         """Returns a string representation of the dataset."""
-        return f"CellMapDatasetWriter(\n\tRaw path: {self.raw_path}\n\tOutput path(s): {self.target_path}\n\tClasses: {self.classes})"
+        return (
+            f"CellMapDatasetWriter(\n\tRaw path: {self.raw_path}\n\t"
+            f"Output path(s): {self.target_path}\n\tClasses: {self.classes})"
+        )
 
     def get_target_array_writer(
         self, array_name: str, array_info: Mapping[str, Sequence[int | float]]
@@ -395,13 +398,24 @@ class CellMapDatasetWriter(Dataset):
         label: str,
         array_info: Mapping[str, Sequence[int | float] | int],
     ) -> ImageWriter:
+        """Returns an ImageWriter for a specific target image."""
+        scale = array_info["scale"]
+        if not isinstance(scale, (Mapping, Sequence)):
+            raise TypeError(f"Scale must be a Mapping or Sequence, not {type(scale)}")
+        shape = array_info["shape"]
+        if not isinstance(shape, (Mapping, Sequence)):
+            raise TypeError(f"Shape must be a Mapping or Sequence, not {type(shape)}")
+        scale_level = array_info.get("scale_level", 0)
+        if not isinstance(scale_level, int):
+            raise TypeError(f"Scale level must be an int, not {type(scale_level)}")
+
         return ImageWriter(
             path=str(UPath(self.target_path) / label),
-            label_class=label,
-            scale=array_info["scale"],  # type: ignore
+            target_class=label,
+            scale=scale,  # type: ignore
             bounding_box=self.target_bounds[array_name],
-            write_voxel_shape=array_info["shape"],  # type: ignore
-            scale_level=array_info.get("scale_level", 0),  # type: ignore
+            write_voxel_shape=shape,  # type: ignore
+            scale_level=scale_level,
             axis_order=self.axis_order,
             context=self.context,
             fill_value=self.empty_value,
@@ -427,7 +441,8 @@ class CellMapDatasetWriter(Dataset):
             if current_box is None:
                 return source_box
             for c, (start, stop) in source_box.items():
-                assert stop > start, f"Invalid box: {start} to {stop}"
+                if stop <= start:
+                    raise ValueError(f"Invalid box: start={start}, stop={stop}")
                 current_box[c][0] = min(current_box[c][0], start)
                 current_box[c][1] = max(current_box[c][1], stop)
         return current_box
@@ -442,7 +457,8 @@ class CellMapDatasetWriter(Dataset):
             if current_box is None:
                 return source_box
             for c, (start, stop) in source_box.items():
-                assert stop > start, f"Invalid box: {start} to {stop}"
+                if stop <= start:
+                    raise ValueError(f"Invalid box: start={start}, stop={stop}")
                 current_box[c][0] = max(current_box[c][0], start)
                 current_box[c][1] = min(current_box[c][1], stop)
         return current_box
@@ -453,7 +469,7 @@ class CellMapDatasetWriter(Dataset):
         try:
             return len(self) > 0
         except Exception as e:
-            logger.warning(f"Error: {e}")
+            logger.warning("Dataset verification failed: %s", e)
             return False
 
     def get_indices(self, chunk_size: Mapping[str, float]) -> Sequence[int]:
@@ -470,17 +486,16 @@ class CellMapDatasetWriter(Dataset):
         for c, size in chunk_size.items():
             indices_dict[c] = np.arange(0, self.sampling_box_shape[c], size, dtype=int)
 
-            # Make sure the last index is included
             if indices_dict[c][-1] != self.sampling_box_shape[c] - 1:
                 indices_dict[c] = np.append(
                     indices_dict[c], self.sampling_box_shape[c] - 1
                 )
 
         indices = []
-        # Generate linear indices by unraveling all combinations of axes indices
+        shape_values = list(self.sampling_box_shape.values())
         for i in np.ndindex(*[len(indices_dict[c]) for c in self.axis_order]):
             index = [indices_dict[c][j] for c, j in zip(self.axis_order, i)]
-            index = np.ravel_multi_index(index, list(self.sampling_box_shape.values()))
+            index = np.ravel_multi_index(index, shape_values)
             indices.append(index)
         return indices
 

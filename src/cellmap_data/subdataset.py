@@ -1,16 +1,17 @@
 import functools
 from typing import Any, Callable, Optional, Sequence
+
 import torch
 from torch.utils.data import Subset
 
+from .base_dataset import CellMapBaseDataset
+from .dataset import CellMapDataset
+from .multidataset import CellMapMultiDataset
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils.sampling import min_redundant_inds
-from .dataset import CellMapDataset
-
-from .multidataset import CellMapMultiDataset
 
 
-class CellMapSubset(Subset):
+class CellMapSubset(CellMapBaseDataset, Subset):
     """
     This subclasses PyTorch Subset to wrap a CellMapDataset or CellMapMultiDataset object under a common API, which can be used for dataloading. It maintains the same API as the Subset class. It retrieves raw and groundtruth data from a CellMapDataset or CellMapMultiDataset object.
     """
@@ -22,6 +23,7 @@ class CellMapSubset(Subset):
     ) -> None:
         """
         Args:
+        ----
             dataset: CellMapDataset | CellMapMultiDataset
                 The dataset to be subsetted.
             indices: Sequence[int]
@@ -89,7 +91,6 @@ class CellMapSubset(Subset):
         - If `num_samples` ≤ total number of available indices, samples without replacement.
         - If `num_samples` > total number of available indices, samples with replacement using repeated shuffles to minimize duplicates.
         """
-
         indices_generator = functools.partial(
             self.get_random_subset_indices, num_samples, rng, **kwargs
         )

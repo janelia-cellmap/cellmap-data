@@ -5,11 +5,13 @@ class GaussianNoise(torch.nn.Module):
     """
     Add Gaussian noise to the input. Subclasses torch.nn.Module.
 
-    Attributes:
+    Attributes
+    ----------
         mean (float): Mean of the noise.
         std (float): Standard deviation of the noise.
 
-    Methods:
+    Methods
+    -------
         forward: Forward pass.
     """
 
@@ -18,6 +20,7 @@ class GaussianNoise(torch.nn.Module):
         Initialize the Gaussian noise.
 
         Args:
+        ----
             mean (float, optional): Mean of the noise. Defaults to 0.0.
             std (float, optional): Standard deviation of the noise. Defaults to 1.0.
         """
