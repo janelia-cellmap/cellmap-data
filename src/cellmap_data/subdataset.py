@@ -4,6 +4,7 @@ from typing import Any, Callable, Optional, Sequence
 import torch
 from torch.utils.data import Subset
 
+from .dataset_writer import CellMapDatasetWriter
 from .base_dataset import CellMapBaseDataset
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
@@ -18,7 +19,7 @@ class CellMapSubset(CellMapBaseDataset, Subset):
 
     def __init__(
         self,
-        dataset: CellMapDataset | CellMapMultiDataset,
+        dataset: CellMapDataset | CellMapMultiDataset | CellMapDatasetWriter,
         indices: Sequence[int],
     ) -> None:
         """

@@ -265,13 +265,15 @@ class CellMapDatasetWriter(Dataset):
     ):
         """Returns a CellMapDataLoader for the dataset."""
         from .dataloader import CellMapDataLoader
+        from .subdataset import CellMapSubset
 
         return CellMapDataLoader(
-            self,
+            CellMapSubset(self, self.writer_indices),
             batch_size=batch_size,
             num_workers=num_workers,
             device=self.device,
             is_train=False,
+            sampler=None,
             **kwargs,
         ).loader
 
