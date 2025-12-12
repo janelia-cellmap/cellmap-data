@@ -13,7 +13,7 @@ from cellmap_data import (
     CellMapDataSplit,
     CellMapMultiDataset,
 )
-from cellmap_data.transforms import Binarize, GaussianNoise, Normalize
+from cellmap_data.transforms import Binarize, GaussianNoise
 
 from .test_helpers import create_test_dataset
 
@@ -43,7 +43,7 @@ class TestTrainingWorkflow:
 
         raw_transforms = T.Compose(
             [
-                Normalize(scale=1.0 / 255.0),
+                T.Normalize(mean=[0.0], std=[255.0]),
                 GaussianNoise(std=0.05),
             ]
         )
@@ -206,7 +206,6 @@ class TestTransformPipeline:
             Binarize,
             GaussianNoise,
             NaNtoNum,
-            Normalize,
             RandomContrast,
             RandomGamma,
         )
@@ -221,7 +220,7 @@ class TestTransformPipeline:
         raw_transforms = T.Compose(
             [
                 NaNtoNum({"nan": 0.0}),
-                Normalize(scale=1.0 / 255.0),
+                T.Normalize(mean=[0.0], std=[255.0]),
                 GaussianNoise(std=0.05),
                 RandomContrast(contrast_range=(0.8, 1.2)),
                 RandomGamma(gamma_range=(0.8, 1.2)),
@@ -272,7 +271,7 @@ class TestTransformPipeline:
         # Different transforms for different targets
         target_transforms = {
             "labels": T.Compose([Binarize(threshold=0.5)]),
-            "distances": T.Compose([Normalize(scale=1.0 / 100.0)]),
+            "distances": T.Compose([T.Normalize(mean=[0.0], std=[100.0])]),
         }
 
         target_arrays = {

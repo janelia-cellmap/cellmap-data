@@ -5,62 +5,16 @@ Tests all augmentation transforms using real tensors without mocks.
 """
 
 import torch
+import torchvision.transforms.v2 as T
 
 from cellmap_data.transforms import (
     Binarize,
     GaussianBlur,
     GaussianNoise,
     NaNtoNum,
-    Normalize,
     RandomContrast,
     RandomGamma,
 )
-
-
-class TestNormalize:
-    """Test suite for Normalize transform."""
-
-    def test_normalize_basic(self):
-        """Test basic normalization."""
-        transform = Normalize(scale=1.0 / 255.0)
-
-        # Create test tensor with values 0-255
-        x = torch.arange(256, dtype=torch.float32).reshape(16, 16)
-        result = transform(x)
-
-        # Check values are scaled
-        assert result.min() >= 0.0
-        assert result.max() <= 1.0
-        assert torch.allclose(result, x / 255.0)
-
-    def test_normalize_with_shift(self):
-        """Test normalization with shift."""
-        transform = Normalize(shift=0.5, scale=0.5)
-
-        x = torch.ones(8, 8)
-        result = transform(x)
-
-        # (1.0 + 0.5) * 0.5 = 0.75
-        expected = torch.ones(8, 8) * 0.75
-        assert torch.allclose(result, expected)
-
-    def test_normalize_preserves_shape(self):
-        """Test that normalization preserves tensor shape."""
-        transform = Normalize(scale=2.0)
-
-        shapes = [(10,), (10, 10), (5, 10, 10), (2, 5, 10, 10)]
-        for shape in shapes:
-            x = torch.rand(shape)
-            result = transform(x)
-            assert result.shape == x.shape
-
-    def test_normalize_dtype_preservation(self):
-        """Test that normalize preserves dtype."""
-        transform = Normalize(scale=0.5)
-
-        x = torch.rand(10, 10, dtype=torch.float32)
-        result = transform(x)
-        assert result.dtype == torch.float32
 
 
 class TestGaussianNoise:
@@ -382,13 +336,13 @@ class TestTransformComposition:
 
         transforms = T.Compose(
             [
-                Normalize(scale=1.0 / 255.0),
+                T.Normalize(mean=[0.0], std=[255.0]),
                 GaussianNoise(std=0.01),
                 RandomContrast(contrast_range=(0.9, 1.1)),
             ]
         )
 
-        x = torch.randint(0, 256, (10, 10), dtype=torch.float32)
+        x = torch.randint(0, 256, (1, 10, 10), dtype=torch.float32)
         result = transforms(x)
 
         assert result.shape == x.shape
@@ -402,7 +356,7 @@ class TestTransformComposition:
         # Realistic preprocessing pipeline
         raw_transforms = T.Compose(
             [
-                Normalize(shift=128, scale=1 / 128),  # Normalize around 0
+                T.Normalize(mean=[-128.0], std=[128.0]),  # Normalize around 0
                 GaussianNoise(std=0.05),
                 RandomContrast(contrast_range=(0.8, 1.2)),
             ]
@@ -415,7 +369,7 @@ class TestTransformComposition:
             ]
         )
 
-        raw = torch.randint(0, 256, (32, 32), dtype=torch.float32)
+        raw = torch.randint(0, 256, (1, 32, 32), dtype=torch.float32)
         target = torch.rand(32, 32)
 
         raw_out = raw_transforms(raw)

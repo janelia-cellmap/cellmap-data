@@ -9,7 +9,7 @@ import torch
 import torchvision.transforms.v2 as T
 
 from cellmap_data import CellMapDataset
-from cellmap_data.transforms import Binarize, Normalize
+from cellmap_data.transforms import Binarize
 
 from .test_helpers import create_minimal_test_dataset, create_test_dataset
 
@@ -192,7 +192,7 @@ class TestCellMapDataset:
 
         raw_transforms = T.Compose(
             [
-                Normalize(scale=1.0 / 255.0),
+                T.Normalize(mean=[0.0], std=[255.0]),
             ]
         )
 

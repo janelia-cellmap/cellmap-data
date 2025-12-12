@@ -5,6 +5,7 @@ Tests writing predictions and outputs using real data.
 """
 
 import pytest
+import torchvision.transforms.v2 as T
 
 from cellmap_data import CellMapDatasetWriter
 
@@ -281,8 +282,6 @@ class TestWriterOperations:
 
     def test_writer_with_value_transforms(self, tmp_path):
         """Test writer with value transforms."""
-        from cellmap_data.transforms import Normalize
-
         config = create_test_dataset(
             tmp_path / "input",
             raw_shape=(32, 32, 32),
@@ -291,7 +290,7 @@ class TestWriterOperations:
 
         output_path = tmp_path / "output.zarr"
 
-        raw_transform = Normalize(scale=1.0 / 255.0)
+        raw_transform = T.Normalize(mean=[0.0], std=[255.0])
 
         target_bounds = {
             "pred": {

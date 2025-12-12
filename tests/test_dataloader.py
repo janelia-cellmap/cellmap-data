@@ -275,7 +275,7 @@ class TestDataLoaderIntegration:
         """Test loader with dataset that has transforms."""
         import torchvision.transforms.v2 as T
 
-        from cellmap_data.transforms import Binarize, Normalize
+        from cellmap_data.transforms import Binarize
 
         config = create_test_dataset(
             tmp_path,
@@ -286,7 +286,7 @@ class TestDataLoaderIntegration:
         input_arrays = {"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}}
         target_arrays = {"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}}
 
-        raw_transforms = T.Compose([Normalize(scale=1.0 / 255.0)])
+        raw_transforms = T.Compose([T.Normalize(mean=[0.0], std=[255.0])])
         target_transforms = T.Compose([Binarize(threshold=0.5)])
 
         dataset = CellMapDataset(

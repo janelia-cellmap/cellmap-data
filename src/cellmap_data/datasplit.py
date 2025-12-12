@@ -11,7 +11,7 @@ from tqdm import tqdm
 from .dataset import CellMapDataset
 from .multidataset import CellMapMultiDataset
 from .subdataset import CellMapSubset
-from .transforms import Binarize, NaNtoNum, Normalize
+from .transforms import Binarize, NaNtoNum
 
 logger = logging.getLogger(__name__)
 
@@ -108,14 +108,14 @@ class CellMapDataSplit:
         spatial_transforms: Optional[Mapping[str, Any]] = None,
         train_raw_value_transforms: Optional[T.Transform] = T.Compose(
             [
-                Normalize(),
+                T.Normalize(mean=[0.0], std=[255.0]),
                 T.ToDtype(torch.float, scale=True),
                 NaNtoNum({"nan": 0, "posinf": None, "neginf": None}),
             ],
         ),
         val_raw_value_transforms: Optional[T.Transform] = T.Compose(
             [
-                Normalize(),
+                T.Normalize(mean=[0.0], std=[255.0]),
                 T.ToDtype(torch.float, scale=True),
                 NaNtoNum({"nan": 0, "posinf": None, "neginf": None}),
             ],

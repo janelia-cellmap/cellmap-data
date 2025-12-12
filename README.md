@@ -77,7 +77,7 @@ dataset = CellMapDataset(
 
 ```python
 from cellmap_data import CellMapDataLoader
-from cellmap_data.transforms import Normalize, RandomContrast, GaussianNoise, Binarize
+from cellmap_data.transforms import RandomContrast, GaussianNoise, Binarize
 import torchvision.transforms.v2 as T
 
 # Define spatial transformations
@@ -89,7 +89,7 @@ spatial_transforms = {
 
 # Define value transformations
 raw_value_transforms = T.Compose([
-    Normalize(scale=1/255),           # Normalize to [0,1]
+    T.Normalize(mean=[0.0], std=[255.0]),           # Normalize to [0,1]
     GaussianNoise(std=0.05),          # Add noise for augmentation
     RandomContrast((0.8, 1.2)),       # Vary contrast
 ])
@@ -287,13 +287,13 @@ Built-in preprocessing and augmentation transforms:
 
 ```python
 from cellmap_data.transforms import (
-    Normalize, GaussianNoise, RandomContrast, 
+    GaussianNoise, RandomContrast, 
     RandomGamma, Binarize, NaNtoNum, GaussianBlur
 )
 
 # Input preprocessing
 raw_transforms = T.Compose([
-    Normalize(scale=1/255),      # Normalize to [0,1]
+    T.Normalize(mean=[0.0], std=[255.0]),      # Normalize to [0,1]
     GaussianNoise(std=0.1),      # Add noise
     RandomContrast((0.8, 1.2)),  # Vary contrast
     NaNtoNum({"nan": 0})         # Handle NaN values
