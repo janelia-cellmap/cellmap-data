@@ -14,6 +14,9 @@ from .image_writer import ImageWriter
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# Special keys that should not be written to disk
+_METADATA_KEYS = {"idx"}
+
 
 # %%
 class CellMapDatasetWriter(Dataset):
@@ -356,8 +359,8 @@ class CellMapDatasetWriter(Dataset):
                 # Extract the data for this specific item in the batch
                 item_arrays = {}
                 for array_name, array in arrays.items():
-                    # Skip special metadata keys like "idx"
-                    if array_name == "idx":
+                    # Skip special metadata keys
+                    if array_name in _METADATA_KEYS:
                         continue
                     if isinstance(array, (int, float)):
                         # Scalar values are the same for all items
@@ -377,8 +380,8 @@ class CellMapDatasetWriter(Dataset):
         self._current_idx = idx
         self._current_center = self.get_center(self._current_idx)
         for array_name, array in arrays.items():
-            # Skip special metadata keys like "idx"
-            if array_name == "idx":
+            # Skip special metadata keys
+            if array_name in _METADATA_KEYS:
                 continue
             if isinstance(array, (int, float)):
                 for label in self.classes:

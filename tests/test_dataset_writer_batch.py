@@ -18,7 +18,11 @@ class TestDatasetWriterBatchOperations:
 
     @pytest.fixture
     def writer_setup(self, tmp_path):
-        """Create writer for batch tests."""
+        """Create writer and config for batch write tests.
+        
+        Returns a tuple of (writer, config) where writer is a CellMapDatasetWriter
+        configured for testing batch operations.
+        """
         # Create input data
         config = create_test_dataset(
             tmp_path / "input",
@@ -123,6 +127,7 @@ class TestDatasetWriterBatchOperations:
 
     def test_batch_write_2d_data(self, tmp_path):
         """Test batch writing for 2D data (3D with singleton z dimension)."""
+        # Import here to avoid module-level import
         from .test_helpers import create_test_dataset
 
         # Create test dataset with thin Z dimension to simulate 2D
