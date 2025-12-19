@@ -352,13 +352,34 @@ class CellMapDatasetWriter(Dataset):
         if isinstance(idx, (torch.Tensor, np.ndarray, Sequence)):
             if isinstance(idx, torch.Tensor):
                 idx = idx.cpu().numpy()
-            for i in idx:
-                self.__setitem__(i, arrays)
+            for batch_idx, i in enumerate(idx):
+                # Extract the data for this specific item in the batch
+                item_arrays = {}
+                for array_name, array in arrays.items():
+                    # Skip special metadata keys like "idx"
+                    if array_name == "idx":
+                        continue
+                    if isinstance(array, (int, float)):
+                        # Scalar values are the same for all items
+                        item_arrays[array_name] = array
+                    elif isinstance(array, dict):
+                        # Dictionary of arrays - extract batch item from each
+                        item_arrays[array_name] = {
+                            label: label_array[batch_idx]
+                            for label, label_array in array.items()
+                        }
+                    else:
+                        # Regular array - extract the batch item
+                        item_arrays[array_name] = array[batch_idx]
+                self.__setitem__(i, item_arrays)
             return
 
         self._current_idx = idx
         self._current_center = self.get_center(self._current_idx)
         for array_name, array in arrays.items():
+            # Skip special metadata keys like "idx"
+            if array_name == "idx":
+                continue
             if isinstance(array, (int, float)):
                 for label in self.classes:
                     self.target_array_writers[array_name][label][
