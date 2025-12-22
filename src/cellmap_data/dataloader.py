@@ -231,6 +231,10 @@ class CellMapDataLoader:
 
         dataloader_kwargs.pop("force_has_data", None)
 
+        # Ensure that dataset is loaded onto CPU if pin_memory is used
+        if self._pin_memory:
+            self.dataset.to("cpu")
+
         self._pytorch_loader = torch.utils.data.DataLoader(
             self.dataset, **dataloader_kwargs
         )

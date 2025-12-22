@@ -81,7 +81,7 @@ class EmptyImage(CellMapImageBase):
     def class_counts(self) -> float:
         return self._class_counts
 
-    def to(self, device: str, non_blocking: bool = True) -> None:
+    def to(self, device: str | torch.device, non_blocking: bool = True) -> None:
         self.store = self.store.to(device, non_blocking=non_blocking)
 
     def set_spatial_transforms(self, transforms: Mapping[str, Any] | None) -> None:
