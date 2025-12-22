@@ -53,7 +53,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         force_has_data: bool = False,
         empty_value: float | int = torch.nan,
         pad: bool = True,
-        device: Optional[str | torch.device] = None,
+        device: Optional[str | torch.device] = "cpu",
         max_workers: Optional[int] = None,
     ) -> None:
         """Initializes the CellMapDataset class.
@@ -76,7 +76,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
             force_has_data: If True, forces the dataset to report having data.
             empty_value: Value for empty data.
             pad: Whether to pad data to match requested array shapes.
-            device: The device for torch tensors.
+            device: The device for torch tensors. Defaults to CPU.
             max_workers: Max worker threads for data loading.
         """
         super().__init__()
@@ -114,6 +114,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                 pad=self.pad,
                 pad_value=0,
                 interpolation="linear",
+                device=self._device,
             )
         self.target_sources = {}
         self.has_data = (
@@ -131,6 +132,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                     pad=self.pad,
                     pad_value=0,
                     interpolation="linear",
+                    device=self._device,
                 )
             else:
                 self.target_sources[array_name] = self.get_target_array(array_info)
@@ -736,6 +738,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                 pad=self.pad,
                 pad_value=self.empty_value,
                 interpolation="nearest",
+                device=self._device,
             )
             if not self.has_data:
                 self.has_data = array.class_counts > 0
@@ -749,7 +752,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
             else:
                 shape = tuple(map(int, array_info["shape"]))
                 array = EmptyImage(
-                    label, array_info["scale"], shape, empty_store  # type: ignore
+                    label, array_info["scale"], shape, empty_store, device=self._device  # type: ignore
                 )
         return array
 
