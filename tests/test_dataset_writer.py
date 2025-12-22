@@ -6,6 +6,7 @@ Tests writing predictions and outputs using real data.
 
 import pytest
 import torchvision.transforms.v2 as T
+import torch
 
 from cellmap_data import CellMapDatasetWriter
 
@@ -290,7 +291,7 @@ class TestWriterOperations:
 
         output_path = tmp_path / "output.zarr"
 
-        raw_transform = T.Normalize(mean=[0.0], std=[255.0])
+        raw_transform = T.ToDtype(torch.float, scale=True)
 
         target_bounds = {
             "pred": {

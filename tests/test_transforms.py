@@ -336,7 +336,7 @@ class TestTransformComposition:
 
         transforms = T.Compose(
             [
-                T.Normalize(mean=[0.0], std=[255.0]),
+                T.ToDtype(torch.float32, scale=True),
                 GaussianNoise(std=0.01),
                 RandomContrast(contrast_range=(0.9, 1.1)),
             ]
@@ -356,7 +356,7 @@ class TestTransformComposition:
         # Realistic preprocessing pipeline
         raw_transforms = T.Compose(
             [
-                T.Normalize(mean=[-128.0], std=[128.0]),  # Normalize around 0
+                T.ToDtype(torch.float32, scale=True),
                 GaussianNoise(std=0.05),
                 RandomContrast(contrast_range=(0.8, 1.2)),
             ]

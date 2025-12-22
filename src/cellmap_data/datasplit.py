@@ -108,14 +108,12 @@ class CellMapDataSplit:
         spatial_transforms: Optional[Mapping[str, Any]] = None,
         train_raw_value_transforms: Optional[T.Transform] = T.Compose(
             [
-                T.Normalize(mean=[0.0], std=[255.0]),
                 T.ToDtype(torch.float, scale=True),
                 NaNtoNum({"nan": 0, "posinf": None, "neginf": None}),
             ],
         ),
         val_raw_value_transforms: Optional[T.Transform] = T.Compose(
             [
-                T.Normalize(mean=[0.0], std=[255.0]),
                 T.ToDtype(torch.float, scale=True),
                 NaNtoNum({"nan": 0, "posinf": None, "neginf": None}),
             ],

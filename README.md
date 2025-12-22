@@ -89,7 +89,7 @@ spatial_transforms = {
 
 # Define value transformations
 raw_value_transforms = T.Compose([
-    T.Normalize(mean=[0.0], std=[255.0]),           # Normalize to [0,1]
+    T.ToDtype(torch.float, scale=True),           # Normalize to [0,1] and convert to float
     GaussianNoise(std=0.05),          # Add noise for augmentation
     RandomContrast((0.8, 1.2)),       # Vary contrast
 ])
@@ -293,7 +293,7 @@ from cellmap_data.transforms import (
 
 # Input preprocessing
 raw_transforms = T.Compose([
-    T.Normalize(mean=[0.0], std=[255.0]),      # Normalize to [0,1]
+    T.ToDtype(torch.float, scale=True),      # Normalize to [0,1]
     GaussianNoise(std=0.1),      # Add noise
     RandomContrast((0.8, 1.2)),  # Vary contrast
     NaNtoNum({"nan": 0})         # Handle NaN values

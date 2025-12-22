@@ -43,7 +43,7 @@ class TestTrainingWorkflow:
 
         raw_transforms = T.Compose(
             [
-                T.Normalize(mean=[0.0], std=[255.0]),
+                T.ToDtype(torch.float, scale=True),
                 GaussianNoise(std=0.05),
             ]
         )
@@ -220,7 +220,7 @@ class TestTransformPipeline:
         raw_transforms = T.Compose(
             [
                 NaNtoNum({"nan": 0.0}),
-                T.Normalize(mean=[0.0], std=[255.0]),
+                T.ToDtype(torch.float, scale=True),
                 GaussianNoise(std=0.05),
                 RandomContrast(contrast_range=(0.8, 1.2)),
                 RandomGamma(gamma_range=(0.8, 1.2)),
@@ -271,7 +271,7 @@ class TestTransformPipeline:
         # Different transforms for different targets
         target_transforms = {
             "labels": T.Compose([Binarize(threshold=0.5)]),
-            "distances": T.Compose([T.Normalize(mean=[0.0], std=[100.0])]),
+            "distances": T.Compose([T.ToDtype(torch.float, scale=True)]),
         }
 
         target_arrays = {

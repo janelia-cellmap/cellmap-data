@@ -192,7 +192,7 @@ class TestCellMapDataset:
 
         raw_transforms = T.Compose(
             [
-                T.Normalize(mean=[0.0], std=[255.0]),
+                T.ToDtype(torch.float, scale=True),
             ]
         )
 
