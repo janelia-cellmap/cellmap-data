@@ -483,7 +483,8 @@ class TestWriterIntegration:
     def test_writer_2d_output(self, tmp_path):
         """Test writer for 2D outputs."""
         # Create 2D input data
-        from .test_helpers import create_test_image_data, create_test_zarr_array
+        from .test_helpers import (create_test_image_data,
+                                   create_test_zarr_array)
 
         input_path = tmp_path / "input_2d.zarr"
         data_2d = create_test_image_data((128, 128), pattern="gradient")

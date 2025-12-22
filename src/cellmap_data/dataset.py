@@ -15,7 +15,8 @@ from .base_dataset import CellMapBaseDataset
 from .empty_image import EmptyImage
 from .image import CellMapImage
 from .mutable_sampler import MutableSubsetRandomSampler
-from .utils import get_sliced_shape, is_array_2D, min_redundant_inds, split_target_path
+from .utils import (get_sliced_shape, is_array_2D, min_redundant_inds,
+                    split_target_path)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

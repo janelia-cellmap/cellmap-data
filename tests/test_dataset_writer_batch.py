@@ -19,7 +19,7 @@ class TestDatasetWriterBatchOperations:
     @pytest.fixture
     def writer_setup(self, tmp_path):
         """Create writer and config for batch write tests.
-        
+
         Returns a tuple of (writer, config) where writer is a CellMapDatasetWriter
         configured for testing batch operations.
         """
@@ -197,9 +197,13 @@ class TestDatasetWriterBatchOperations:
         indices = torch.tensor(list(range(batch_size)))
 
         # Test with different dtypes
-        predictions_float32 = torch.randn(batch_size, 2, 32, 32, 32, dtype=torch.float32)
+        predictions_float32 = torch.randn(
+            batch_size, 2, 32, 32, 32, dtype=torch.float32
+        )
         writer[indices] = {"pred": predictions_float32}
 
-        predictions_float64 = torch.randn(batch_size, 2, 32, 32, 32, dtype=torch.float64)
+        predictions_float64 = torch.randn(
+            batch_size, 2, 32, 32, 32, dtype=torch.float64
+        )
         indices2 = torch.tensor(list(range(batch_size, batch_size * 2)))
         writer[indices2] = {"pred": predictions_float64}

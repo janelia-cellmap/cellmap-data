@@ -7,12 +7,8 @@ Tests end-to-end workflows combining multiple components.
 import torch
 import torchvision.transforms.v2 as T
 
-from cellmap_data import (
-    CellMapDataLoader,
-    CellMapDataset,
-    CellMapDataSplit,
-    CellMapMultiDataset,
-)
+from cellmap_data import (CellMapDataLoader, CellMapDataset, CellMapDataSplit,
+                          CellMapMultiDataset)
 from cellmap_data.transforms import Binarize, GaussianNoise
 
 from .test_helpers import create_test_dataset
@@ -202,13 +198,8 @@ class TestTransformPipeline:
 
     def test_complete_augmentation_pipeline(self, tmp_path):
         """Test complete augmentation pipeline."""
-        from cellmap_data.transforms import (
-            Binarize,
-            GaussianNoise,
-            NaNtoNum,
-            RandomContrast,
-            RandomGamma,
-        )
+        from cellmap_data.transforms import (Binarize, GaussianNoise, NaNtoNum,
+                                             RandomContrast, RandomGamma)
 
         config = create_test_dataset(
             tmp_path,
