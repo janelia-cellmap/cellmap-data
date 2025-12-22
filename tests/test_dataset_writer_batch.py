@@ -127,8 +127,7 @@ class TestDatasetWriterBatchOperations:
 
     def test_batch_write_2d_data(self, tmp_path):
         """Test batch writing for 2D data (3D with singleton z dimension)."""
-        # Import here to avoid module-level import
-        from .test_helpers import create_test_dataset
+        # Import kept at module level; reuse create_test_dataset here
 
         # Create test dataset with thin Z dimension to simulate 2D
         config = create_test_dataset(
