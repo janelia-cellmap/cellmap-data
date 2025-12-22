@@ -7,8 +7,14 @@ Tests all augmentation transforms using real tensors without mocks.
 import torch
 import torchvision.transforms.v2 as T
 
-from cellmap_data.transforms import (Binarize, GaussianBlur, GaussianNoise,
-                                     NaNtoNum, RandomContrast, RandomGamma)
+from cellmap_data.transforms import (
+    Binarize,
+    GaussianBlur,
+    GaussianNoise,
+    NaNtoNum,
+    RandomContrast,
+    RandomGamma,
+)
 
 
 class TestGaussianNoise:

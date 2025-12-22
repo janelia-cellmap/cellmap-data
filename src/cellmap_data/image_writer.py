@@ -127,8 +127,7 @@ class ImageWriter:
                 array_future = tensorstore.open(spec, **open_kwargs)
                 array = array_future.result()
             from pydantic_ome_ngff.v04.axis import Axis
-            from pydantic_ome_ngff.v04.transform import (VectorScale,
-                                                         VectorTranslation)
+            from pydantic_ome_ngff.v04.transform import VectorScale, VectorTranslation
             from xarray_ome_ngff.v04.multiscale import coords_from_transforms
 
             data = xarray.DataArray(
