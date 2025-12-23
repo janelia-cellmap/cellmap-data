@@ -35,7 +35,6 @@ dependencies = [
     "xarray-tensorstore==0.1.5",
     "universal_pathlib>=0.2.0",
     "fsspec[s3,http]",
-    "cellpose",
     "neuroglancer",
     "h5py", # Only needed until the new cellmap-flow is released
     # "cellmap-flow",
