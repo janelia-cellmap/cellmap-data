@@ -41,6 +41,7 @@ dependencies = [
     "ipython",
     # "py_distance_transforms",
     "scipy",
+    "tqdm",
 ]
 
 # extras
