@@ -102,9 +102,21 @@ def get_sliced_shape(shape: Sequence[int], axis: int) -> Sequence[int]:
     return shape
 
 
+def expand_scale(scale: Sequence[float]) -> Sequence[float]:
+    """Returns a scale expanded from 2D and sliced along the specified axis."""
+    scale = list(scale)
+    if len(scale) == 2:
+        scale.insert(0, scale[0])
+    return scale
+
+
 def permute_singleton_dimension(arr_dict, axis):
-    for arr_name, arr_info in arr_dict.items():
-        arr_info["shape"] = get_sliced_shape(arr_info["shape"], axis)
+    if "shape" in arr_dict and "scale" in arr_dict:
+        arr_dict["shape"] = get_sliced_shape(arr_dict["shape"], axis)
+        arr_dict["scale"] = expand_scale(arr_dict["scale"])
+    else:
+        for arr_name, arr_info in arr_dict.items():
+            permute_singleton_dimension(arr_info, axis)
 
 
 def min_redundant_inds(

@@ -297,13 +297,27 @@ class ImageWriter:
         # Check for shape mismatches
         expected_shape = tuple(self.write_voxel_shape[c] for c in self.axes)
         if data_array.shape != expected_shape:
-            raise ValueError(
-                f"Data shape {data_array.shape} does not match expected shape {expected_shape}."
-            )
+            if len(data_array.shape) < len(expected_shape) and 1 in expected_shape:
+                # Try to expand dimensions to fit expected shape
+                for axis, size in enumerate(expected_shape):
+                    if size == 1:
+                        data_array = np.expand_dims(data_array, axis=axis)
+            else:
+                raise ValueError(
+                    f"Data shape {data_array.shape} does not match expected shape {expected_shape}."
+                )
         coord_shape = tuple(len(aligned_coords[c]) for c in self.axes)
         if coord_shape != expected_shape:
-            raise ValueError(
-                f"Aligned coordinates shape {coord_shape} does not match expected shape {expected_shape}."
+            # Try to crop data to fit within bounds if necessary
+            min_shape = tuple(min(c, e) for c, e in zip(coord_shape, expected_shape))
+            slices = tuple(slice(0, s) for s in min_shape)
+            data_array = data_array[slices]
+            if data_array.shape != coord_shape:
+                raise ValueError(
+                    f"Aligned coordinates shape {coord_shape} does not match expected shape {expected_shape}."
+                )
+            UserWarning(
+                f"Data shape cropped to {data_array.shape} to fit within bounds."
             )
 
         # Write to array

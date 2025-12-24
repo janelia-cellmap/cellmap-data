@@ -101,8 +101,9 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         self._current_center = None
         self._current_spatial_transforms = None
         self.input_sources: dict[str, CellMapImage] = {}
-        if device is not None:
-            self._device = torch.device(device)
+        self._device = (
+            torch.device(device) if device is not None else torch.device("cpu")
+        )
         for array_name, array_info in self.input_arrays.items():
             self.input_sources[array_name] = CellMapImage(
                 self.raw_path,
@@ -297,7 +298,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
             self.force_has_data,
             self.empty_value,
             self.pad,
-            self.device.type if hasattr(self, "_device") else None,
+            self.device.type if hasattr(self.device, "type") else self.device,
             self._max_workers,
         )
         return (self.__class__, args, self.__dict__)
