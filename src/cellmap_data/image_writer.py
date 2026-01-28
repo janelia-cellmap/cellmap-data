@@ -38,12 +38,15 @@ class ImageWriter:
         self.base_path = str(path)
         self.path = (UPath(path) / f"s{scale_level}").path
         self.label_class = self.target_class = target_class
+        if len(write_voxel_shape) == len(axis_order) + 1 and "c" not in axis_order:
+            # Add channel axis if missing
+            axis_order = "c" + axis_order
         if isinstance(scale, Sequence):
             if len(axis_order) > len(scale):
                 scale = [scale[0]] * (len(axis_order) - len(scale)) + list(scale)
             scale = {c: s for c, s in zip(axis_order, scale)}
         if isinstance(write_voxel_shape, Sequence):
-            if len(axis_order) > len(write_voxel_shape):
+            if len(axis_order) > len(write_voxel_shape):  # TODO: This might be a bug
                 write_voxel_shape = [1] * (
                     len(axis_order) - len(write_voxel_shape)
                 ) + list(write_voxel_shape)
