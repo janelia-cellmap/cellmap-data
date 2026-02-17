@@ -509,7 +509,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
             return self._device
 
     def __len__(self) -> int:
-        """Returns the number of patches in the dataset."""
+        """Returns the number of unique patches in the dataset."""
         if not self.has_data and not self.force_has_data:
             return 0
         # Return at least 1 if the dataset has data, so that samplers can be initialized
@@ -976,4 +976,6 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         # Directly instantiate to bypass __new__ logic
         instance = super(CellMapDataset, CellMapDataset).__new__(CellMapDataset)
         instance.__init__("", "", [], {}, {}, force_has_data=False)
+        instance.has_data = False
+        instance._sampling_box_shape = {c: 0 for c in instance.axis_order}
         return instance
