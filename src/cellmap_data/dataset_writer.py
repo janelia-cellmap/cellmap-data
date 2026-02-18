@@ -431,6 +431,10 @@ class CellMapDatasetWriter(Dataset):
         shape = array_info["shape"]
         if not isinstance(shape, (Mapping, Sequence)):
             raise TypeError(f"Shape must be a Mapping or Sequence, not {type(shape)}")
+        if "n_channels" in array_info:
+            shape = [array_info["n_channels"]] + list(shape)
+            if "c" not in self.axis_order:
+                self.axis_order = "c" + self.axis_order
         scale_level = array_info.get("scale_level", 0)
         if not isinstance(scale_level, int):
             raise TypeError(f"Scale level must be an int, not {type(scale_level)}")
