@@ -54,7 +54,7 @@ class ImageWriter:
                 ) + list(write_voxel_shape)
             write_voxel_shape = {c: t for c, t in zip(axis_order, write_voxel_shape)}
         self.scale = scale
-        # Add bounding_box for channel axis if it was added or if 'c' is in axis_order but not in bounding_box
+        # Add bounding_box for channel axis if 'c' is in axis_order but not in bounding_box
         if "c" in axis_order and "c" not in bounding_box:
             n_channels = write_voxel_shape["c"]
             bounding_box = {"c": [0, n_channels], **bounding_box}
