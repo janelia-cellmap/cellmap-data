@@ -219,6 +219,7 @@ def get_layer(
                     voxel_offset=metadata[scale]["voxel_offset"],
                 )
             )
+
         class ScalePyramid(neuroglancer.LocalVolume):
             """A neuroglancer layer that provides volume data on different scales.
             Mimics a LocalVolume.
