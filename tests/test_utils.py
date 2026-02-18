@@ -7,7 +7,16 @@ Tests dtype utilities, sampling utilities, and miscellaneous utilities.
 import numpy as np
 import torch
 
-from cellmap_data.utils.misc import get_sliced_shape, torch_max_value
+from cellmap_data.utils.misc import (
+    array_has_singleton_dim,
+    expand_scale,
+    get_sliced_shape,
+    longest_common_substring,
+    permute_singleton_dimension,
+    split_target_path,
+    torch_max_value,
+)
+from cellmap_data.utils.sampling import min_redundant_inds
 
 
 class TestUtilsMisc:
@@ -266,3 +275,180 @@ class TestDtypeUtilities:
         # Float types return 1 (normalized)
         assert torch_max_value(torch.float32) == 1
         assert torch_max_value(torch.float64) == 1
+
+
+class TestLongestCommonSubstring:
+    """Tests for longest_common_substring utility."""
+
+    def test_identical_strings(self):
+        result = longest_common_substring("abcdef", "abcdef")
+        assert result == "abcdef"
+
+    def test_partial_overlap(self):
+        result = longest_common_substring("abcXYZ", "XYZdef")
+        assert result == "XYZ"
+
+    def test_no_overlap(self):
+        result = longest_common_substring("abc", "xyz")
+        assert result == ""
+
+    def test_substring_at_start(self):
+        result = longest_common_substring("hello world", "hello there")
+        assert result == "hello "
+
+    def test_single_char_overlap(self):
+        result = longest_common_substring("abc", "cde")
+        assert result == "c"
+
+    def test_empty_string(self):
+        result = longest_common_substring("", "abc")
+        assert result == ""
+
+    def test_path_like_strings(self):
+        a = "/data/train/dataset_0/raw"
+        b = "/data/train/dataset_1/raw"
+        result = longest_common_substring(a, b)
+        assert len(result) > 0
+        assert result in a and result in b
+
+
+class TestExpandScale:
+    """Tests for expand_scale utility."""
+
+    def test_2d_scale_expanded(self):
+        scale = [4.0, 8.0]
+        result = expand_scale(scale)
+        assert len(result) == 3
+        assert result[0] == 4.0  # first element duplicated at front
+
+    def test_3d_scale_unchanged(self):
+        scale = [4.0, 8.0, 16.0]
+        result = expand_scale(scale)
+        assert result == [4.0, 8.0, 16.0]
+
+    def test_isotropic_2d(self):
+        scale = [4.0, 4.0]
+        result = expand_scale(scale)
+        assert len(result) == 3
+        assert result == [4.0, 4.0, 4.0]
+
+    def test_single_element(self):
+        scale = [8.0]
+        result = expand_scale(scale)
+        assert len(result) == 1  # no change for 1D
+
+
+class TestArrayHasSingletonDim:
+    """Tests for array_has_singleton_dim utility."""
+
+    def test_with_singleton(self):
+        arr_info = {"shape": (1, 64, 64)}
+        assert array_has_singleton_dim(arr_info) is True
+
+    def test_without_singleton(self):
+        arr_info = {"shape": (8, 64, 64)}
+        assert array_has_singleton_dim(arr_info) is False
+
+    def test_none_input(self):
+        assert array_has_singleton_dim(None) is False
+
+    def test_empty_dict(self):
+        assert array_has_singleton_dim({}) is False
+
+    def test_nested_dict_any(self):
+        arr_info = {
+            "raw": {"shape": (1, 64, 64)},
+            "labels": {"shape": (8, 64, 64)},
+        }
+        # summary=True (default) returns True if any has singleton
+        assert array_has_singleton_dim(arr_info, summary=True) is True
+
+    def test_nested_dict_none_singleton(self):
+        arr_info = {
+            "raw": {"shape": (4, 64, 64)},
+            "labels": {"shape": (8, 64, 64)},
+        }
+        assert array_has_singleton_dim(arr_info, summary=True) is False
+
+    def test_nested_dict_per_key(self):
+        arr_info = {
+            "raw": {"shape": (1, 64, 64)},
+            "labels": {"shape": (8, 64, 64)},
+        }
+        result = array_has_singleton_dim(arr_info, summary=False)
+        assert isinstance(result, dict)
+        assert result["raw"] is True
+        assert result["labels"] is False
+
+
+class TestPermutesSingletonDimension:
+    """Tests for permute_singleton_dimension utility."""
+
+    def test_single_array_dict(self):
+        arr_dict = {"shape": (64, 64), "scale": (4.0, 4.0)}
+        permute_singleton_dimension(arr_dict, axis=0)
+        assert len(arr_dict["shape"]) == 3
+        assert arr_dict["shape"][0] == 1
+        assert len(arr_dict["scale"]) == 3
+
+    def test_nested_array_dict(self):
+        arr_dict = {
+            "raw": {"shape": (64, 64), "scale": (4.0, 4.0)},
+            "labels": {"shape": (64, 64), "scale": (4.0, 4.0)},
+        }
+        permute_singleton_dimension(arr_dict, axis=1)
+        assert len(arr_dict["raw"]["shape"]) == 3
+        assert len(arr_dict["labels"]["shape"]) == 3
+
+    def test_axis_placement(self):
+        arr_dict = {"shape": (64, 64), "scale": (4.0, 8.0)}
+        permute_singleton_dimension(arr_dict, axis=2)
+        assert arr_dict["shape"][2] == 1
+
+    def test_existing_singleton_moved(self):
+        # shape already has a singleton, but at wrong position
+        arr_dict = {"shape": (1, 64, 64), "scale": (4.0, 4.0, 4.0)}
+        permute_singleton_dimension(arr_dict, axis=2)
+        assert arr_dict["shape"][2] == 1
+
+
+class TestMinRedundantInds:
+    """Tests for min_redundant_inds from utils.sampling."""
+
+    def test_basic_sampling_under_size(self):
+        result = min_redundant_inds(10, 5)
+        assert len(result) == 5
+        assert result.max() < 10
+
+    def test_exact_size(self):
+        result = min_redundant_inds(10, 10)
+        assert len(result) == 10
+        # Should be a permutation
+        assert set(result.tolist()) == set(range(10))
+
+    def test_oversample(self):
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = min_redundant_inds(5, 12)
+        assert len(result) == 12
+        assert result.max() < 5
+
+    def test_with_rng(self):
+        rng = torch.Generator()
+        rng.manual_seed(42)
+        result1 = min_redundant_inds(10, 5, rng=rng)
+        rng.manual_seed(42)
+        result2 = min_redundant_inds(10, 5, rng=rng)
+        assert torch.equal(result1, result2)
+
+    def test_invalid_size_raises(self):
+        import pytest
+
+        with pytest.raises(ValueError):
+            min_redundant_inds(0, 5)
+
+    def test_returns_tensor(self):
+        result = min_redundant_inds(10, 5)
+        assert isinstance(result, torch.Tensor)

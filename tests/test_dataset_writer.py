@@ -277,6 +277,75 @@ class TestCellMapDatasetWriter:
 
         assert writer.context is context
 
+    def test_n_channels_in_target_arrays(self, writer_config):
+        """Test n_channels parameter in target arrays configuration."""
+        config = writer_config["input_config"]
+
+        # Test with n_channels to create multi-channel output
+        target_arrays = {
+            "predictions": {
+                "shape": (32, 32, 32),
+                "scale": (8.0, 8.0, 8.0),
+                "n_channels": 3,
+            }
+        }
+
+        target_bounds = {
+            "predictions": {
+                "x": [0, 256],
+                "y": [0, 256],
+                "z": [0, 256],
+            }
+        }
+
+        writer = CellMapDatasetWriter(
+            raw_path=config["raw_path"],
+            target_path=writer_config["output_path"],
+            classes=["class_0"],
+            input_arrays={"raw": {"shape": (32, 32, 32), "scale": (8.0, 8.0, 8.0)}},
+            target_arrays=target_arrays,
+            target_bounds=target_bounds,
+        )
+
+        # Verify that the channel axis was added
+        assert "c" in writer.axis_order
+        assert writer.axis_order.startswith("c")
+
+    def test_n_channels_with_existing_channel_axis(self, writer_config):
+        """Test n_channels parameter when channel axis already exists."""
+        config = writer_config["input_config"]
+
+        target_arrays = {
+            "predictions": {
+                "shape": (32, 32, 32),
+                "scale": (8.0, 8.0, 8.0),
+                "n_channels": 4,
+            }
+        }
+
+        target_bounds = {
+            "predictions": {
+                "x": [0, 256],
+                "y": [0, 256],
+                "z": [0, 256],
+            }
+        }
+
+        # Test with explicit channel axis in axis_order
+        writer = CellMapDatasetWriter(
+            raw_path=config["raw_path"],
+            target_path=writer_config["output_path"],
+            classes=["class_0"],
+            input_arrays={"raw": {"shape": (32, 32, 32), "scale": (8.0, 8.0, 8.0)}},
+            target_arrays=target_arrays,
+            axis_order="czyx",
+            target_bounds=target_bounds,
+        )
+
+        # Verify channel axis is present and not duplicated
+        assert writer.axis_order == "czyx"
+        assert writer.axis_order.count("c") == 1
+
 
 class TestWriterOperations:
     """Test writer operations and functionality."""
