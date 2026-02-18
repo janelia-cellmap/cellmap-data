@@ -38,41 +38,35 @@ class ImageWriter:
         self.base_path = str(path)
         self.path = (UPath(path) / f"s{scale_level}").path
         self.label_class = self.target_class = target_class
-        channel_axis_added = False
-        if len(write_voxel_shape) == len(axis_order) + 1 and "c" not in axis_order:
-            # Add channel axis if missing
-            axis_order = "c" + axis_order
-            channel_axis_added = True
         if isinstance(scale, Sequence):
-            if len(axis_order) > len(scale):
-                scale = [1.0] * (len(axis_order) - len(scale)) + list(scale)
-            scale = {c: s for c, s in zip(axis_order, scale)}
+            scale = {c: s for c, s in zip(axis_order[::-1], scale[::-1])}
+        self.scale = scale
         if isinstance(write_voxel_shape, Sequence):
             if len(axis_order) > len(write_voxel_shape):  # TODO: This might be a bug
                 write_voxel_shape = [1] * (
                     len(axis_order) - len(write_voxel_shape)
                 ) + list(write_voxel_shape)
+            elif (
+                len(axis_order) + 1 == len(write_voxel_shape) and "c" not in axis_order
+            ):
+                axis_order = "c" + axis_order
             write_voxel_shape = {c: t for c, t in zip(axis_order, write_voxel_shape)}
-        self.scale = scale
-        # Add bounding_box for channel axis if 'c' is in axis_order but not in bounding_box
-        if "c" in axis_order and "c" not in bounding_box:
-            n_channels = write_voxel_shape["c"]
-            bounding_box = {"c": [0, n_channels], **bounding_box}
+        self.axes = axis_order
+        # Assume axes correspond to last dimensions of voxel shape
+        self.spatial_axes = axis_order[-len(scale) :]
         self.bounding_box = bounding_box
         self.write_voxel_shape = write_voxel_shape
         self.write_world_shape = {
-            c: write_voxel_shape[c] * scale[c] for c in axis_order
+            c: write_voxel_shape[c] * scale[c] for c in self.spatial_axes
         }
-        self.axes = axis_order[: len(write_voxel_shape)]
         self.scale_level = scale_level
         self.context = context
         self.overwrite = overwrite
         self.dtype = dtype
         self.fill_value = fill_value
-        dims = [c for c in axis_order]
         self.metadata = {
             "offset": list(self.offset.values()),
-            "axes": dims,
+            "axes": [c for c in axis_order],
             "voxel_size": list(self.scale.values()),
             "shape": list(self.shape.values()),
             "units": "nanometer",
@@ -176,7 +170,8 @@ class ImageWriter:
             return self._world_shape
         except AttributeError:
             self._world_shape = {
-                c: self.bounding_box[c][1] - self.bounding_box[c][0] for c in self.axes
+                c: self.bounding_box[c][1] - self.bounding_box[c][0]
+                for c in self.spatial_axes
             }
             return self._world_shape
 
@@ -186,7 +181,8 @@ class ImageWriter:
             return self._shape
         except AttributeError:
             self._shape = {
-                c: int(np.ceil(self.world_shape[c] / self.scale[c])) for c in self.axes
+                c: int(np.ceil(self.world_shape[c] / self.scale[c]))
+                for c in self.spatial_axes
             }
             return self._shape
 
@@ -205,7 +201,7 @@ class ImageWriter:
         try:
             return self._offset
         except AttributeError:
-            self._offset = {c: self.bounding_box[c][0] for c in self.axes}
+            self._offset = {c: self.bounding_box[c][0] for c in self.spatial_axes}
             return self._offset
 
     @property
@@ -234,7 +230,7 @@ class ImageWriter:
         self, coords: Mapping[str, tuple[Sequence, np.ndarray]]
     ) -> Mapping[str, tuple[Sequence, np.ndarray]]:
         aligned_coords = {}
-        for c in self.axes:
+        for c in self.spatial_axes:
             aligned_coords[c] = np.array(
                 self.array.coords[c][
                     np.abs(np.array(self.array.coords[c])[:, None] - coords[c]).argmin(
