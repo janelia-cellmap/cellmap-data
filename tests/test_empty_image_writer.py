@@ -336,3 +336,58 @@ class TestImageWriterIntegration:
 
         assert len(writers) == 3
         assert all(w.target_class in classes for w in writers)
+
+    def test_image_writer_channel_axis_detection(self, tmp_upath):
+        """Test automatic channel axis detection when write_voxel_shape has extra dimension."""
+        path = tmp_upath / "output_channels.zarr"
+        
+        # Test with 4D shape but 3D axis_order (should add channel axis)
+        writer = ImageWriter(
+            path=str(path),
+            target_class="multichannel",
+            scale=(4.0, 4.0, 4.0),
+            write_voxel_shape=(3, 32, 32, 32),  # 4D shape with channels
+            axis_order="zyx",  # 3D axis order
+            bounding_box={"z": [0, 256], "y": [0, 256], "x": [0, 256]},
+        )
+        
+        # Verify channel axis was added
+        assert "c" in writer.axes
+        assert writer.axes.startswith("c")
+        assert len(writer.axes) == 4
+
+    def test_image_writer_with_explicit_channel_axis(self, tmp_upath):
+        """Test ImageWriter with explicit channel axis in axis_order."""
+        path = tmp_upath / "output_explicit_channels.zarr"
+        
+        # Test with explicit channel axis
+        writer = ImageWriter(
+            path=str(path),
+            target_class="multichannel",
+            scale=(4.0, 4.0, 4.0),
+            write_voxel_shape=(5, 32, 32, 32),  # 4D shape with 5 channels
+            axis_order="czyx",  # Explicit channel axis
+            bounding_box={"z": [0, 256], "y": [0, 256], "x": [0, 256]},
+        )
+        
+        # Verify channel axis is present
+        assert writer.axes == "czyx"
+        assert writer.write_voxel_shape["c"] == 5
+
+    def test_image_writer_no_channel_detection_when_not_needed(self, tmp_upath):
+        """Test that channel axis is not added when dimensions match."""
+        path = tmp_upath / "output_no_channels.zarr"
+        
+        # Test with matching dimensions (no channel detection needed)
+        writer = ImageWriter(
+            path=str(path),
+            target_class="test",
+            scale=(4.0, 4.0, 4.0),
+            write_voxel_shape=(32, 32, 32),  # 3D shape matching 3D axis order
+            axis_order="zyx",
+            bounding_box={"z": [0, 256], "y": [0, 256], "x": [0, 256]},
+        )
+        
+        # Verify no channel axis was added
+        assert "c" not in writer.axes
+        assert writer.axes == "zyx"

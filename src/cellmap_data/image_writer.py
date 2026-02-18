@@ -38,12 +38,14 @@ class ImageWriter:
         self.base_path = str(path)
         self.path = (UPath(path) / f"s{scale_level}").path
         self.label_class = self.target_class = target_class
+        channel_axis_added = False
         if len(write_voxel_shape) == len(axis_order) + 1 and "c" not in axis_order:
             # Add channel axis if missing
             axis_order = "c" + axis_order
+            channel_axis_added = True
         if isinstance(scale, Sequence):
             if len(axis_order) > len(scale):
-                scale = [scale[0]] * (len(axis_order) - len(scale)) + list(scale)
+                scale = [1.0] * (len(axis_order) - len(scale)) + list(scale)
             scale = {c: s for c, s in zip(axis_order, scale)}
         if isinstance(write_voxel_shape, Sequence):
             if len(axis_order) > len(write_voxel_shape):  # TODO: This might be a bug
@@ -52,6 +54,10 @@ class ImageWriter:
                 ) + list(write_voxel_shape)
             write_voxel_shape = {c: t for c, t in zip(axis_order, write_voxel_shape)}
         self.scale = scale
+        # Add bounding_box for channel axis if it was added or if 'c' is in axis_order but not in bounding_box
+        if "c" in axis_order and "c" not in bounding_box:
+            n_channels = write_voxel_shape["c"]
+            bounding_box = {"c": [0, n_channels], **bounding_box}
         self.bounding_box = bounding_box
         self.write_voxel_shape = write_voxel_shape
         self.write_world_shape = {
