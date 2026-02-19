@@ -1,3 +1,4 @@
+import platform
 import logging
 from typing import Callable, Optional, Sequence, Union
 
@@ -91,9 +92,11 @@ class CellMapDataLoader:
         # Extract DataLoader parameters with optimized defaults
         # pin_memory only works with CUDA, so default to True only when CUDA is available
         # and device is CUDA
-        pin_memory_default = torch.cuda.is_available() and str(device).startswith(
-            "cuda"
-        )
+        pin_memory_default = (
+            torch.cuda.is_available()
+            and str(device).startswith("cuda")
+            and platform.system() != "Windows"
+        )  # pin_memory has issues on Windows with CUDA
         self._pin_memory = kwargs.pop("pin_memory", pin_memory_default)
 
         # Validate pin_memory setting
