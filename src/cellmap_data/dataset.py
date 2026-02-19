@@ -743,7 +743,6 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
             )
             if not self.has_data:
                 self.has_data = array.class_counts > 0
-            logger.info(f"Dataset has data: {self.has_data}")
         else:
             if (
                 self.class_relation_dict is not None
