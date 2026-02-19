@@ -233,12 +233,10 @@ loader.to("cuda", non_blocking=True)
 **Optimizations** (powered by PyTorch DataLoader):
 
 - **Prefetch Factor**: Background data loading to maximize GPU utilization
-- **Pin Memory**: Fast CPU-to-GPU transfers via pinned memory (auto-enabled on CUDA)
+- **Pin Memory**: Fast CPU-to-GPU transfers via pinned memory (auto-enabled on CUDA, except Windows)
 - **Persistent Workers**: Reduced overhead by keeping workers alive between epochs
 - **PyTorch's Optimized Multiprocessing**: Battle-tested parallel data loading
 - **Smart Defaults**: Automatic optimization based on hardware configuration
-
-See [DataLoader Optimization Guide](docs/DATALOADER_OPTIMIZATION.md) for performance tuning tips.
 
 ### CellMapDataSplit
 
