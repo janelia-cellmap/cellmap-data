@@ -12,7 +12,8 @@ from .image import CellMapImage
 from .image_writer import ImageWriter
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+if logger.level == logging.NOTSET:
+    logger.setLevel(logging.INFO)
 
 # Special keys that should not be written to disk
 _METADATA_KEYS = {"idx"}

@@ -18,7 +18,8 @@ from .mutable_sampler import MutableSubsetRandomSampler
 from .utils import get_sliced_shape, is_array_2D, min_redundant_inds, split_target_path
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+if logger.level == logging.NOTSET:
+    logger.setLevel(logging.INFO)
 
 
 # %%
@@ -178,6 +179,9 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         if self._executor is None:
             self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
         return self._executor
+
+    def __str__(self) -> str:
+        return f"CellMapDataset(raw_path={self.raw_path}, target_path={self.target_path}, classes={self.classes})"
 
     def __del__(self):
         """Cleanup ThreadPoolExecutor to prevent resource leaks."""
@@ -743,6 +747,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
             )
             if not self.has_data:
                 self.has_data = array.class_counts > 0
+            logger.debug(f"{str(self)} has data: {self.has_data}")
         else:
             if (
                 self.class_relation_dict is not None
