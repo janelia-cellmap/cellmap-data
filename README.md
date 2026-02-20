@@ -399,6 +399,51 @@ input_arrays = {
 }
 ```
 
+## Windows Compatibility
+
+CellMap-Data includes specific hardening for Windows to prevent native hard-crashes caused by concurrent TensorStore reads from multiple threads.
+
+### TensorStore Read Limiter
+
+On Windows, concurrent materializations of TensorStore-backed xarray arrays (triggered by `source[center]`, `.interp`, `.__array__`, etc.) can cause the Python process to abort. A global semaphore serializes these reads automatically:
+
+```python
+# The limiter activates automatically on Windows with the default TensorStore backend.
+# No code changes required — it is transparent to all callers.
+
+# Override the concurrency limit (default is 1 on Windows):
+import os
+os.environ["CELLMAP_MAX_CONCURRENT_READS"] = "2"  # set BEFORE importing cellmap_data
+
+from cellmap_data import CellMapDataset
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `CELLMAP_DATA_BACKEND` | `"tensorstore"` | Backend for array reads (`"tensorstore"` or `"dask"`) |
+| `CELLMAP_MAX_WORKERS` | `8` | Max threads in the internal `ThreadPoolExecutor` |
+| `CELLMAP_MAX_CONCURRENT_READS` | `1` (Windows) / unlimited | Max concurrent TensorStore reads (Windows+TensorStore only) |
+
+### Recommendations for Windows
+
+- Keep the default `num_workers=0` in `CellMapDataLoader` (safest on Windows); the internal executor still parallelizes per-array I/O within each `__getitem__` call.
+- If you need `num_workers > 0`, each DataLoader worker process gets its own dataset copy and its own read semaphore — this is safe.
+- Do **not** share a single `CellMapDataset` instance across multiple threads that each call `__getitem__` concurrently. Use separate dataset instances instead (which is exactly what DataLoader workers do).
+
+### Explicit Shutdown
+
+`CellMapDataset` registers an `atexit` handler and exposes an explicit `close()` method for deterministic cleanup:
+
+```python
+dataset = CellMapDataset(...)
+try:
+    # ... training ...
+finally:
+    dataset.close()  # shuts down the internal ThreadPoolExecutor immediately
+```
+
 ## Performance Optimization
 
 ### Memory Management
@@ -407,15 +452,15 @@ input_arrays = {
 - Automatic GPU memory management
 - Streaming data loading for large volumes
 
-### Parallel Processing  
+### Parallel Processing
 
-- Multi-threaded data loading
+- Multi-threaded data loading via persistent `ThreadPoolExecutor`
 - CUDA streams for GPU optimization
 - Process-safe dataset pickling
 
 ### Caching Strategy
 
-- Persistent ThreadPoolExecutor for reduced overhead
+- Persistent `ThreadPoolExecutor` per process (lazy-initialized, PID-tracked)
 - Optimized coordinate transformations
 - Minimal redundant computations
 

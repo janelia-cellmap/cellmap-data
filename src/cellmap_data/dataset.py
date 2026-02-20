@@ -1,7 +1,9 @@
 # %%
+import atexit
 import functools
 import logging
 import os
+import platform
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Mapping, Optional, Sequence
 
@@ -15,11 +17,16 @@ from .base_dataset import CellMapBaseDataset
 from .empty_image import EmptyImage
 from .image import CellMapImage
 from .mutable_sampler import MutableSubsetRandomSampler
+from .read_limiter import MAX_CONCURRENT_READS, limit_tensorstore_reads
 from .utils import get_sliced_shape, is_array_2D, min_redundant_inds, split_target_path
 
 logger = logging.getLogger(__name__)
 if logger.level == logging.NOTSET:
     logger.setLevel(logging.INFO)
+
+# Cache system values to avoid repeated calls during dataset instantiation
+_OS_NAME = platform.system()
+_DATA_BACKEND = os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore")
 
 
 # %%
@@ -154,14 +161,22 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                 int(os.environ.get("CELLMAP_MAX_WORKERS", 8)),  # Cap at 8 by default
             )
 
-        logger.debug(
-            "CellMapDataset initialized with %d inputs, %d targets, %d classes. "
-            "Using ThreadPoolExecutor with %d workers for parallel I/O.",
+        logger.info(
+            "CellMapDataset: OS=%s backend=%s max_workers=%d max_concurrent_reads=%s "
+            "inputs=%d targets=%d classes=%d",
+            _OS_NAME,
+            _DATA_BACKEND,
+            self._max_workers,
+            (
+                str(MAX_CONCURRENT_READS)
+                if MAX_CONCURRENT_READS is not None
+                else "unlimited"
+            ),
             len(self.input_arrays),
             len(self.target_arrays),
             len(self.classes),
-            self._max_workers,
         )
+        atexit.register(self.close)
 
     @property
     def executor(self) -> ThreadPoolExecutor:
@@ -177,6 +192,19 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
             self._executor_pid = current_pid
 
         if self._executor is None:
+            if _OS_NAME == "Windows":
+                worker_info = torch.utils.data.get_worker_info()
+                if worker_info is not None and self._max_workers > 1:
+                    logger.warning(
+                        "CellMapDataset running inside DataLoader worker "
+                        "(id=%d, total=%d) on Windows with max_workers=%d. "
+                        "Prefer max_workers=1 or num_workers=0 to avoid nested "
+                        "threading x multiprocessing crashes. "
+                        "TensorStore reads are still serialized by the read limiter.",
+                        worker_info.id,
+                        worker_info.num_workers,
+                        self._max_workers,
+                    )
             self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
         return self._executor
 
@@ -187,6 +215,16 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         """Cleanup ThreadPoolExecutor to prevent resource leaks."""
         if hasattr(self, "_executor") and self._executor is not None:
             self._executor.shutdown(wait=True)
+
+    def close(self) -> None:
+        """Shut down the ThreadPoolExecutor and release resources.
+
+        Called automatically via atexit to ensure clean shutdown at interpreter
+        exit, regardless of whether __del__ is invoked.
+        """
+        if hasattr(self, "_executor") and self._executor is not None:
+            self._executor.shutdown(wait=True, cancel_futures=True)
+            self._executor = None
 
     def __new__(
         cls,
@@ -218,7 +256,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         ):
             from cellmap_data.multidataset import CellMapMultiDataset
 
-            logger.warning(
+            logger.info(
                 "2D arrays requested without slicing axis. Creating datasets "
                 "that each slice along one axis. If this is not intended, "
                 "specify the slicing axis in the input and target arrays."
@@ -549,7 +587,8 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
 
         def get_input_array(array_name: str) -> tuple[str, torch.Tensor]:
             self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
-            array = self.input_sources[array_name][center]
+            with limit_tensorstore_reads():
+                array = self.input_sources[array_name][center]
             return array_name, array.squeeze()[None, ...]
 
         futures = [
@@ -563,7 +602,8 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                 self.target_sources[array_name].set_spatial_transforms(
                     spatial_transforms
                 )
-                array = self.target_sources[array_name][center]
+                with limit_tensorstore_reads():
+                    array = self.target_sources[array_name][center]
                 return array_name, array.squeeze()[None, ...]
 
         else:
@@ -578,7 +618,8 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                     source = self.target_sources[array_name].get(label)
                     if isinstance(source, (CellMapImage, EmptyImage)):
                         source.set_spatial_transforms(spatial_transforms)
-                        array = source[center].squeeze()
+                        with limit_tensorstore_reads():
+                            array = source[center].squeeze()
                     else:
                         array = None
                     return label, array

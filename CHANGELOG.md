@@ -1,5 +1,55 @@
 # CHANGELOG
 
+## Unreleased
+
+### Fix
+
+* fix: prevent Windows hard-crash from concurrent TensorStore reads
+
+  - Add `src/cellmap_data/read_limiter.py`: global `threading.Semaphore` that
+    gates TensorStore materializations on Windows+TensorStore backend. No-op on
+    Linux/macOS and when using the Dask backend.
+  - Wrap the three read-triggering lines in `CellMapDataset.__getitem__`
+    (`get_input_array`, `get_target_array` raw-only, `get_label_array`) with
+    the `limit_tensorstore_reads()` context manager. Torch-only operations
+    (`infer_label_array`, stacking, `.to(device)`) are left unconstrained.
+  - Configure via `CELLMAP_MAX_CONCURRENT_READS` env var (default `"1"` on
+    Windows; unlimited elsewhere). Must be set before importing `cellmap_data`.
+
+### Feature
+
+* feat: add `CellMapDataset.close()` and `atexit` registration
+
+  - `close()` calls `executor.shutdown(wait=True, cancel_futures=True)` and
+    resets `_executor` to `None`, enabling safe deterministic cleanup.
+  - `atexit.register(self.close)` ensures the executor is always shut down at
+    interpreter exit, even when `__del__` is not called.
+
+* feat: add nested-worker warning on Windows
+
+  - When `CellMapDataset.executor` is lazily created inside a DataLoader worker
+    process (`torch.utils.data.get_worker_info() is not None`) on Windows with
+    `max_workers > 1`, a `logger.warning` is emitted.
+  - `CellMapDataLoader` warns when `num_workers > 0` on Windows.
+
+* feat: improve init logging
+
+  - Replaced `logger.debug` with `logger.info` at dataset construction time,
+    now including OS, backend, `max_workers`, and `max_concurrent_reads`.
+
+### Test
+
+* test: add `tests/test_windows_stress.py`
+
+  - `TestReadLimiterUnit`: semaphore state, context manager correctness,
+    exception propagation, 50-thread deadlock test.
+  - `TestExecutorLifecycle`: `close()` idempotency, executor recreation.
+  - `TestConcurrentGetitem`: 200-iteration serial tests (both multi-class and
+    raw-only paths); multi-thread tests where each thread has its own dataset
+    instance, accurately mirroring DataLoader `num_workers > 0` behavior.
+  - `test_windows_high_concurrency_no_crash`: 8 simulated workers × 100
+    iterations each; skipped on non-Windows.
+
 ## v0.1.0 (2024-09-06)
 
 ### Build

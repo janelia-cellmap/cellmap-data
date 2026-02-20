@@ -17,6 +17,7 @@ This test suite provides extensive coverage of all core components:
 - **test_mutable_sampler.py**: MutableSubsetRandomSampler functionality
 - **test_utils.py**: Utility function tests
 - **test_integration.py**: End-to-end workflow integration tests
+- **test_windows_stress.py**: TensorStore read-limiter unit tests, executor lifecycle, and concurrent-read stress tests
 
 ## Running Tests
 
@@ -130,13 +131,14 @@ def test_dataset(self, tmp_path):
 ### Core Components
 
 - ✅ **CellMapImage**: Initialization, device selection, transforms, 2D/3D, dtypes
-- ✅ **CellMapDataset**: Configuration, arrays, transforms, parameters
+- ✅ **CellMapDataset**: Configuration, arrays, transforms, parameters, `close()` lifecycle
 - ✅ **CellMapDataLoader**: Batching, workers, sampling, optimization
 - ✅ **CellMapMultiDataset**: Combining datasets, multi-scale
 - ✅ **CellMapDataSplit**: Train/val splits, configuration
 - ✅ **CellMapDatasetWriter**: Prediction writing, bounds, multiple outputs
 - ✅ **EmptyImage/ImageWriter**: Placeholders and writing utilities
 - ✅ **MutableSubsetRandomSampler**: Weighted sampling, reproducibility
+- ✅ **read_limiter**: Semaphore state, context manager correctness, deadlock safety, stress reads
 
 ### Transforms
 
@@ -182,7 +184,8 @@ tests/
 ├── test_mutable_sampler.py         # MutableSubsetRandomSampler tests
 ├── test_transforms.py              # Transform tests
 ├── test_utils.py                   # Utility function tests
-└── test_integration.py             # Integration tests
+├── test_integration.py             # Integration tests
+└── test_windows_stress.py          # TensorStore read-limiter & concurrent stress tests
 ```
 
 ## Continuous Integration
@@ -281,6 +284,26 @@ Tests use small datasets for speed. For large-scale testing:
 - Manually test with production-sized data
 - Use integration tests with larger configurations
 - Monitor memory usage and performance
+
+### Windows Crash Regression Tests
+
+`test_windows_stress.py::TestConcurrentGetitem::test_windows_high_concurrency_no_crash` is
+skipped on non-Windows platforms (via `@pytest.mark.skipif`). To run it on Windows CI:
+
+```yaml
+# GitHub Actions — add a Windows runner
+runs-on: windows-latest
+steps:
+  - run: pytest tests/test_windows_stress.py -v
+```
+
+A native TensorStore abort caused by concurrent reads will appear as a **non-zero process exit
+code** rather than a Python exception; pytest will report the job as failed, which is the
+correct CI signal.
+
+The cross-platform deadlock and semaphore tests (`TestReadLimiterUnit`,
+`TestExecutorLifecycle`, serial and multi-worker `TestConcurrentGetitem` tests) run on all
+platforms and are included in the normal `pytest tests/` run.
 
 ## Contributing
 

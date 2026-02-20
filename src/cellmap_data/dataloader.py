@@ -78,6 +78,15 @@ class CellMapDataLoader:
         self.is_train = is_train
         self.rng = rng
 
+        if platform.system() == "Windows" and num_workers > 0:
+            logger.warning(
+                "CellMapDataLoader: num_workers=%d on Windows may cause nested "
+                "threading x multiprocessing issues with TensorStore. "
+                "The internal read limiter serializes reads, but num_workers=0 "
+                "is safer if crashes occur.",
+                num_workers,
+            )
+
         # Set device
         if device is None:
             if torch.cuda.is_available():
