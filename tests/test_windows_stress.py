@@ -165,15 +165,20 @@ class TestReadLimiterUnit:
         assert acquired.is_set(), "Semaphore was not released after exception"
 
     def test_concurrent_access_does_not_deadlock(self):
-        """50 threads entering the context manager concurrently must all finish."""
+        """50 threads entering the context manager concurrently must all finish.
+
+        Uses t.join(timeout=...) as the deadlock detector rather than a Barrier
+        that requires simultaneous occupancy.  The Barrier approach was broken:
+        with MAX_CONCURRENT_READS=1, only 1 thread can be inside the context at
+        a time, so a 50-party barrier inside the context can never be satisfied.
+        """
         errors: list[Exception] = []
-        finished = threading.Barrier(50)
 
         def task():
             try:
                 with limit_tensorstore_reads():
-                    finished.wait(timeout=30)
-            except Exception as exc:  # BrokenBarrierError counts too
+                    pass  # just verify acquire + release works under concurrency
+            except Exception as exc:
                 errors.append(exc)
 
         threads = [threading.Thread(target=task) for _ in range(50)]
@@ -182,6 +187,8 @@ class TestReadLimiterUnit:
         for t in threads:
             t.join(timeout=60)
 
+        alive = [t for t in threads if t.is_alive()]
+        assert not alive, f"{len(alive)} threads still alive (possible deadlock)"
         assert not errors, f"Errors during concurrent access: {errors}"
 
 
