@@ -32,7 +32,6 @@ from cellmap_data.read_limiter import (
 
 from .test_helpers import create_minimal_test_dataset, create_test_dataset
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
