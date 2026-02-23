@@ -50,6 +50,8 @@ def _set_tensorstore_context(dataset, context) -> None:
             "TensorStore context was not applied.",
             type(dataset).__name__,
         )
+
+
 def _apply_context_to_image(image: "CellMapImage", context) -> None:
     """Set the TensorStore context on a single CellMapImage, warning if already opened."""
     if "_array" in getattr(image, "__dict__", {}):
@@ -168,6 +170,10 @@ class CellMapDataLoader:
                         "CELLMAP_TENSORSTORE_CACHE_BYTES: "
                         f"{_env!r}. Expected an integer number of bytes."
                     ) from exc
+        if tensorstore_cache_bytes is not None and tensorstore_cache_bytes < 0:
+            raise ValueError(
+                f"tensorstore_cache_bytes must be >= 0 when set; got {tensorstore_cache_bytes}"
+            )
         self.tensorstore_cache_bytes = tensorstore_cache_bytes
 
         if tensorstore_cache_bytes is not None and not isinstance(
