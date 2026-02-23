@@ -482,7 +482,9 @@ class TestTensorStoreCacheBounding:
         loader = CellMapDataLoader(dataset, num_workers=0)
         assert loader.tensorstore_cache_bytes is None
         for img in _all_images(dataset):
-            assert img.context is None
+            assert (
+                img.context is None
+            ), f"Expected img.context to be None when no cache limit is set, but got {img.context!r}"
 
     # -- per-worker byte math ------------------------------------------------
 
