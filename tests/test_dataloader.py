@@ -491,11 +491,12 @@ class TestTensorStoreCacheBounding:
     def test_per_worker_division(self, dataset):
         """per_worker = total // num_workers is applied to every CellMapImage."""
         total = 400_000_000  # 400 MB
-        num_workers = 4
+        num_workers = 3
         CellMapDataLoader(
             dataset, num_workers=num_workers, tensorstore_cache_bytes=total
         )
-        expected = total // num_workers  # 100 MB each
+        # 133_333_333 each, if total = 400_000_000 and num_workers = 3
+        expected = total // num_workers
         for img in _all_images(dataset):
             assert isinstance(img.context, ts.Context)
             assert img.context["cache_pool"].to_json() == {

@@ -50,6 +50,8 @@ def _set_tensorstore_context(dataset, context) -> None:
             "TensorStore context was not applied.",
             type(dataset).__name__,
         )
+
+
 def _apply_context_to_image(image: "CellMapImage", context) -> None:
     """Set the TensorStore context on a single CellMapImage, warning if already opened."""
     if "_array" in getattr(image, "__dict__", {}):
@@ -136,10 +138,10 @@ class CellMapDataLoader:
 
         if platform.system() == "Windows" and num_workers > 0:
             logger.warning(
-                "CellMapDataLoader: num_workers=%d on Windows may cause nested "
-                "threading x multiprocessing issues with TensorStore. "
-                "The internal read limiter serializes reads, but num_workers=0 "
-                "is safer if crashes occur.",
+                "CellMapDataLoader: num_workers=%d on Windows. "
+                "The dataset uses a synchronous (single-thread) executor internally "
+                "so TensorStore reads are never dispatched to ThreadPoolExecutor "
+                "worker threads. If crashes persist, try num_workers=0.",
                 num_workers,
             )
 
