@@ -44,8 +44,12 @@ def _set_tensorstore_context(dataset, context) -> None:
                 for sub_source in source.values():
                     if isinstance(sub_source, CellMapImage):
                         _apply_context_to_image(sub_source, context)
-
-
+    else:
+        logger.warning(
+            "Unsupported dataset type %s in _set_tensorstore_context; "
+            "TensorStore context was not applied.",
+            type(dataset).__name__,
+        )
 def _apply_context_to_image(image: "CellMapImage", context) -> None:
     """Set the TensorStore context on a single CellMapImage, warning if already opened."""
     if hasattr(image, "_array"):
