@@ -490,7 +490,9 @@ class TestTensorStoreCacheBounding:
         """per_worker = total // num_workers is applied to every CellMapImage."""
         total = 400_000_000  # 400 MB
         num_workers = 4
-        CellMapDataLoader(dataset, num_workers=num_workers, tensorstore_cache_bytes=total)
+        CellMapDataLoader(
+            dataset, num_workers=num_workers, tensorstore_cache_bytes=total
+        )
         expected = total // num_workers  # 100 MB each
         for img in _all_images(dataset):
             assert isinstance(img.context, ts.Context)
@@ -503,9 +505,7 @@ class TestTensorStoreCacheBounding:
         total = 200_000_000
         CellMapDataLoader(dataset, num_workers=0, tensorstore_cache_bytes=total)
         for img in _all_images(dataset):
-            assert img.context["cache_pool"].to_json() == {
-                "total_bytes_limit": total
-            }
+            assert img.context["cache_pool"].to_json() == {"total_bytes_limit": total}
 
     def test_context_set_on_target_images(self, dataset):
         """Cache limit is applied to target-source images, not just input-source images."""
@@ -595,9 +595,13 @@ class TestTensorStoreCacheBounding:
         _ = img.array  # force-open the TensorStore array
 
         with caplog.at_level(logging.WARNING, logger="cellmap_data.dataloader"):
-            CellMapDataLoader(dataset, num_workers=1, tensorstore_cache_bytes=100_000_000)
+            CellMapDataLoader(
+                dataset, num_workers=1, tensorstore_cache_bytes=100_000_000
+            )
 
-        assert any("cache_pool limit will not apply" in r.message for r in caplog.records)
+        assert any(
+            "cache_pool limit will not apply" in r.message for r in caplog.records
+        )
         # context is still updated on the image object (even though the open array isn't affected)
         assert img.context["cache_pool"].to_json() == {"total_bytes_limit": 100_000_000}
 
