@@ -4,6 +4,7 @@ import functools
 import logging
 import os
 import platform
+from concurrent.futures import Future as _ConcurrentFuture
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Mapping, Optional, Sequence
 
@@ -27,6 +28,44 @@ if logger.level == logging.NOTSET:
 # Cache system values to avoid repeated calls during dataset instantiation
 _OS_NAME = platform.system()
 _DATA_BACKEND = os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore")
+
+# On Windows + TensorStore, calling tensorstore's .read().result() from a
+# Python ThreadPoolExecutor worker thread causes a hard native crash
+# (STATUS_STACK_BUFFER_OVERRUN / abort, exit code 0xC0000409).  The
+# limit_tensorstore_reads semaphore only prevents *concurrent* Python reads
+# but does not fix the per-thread crash.  The safest fix is to run all
+# dataset __getitem__ work synchronously in the calling thread so that
+# TensorStore is never invoked from a ThreadPoolExecutor worker on Windows.
+_USE_IMMEDIATE_EXECUTOR = (
+    _OS_NAME == "Windows" and _DATA_BACKEND.lower() == "tensorstore"
+)
+
+
+class _ImmediateExecutor:
+    """Drop-in for ThreadPoolExecutor that runs tasks in the calling thread.
+
+    On Windows + TensorStore the real ThreadPoolExecutor causes native crashes.
+    This executor avoids that by executing every submitted callable synchronously
+    before returning, so the returned Future is already resolved.
+    ``as_completed`` handles pre-resolved futures correctly (yields immediately).
+    ``shutdown`` is a no-op because there are no threads to join.
+    """
+
+    def submit(self, fn, /, *args, **kwargs):
+        f = _ConcurrentFuture()
+        try:
+            f.set_result(fn(*args, **kwargs))
+        except Exception as exc:  # noqa: BLE001
+            f.set_exception(exc)
+        return f
+
+    def shutdown(self, wait=True, *, cancel_futures=False):
+        pass  # nothing to shut down
+
+
+_IMMEDIATE_EXECUTOR: _ImmediateExecutor | None = (
+    _ImmediateExecutor() if _USE_IMMEDIATE_EXECUTOR else None
+)
 
 
 # %%
@@ -179,11 +218,21 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         atexit.register(self.close)
 
     @property
-    def executor(self) -> ThreadPoolExecutor:
+    def executor(self) -> ThreadPoolExecutor | _ImmediateExecutor:
         """
-        Lazy initialization of persistent ThreadPoolExecutor.
-        This eliminates the performance bottleneck of creating new executors per __getitem__ call.
+        Lazy initialization of persistent executor.
+
+        On Windows + TensorStore returns a module-level ``_ImmediateExecutor``
+        that runs every submitted callable synchronously in the calling thread.
+        This avoids the native crash (0xC0000409 / STATUS_STACK_BUFFER_OVERRUN)
+        that occurs when TensorStore's ``.read().result()`` is called from a
+        Python ``ThreadPoolExecutor`` worker thread on Windows.
+
+        On all other platforms returns the usual persistent ``ThreadPoolExecutor``.
         """
+        if _USE_IMMEDIATE_EXECUTOR:
+            return _IMMEDIATE_EXECUTOR  # type: ignore[return-value]
+
         # Add pid tracking to detect process forking and prevent shared executors
         current_pid = os.getpid()
         if self._executor_pid != current_pid:
@@ -192,19 +241,6 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
             self._executor_pid = current_pid
 
         if self._executor is None:
-            if _OS_NAME == "Windows":
-                worker_info = torch.utils.data.get_worker_info()
-                if worker_info is not None and self._max_workers > 1:
-                    logger.warning(
-                        "CellMapDataset running inside DataLoader worker "
-                        "(id=%d, total=%d) on Windows with max_workers=%d. "
-                        "Prefer max_workers=1 or num_workers=0 to avoid nested "
-                        "threading x multiprocessing crashes. "
-                        "TensorStore reads are still serialized by the read limiter.",
-                        worker_info.id,
-                        worker_info.num_workers,
-                        self._max_workers,
-                    )
             self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
         return self._executor
 

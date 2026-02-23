@@ -138,10 +138,10 @@ class CellMapDataLoader:
 
         if platform.system() == "Windows" and num_workers > 0:
             logger.warning(
-                "CellMapDataLoader: num_workers=%d on Windows may cause nested "
-                "threading x multiprocessing issues with TensorStore. "
-                "The internal read limiter serializes reads, but num_workers=0 "
-                "is safer if crashes occur.",
+                "CellMapDataLoader: num_workers=%d on Windows. "
+                "The dataset uses a synchronous (single-thread) executor internally "
+                "so TensorStore reads are never dispatched to ThreadPoolExecutor "
+                "worker threads. If crashes persist, try num_workers=0.",
                 num_workers,
             )
 
