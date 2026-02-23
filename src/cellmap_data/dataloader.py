@@ -160,7 +160,14 @@ class CellMapDataLoader:
         if tensorstore_cache_bytes is None:
             _env = os.environ.get("CELLMAP_TENSORSTORE_CACHE_BYTES")
             if _env is not None:
-                tensorstore_cache_bytes = int(_env)
+                try:
+                    tensorstore_cache_bytes = int(_env)
+                except ValueError as exc:
+                    raise ValueError(
+                        "Invalid value for environment variable "
+                        "CELLMAP_TENSORSTORE_CACHE_BYTES: "
+                        f"{_env!r}. Expected an integer number of bytes."
+                    ) from exc
         self.tensorstore_cache_bytes = tensorstore_cache_bytes
 
         if tensorstore_cache_bytes is not None and not isinstance(
