@@ -5,9 +5,10 @@ Tests data loading, batching, and optimization features using real data.
 """
 
 import pytest
+import tensorstore as ts
 import torch
 
-from cellmap_data import CellMapDataLoader, CellMapDataset
+from cellmap_data import CellMapDataLoader, CellMapDataset, CellMapMultiDataset
 
 from .test_helpers import create_test_dataset
 
@@ -425,3 +426,189 @@ class TestDataLoaderIntegration:
         )
 
         assert loader is not None
+
+
+# ---------------------------------------------------------------------------
+# Helper: collect every CellMapImage from a CellMapDataset's sources
+# ---------------------------------------------------------------------------
+def _all_images(dataset: CellMapDataset):
+    """Yield every CellMapImage in a dataset's input and target sources."""
+    from cellmap_data.image import CellMapImage
+
+    for source in list(dataset.input_sources.values()) + list(
+        dataset.target_sources.values()
+    ):
+        if isinstance(source, CellMapImage):
+            yield source
+        elif isinstance(source, dict):
+            for sub in source.values():
+                if isinstance(sub, CellMapImage):
+                    yield sub
+
+
+class TestTensorStoreCacheBounding:
+    """Tests for the tensorstore_cache_bytes cache-bounding feature."""
+
+    @pytest.fixture
+    def dataset(self, tmp_path):
+        config = create_test_dataset(
+            tmp_path,
+            raw_shape=(24, 24, 24),
+            num_classes=2,
+            raw_scale=(4.0, 4.0, 4.0),
+        )
+        input_arrays = {"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}}
+        target_arrays = {"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}}
+        return CellMapDataset(
+            raw_path=config["raw_path"],
+            target_path=config["gt_path"],
+            classes=config["classes"],
+            input_arrays=input_arrays,
+            target_arrays=target_arrays,
+            force_has_data=True,
+        )
+
+    # -- parameter stored on loader ------------------------------------------
+
+    def test_cache_bytes_stored_on_loader(self, dataset):
+        """tensorstore_cache_bytes is stored as an attribute."""
+        loader = CellMapDataLoader(
+            dataset, num_workers=0, tensorstore_cache_bytes=100_000_000
+        )
+        assert loader.tensorstore_cache_bytes == 100_000_000
+
+    def test_no_limit_by_default(self, dataset):
+        """Without the parameter (or env var), cache bytes is None and images keep context=None."""
+        loader = CellMapDataLoader(dataset, num_workers=0)
+        assert loader.tensorstore_cache_bytes is None
+        for img in _all_images(dataset):
+            assert img.context is None
+
+    # -- per-worker byte math ------------------------------------------------
+
+    def test_per_worker_division(self, dataset):
+        """per_worker = total // num_workers is applied to every CellMapImage."""
+        total = 400_000_000  # 400 MB
+        num_workers = 4
+        CellMapDataLoader(dataset, num_workers=num_workers, tensorstore_cache_bytes=total)
+        expected = total // num_workers  # 100 MB each
+        for img in _all_images(dataset):
+            assert isinstance(img.context, ts.Context)
+            assert img.context["cache_pool"].to_json() == {
+                "total_bytes_limit": expected
+            }
+
+    def test_single_process_uses_full_budget(self, dataset):
+        """With num_workers=0 the whole budget goes to the single process (÷ 1)."""
+        total = 200_000_000
+        CellMapDataLoader(dataset, num_workers=0, tensorstore_cache_bytes=total)
+        for img in _all_images(dataset):
+            assert img.context["cache_pool"].to_json() == {
+                "total_bytes_limit": total
+            }
+
+    def test_context_set_on_target_images(self, dataset):
+        """Cache limit is applied to target-source images, not just input-source images."""
+        from cellmap_data.image import CellMapImage
+
+        CellMapDataLoader(dataset, num_workers=2, tensorstore_cache_bytes=200_000_000)
+        expected = 200_000_000 // 2
+        for sources in dataset.target_sources.values():
+            if isinstance(sources, dict):
+                for src in sources.values():
+                    if isinstance(src, CellMapImage):
+                        assert src.context["cache_pool"].to_json() == {
+                            "total_bytes_limit": expected
+                        }
+
+    # -- env var fallback ----------------------------------------------------
+
+    def test_env_var_sets_cache_limit(self, dataset, monkeypatch):
+        """CELLMAP_TENSORSTORE_CACHE_BYTES env var is used when parameter is not set."""
+        monkeypatch.setenv("CELLMAP_TENSORSTORE_CACHE_BYTES", "300000000")
+        loader = CellMapDataLoader(dataset, num_workers=3)
+        assert loader.tensorstore_cache_bytes == 300_000_000
+        expected = 300_000_000 // 3  # 100 MB per worker
+        for img in _all_images(dataset):
+            assert img.context["cache_pool"].to_json() == {
+                "total_bytes_limit": expected
+            }
+
+    def test_param_overrides_env_var(self, dataset, monkeypatch):
+        """Explicit parameter takes precedence over the env var."""
+        monkeypatch.setenv("CELLMAP_TENSORSTORE_CACHE_BYTES", "999999999")
+        CellMapDataLoader(dataset, num_workers=2, tensorstore_cache_bytes=200_000_000)
+        expected = 200_000_000 // 2  # 100 MB — param wins
+        for img in _all_images(dataset):
+            assert img.context["cache_pool"].to_json() == {
+                "total_bytes_limit": expected
+            }
+
+    # -- CellMapMultiDataset traversal ---------------------------------------
+
+    def test_multidataset_all_images_bounded(self, tmp_path):
+        """Recursive traversal reaches images in every sub-dataset."""
+        datasets = []
+        for i in range(2):
+            config = create_test_dataset(
+                tmp_path / f"ds{i}",
+                raw_shape=(24, 24, 24),
+                num_classes=2,
+                raw_scale=(4.0, 4.0, 4.0),
+            )
+            input_arrays = {"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}}
+            target_arrays = {"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}}
+            datasets.append(
+                CellMapDataset(
+                    raw_path=config["raw_path"],
+                    target_path=config["gt_path"],
+                    classes=config["classes"],
+                    input_arrays=input_arrays,
+                    target_arrays=target_arrays,
+                    force_has_data=True,
+                )
+            )
+
+        multi = CellMapMultiDataset(
+            classes=["class_0", "class_1"],
+            input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            datasets=datasets,
+        )
+
+        CellMapDataLoader(multi, num_workers=2, tensorstore_cache_bytes=200_000_000)
+        expected = 200_000_000 // 2
+
+        for ds in datasets:
+            for img in _all_images(ds):
+                assert img.context["cache_pool"].to_json() == {
+                    "total_bytes_limit": expected
+                }
+
+    # -- warning when array already open ------------------------------------
+
+    def test_warning_when_array_already_open(self, dataset, caplog):
+        """A warning is logged when _array is already cached on an image."""
+        import logging
+
+        img = next(iter(dataset.input_sources.values()))
+        _ = img.array  # force-open the TensorStore array
+
+        with caplog.at_level(logging.WARNING, logger="cellmap_data.dataloader"):
+            CellMapDataLoader(dataset, num_workers=1, tensorstore_cache_bytes=100_000_000)
+
+        assert any("cache_pool limit will not apply" in r.message for r in caplog.records)
+        # context is still updated on the image object (even though the open array isn't affected)
+        assert img.context["cache_pool"].to_json() == {"total_bytes_limit": 100_000_000}
+
+    # -- functional: data still loads ----------------------------------------
+
+    def test_data_loads_with_bounded_cache(self, dataset):
+        """A bounded-cache loader can still produce a valid batch."""
+        loader = CellMapDataLoader(
+            dataset, batch_size=2, num_workers=0, tensorstore_cache_bytes=50_000_000
+        )
+        batch = next(iter(loader))
+        assert "raw" in batch
+        assert isinstance(batch["raw"], torch.Tensor)
+        assert batch["raw"].shape[0] == 2

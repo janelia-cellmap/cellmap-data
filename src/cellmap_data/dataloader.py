@@ -1,3 +1,4 @@
+import os
 import platform
 import logging
 from typing import Callable, Optional, Sequence, Union
@@ -7,11 +8,53 @@ import torch.utils.data
 
 from .dataset import CellMapDataset
 from .dataset_writer import CellMapDatasetWriter
+from .image import CellMapImage
 from .multidataset import CellMapMultiDataset
 from .mutable_sampler import MutableSubsetRandomSampler
 from .subdataset import CellMapSubset
 
 logger = logging.getLogger(__name__)
+
+
+def _set_tensorstore_context(dataset, context) -> None:
+    """
+    Recursively set a TensorStore context on every CellMapImage in the dataset tree.
+
+    This must be called before workers are spawned so the bounded cache_pool
+    limit is picked up by every worker process (via fork inheritance on Linux,
+    or via pickle on Windows/macOS spawn).
+
+    If an image's TensorStore array has already been opened (``_array`` cached),
+    the new context cannot affect that array; a warning is emitted.
+    """
+    if isinstance(dataset, CellMapMultiDataset):
+        for ds in dataset.datasets:
+            _set_tensorstore_context(ds, context)
+    elif isinstance(dataset, CellMapSubset):
+        _set_tensorstore_context(dataset.dataset, context)
+    elif isinstance(dataset, CellMapDataset):
+        dataset.context = context
+        all_sources = list(dataset.input_sources.values()) + list(
+            dataset.target_sources.values()
+        )
+        for source in all_sources:
+            if isinstance(source, CellMapImage):
+                _apply_context_to_image(source, context)
+            elif isinstance(source, dict):
+                for sub_source in source.values():
+                    if isinstance(sub_source, CellMapImage):
+                        _apply_context_to_image(sub_source, context)
+
+
+def _apply_context_to_image(image: "CellMapImage", context) -> None:
+    """Set the TensorStore context on a single CellMapImage, warning if already opened."""
+    if hasattr(image, "_array"):
+        logger.warning(
+            "TensorStore array already opened for %s; "
+            "cache_pool limit will not apply to this image.",
+            getattr(image, "path", image),
+        )
+    image.context = context
 
 
 class CellMapDataLoader:
@@ -50,6 +93,7 @@ class CellMapDataLoader:
         rng: Optional[torch.Generator] = None,
         device: Optional[str | torch.device] = None,
         iterations_per_epoch: Optional[int] = None,
+        tensorstore_cache_bytes: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -67,6 +111,14 @@ class CellMapDataLoader:
             rng: The random number generator.
             device: The device to use ("cuda", "mps", or "cpu").
             iterations_per_epoch: Iterations per epoch for large datasets.
+            tensorstore_cache_bytes: Total TensorStore chunk-cache budget in bytes
+                shared across all worker processes.  The budget is split evenly:
+                ``per_worker = tensorstore_cache_bytes // max(1, num_workers)``.
+                Defaults to the ``CELLMAP_TENSORSTORE_CACHE_BYTES`` environment
+                variable if set, otherwise no limit is applied (TensorStore's
+                default unbounded cache).  Set to ``0`` to disable caching
+                entirely.  Bounding this value prevents persistent worker
+                processes from accumulating chunk data unboundedly across epochs.
             **kwargs: Additional PyTorch DataLoader arguments.
         """
         self.dataset = dataset
@@ -97,6 +149,33 @@ class CellMapDataLoader:
                 device = "cpu"
         self.device = device
         self.iterations_per_epoch = iterations_per_epoch
+
+        # Bound TensorStore chunk-cache to prevent unbounded RAM growth in
+        # persistent worker processes (Linux fork, Windows/macOS spawn).
+        # Resolve from parameter, then env var, then leave unconfigured.
+        if tensorstore_cache_bytes is None:
+            _env = os.environ.get("CELLMAP_TENSORSTORE_CACHE_BYTES")
+            if _env is not None:
+                tensorstore_cache_bytes = int(_env)
+        self.tensorstore_cache_bytes = tensorstore_cache_bytes
+
+        if tensorstore_cache_bytes is not None and not isinstance(
+            dataset, CellMapDatasetWriter
+        ):
+            import tensorstore as ts
+
+            effective_workers = max(1, num_workers)
+            per_worker_bytes = tensorstore_cache_bytes // effective_workers
+            bounded_ctx = ts.Context(
+                {"cache_pool": {"total_bytes_limit": per_worker_bytes}}
+            )
+            _set_tensorstore_context(dataset, bounded_ctx)
+            logger.info(
+                "TensorStore cache bounded: total=%d bytes / %d worker(s) = %d bytes each",
+                tensorstore_cache_bytes,
+                effective_workers,
+                per_worker_bytes,
+            )
 
         # Extract DataLoader parameters with optimized defaults
         # pin_memory only works with CUDA, so default to True only when CUDA is available
