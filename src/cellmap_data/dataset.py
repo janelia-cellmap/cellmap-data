@@ -229,14 +229,23 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         Python ``ThreadPoolExecutor`` worker thread on Windows.
 
         On all other platforms returns the usual persistent ``ThreadPoolExecutor``.
-        """
-        if _USE_IMMEDIATE_EXECUTOR:
-            return _IMMEDIATE_EXECUTOR  # type: ignore[return-value]
 
-        # Add pid tracking to detect process forking and prevent shared executors
+        In both cases ``self._executor`` and ``self._executor_pid`` are kept in
+        sync so that ``close()``, ``__del__``, and tests can inspect them
+        consistently regardless of platform.
+        """
         current_pid = os.getpid()
+
+        if _USE_IMMEDIATE_EXECUTOR:
+            # Use the module-level singleton but still track state so that
+            # _executor / _executor_pid are never left as None after first access.
+            if self._executor is None or self._executor_pid != current_pid:
+                self._executor = _IMMEDIATE_EXECUTOR
+                self._executor_pid = current_pid
+            return self._executor  # type: ignore[return-value]
+
+        # Non-Windows path: detect process forking and create a fresh executor.
         if self._executor_pid != current_pid:
-            # Process was forked, need new executor
             self._executor = None
             self._executor_pid = current_pid
 
