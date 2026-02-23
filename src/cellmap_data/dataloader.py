@@ -52,7 +52,7 @@ def _set_tensorstore_context(dataset, context) -> None:
         )
 def _apply_context_to_image(image: "CellMapImage", context) -> None:
     """Set the TensorStore context on a single CellMapImage, warning if already opened."""
-    if hasattr(image, "_array"):
+    if "_array" in getattr(image, "__dict__", {}):
         logger.warning(
             "TensorStore array already opened for %s; "
             "cache_pool limit will not apply to this image.",
