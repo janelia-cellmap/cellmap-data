@@ -309,21 +309,25 @@ class CellMapDataSplit:
             }
             return self._class_counts
 
-    def from_csv(self, csv_path) -> dict[str, Sequence[dict[str, str]]]:
+    @classmethod
+    def from_csv(cls, csv_path) -> dict[str, Sequence[dict[str, str]]]:
         """Loads the dataset_dict data from a csv file."""
         dataset_dict = {}
         with open(csv_path) as f:
             reader = csv.reader(f)
             logger.info("Reading csv file...")
             for row in reader:
-                if row[0] not in dataset_dict:
-                    dataset_dict[row[0]] = []
-                dataset_dict[row[0]].append(
-                    {
-                        "raw": os.path.join(row[1], row[2]),
-                        "gt": os.path.join(row[3], row[4]) if len(row) > 3 else "",
-                    }
-                )
+                try:
+                    if row[0] not in dataset_dict:
+                        dataset_dict[row[0]] = []
+                    dataset_dict[row[0]].append(
+                        {
+                            "raw": os.path.join(row[1], row[2]),
+                            "gt": os.path.join(row[3], row[4]) if len(row) > 3 else "",
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(f"Skipping row {reader.line_num} due to error: {e}")
 
         return dataset_dict
 
