@@ -129,9 +129,11 @@ class CellMapDataLoader:
                 shared across all worker processes.  The budget is split evenly:
                 ``per_worker = tensorstore_cache_bytes // max(1, num_workers)``.
                 Resolution order: explicit argument → ``CELLMAP_TENSORSTORE_CACHE_BYTES``
-                env var → built-in default of 2 GiB.  Set to ``0`` to disable
-                caching entirely.  Bounding this value prevents persistent worker
-                processes from accumulating chunk data unboundedly across epochs.
+                env var → built-in default of 2 GiB.  Bounding this value prevents
+                persistent worker processes from accumulating chunk data unboundedly
+                across epochs.  **Note:** TensorStore ignores a limit of ``0`` (treats
+                it as unlimited); to minimize caching use a small positive value such
+                as ``1``.  Pass ``0`` only if you explicitly want an unbounded cache.
             **kwargs: Additional PyTorch DataLoader arguments.
         """
         self.dataset = dataset
@@ -182,7 +184,7 @@ class CellMapDataLoader:
                 logger.info(
                     "TensorStore cache limit not set; applying default of %d bytes "
                     "(%.1f GiB). Override via tensorstore_cache_bytes= or "
-                    "CELLMAP_TENSORSTORE_CACHE_BYTES env var. Set to 0 to disable.",
+                    "CELLMAP_TENSORSTORE_CACHE_BYTES env var.",
                     _DEFAULT_TENSORSTORE_CACHE_BYTES,
                     _DEFAULT_TENSORSTORE_CACHE_BYTES / 1024**3,
                 )
@@ -192,8 +194,13 @@ class CellMapDataLoader:
             )
         self.tensorstore_cache_bytes = tensorstore_cache_bytes
 
-        if tensorstore_cache_bytes is not None and not isinstance(
-            dataset, CellMapDatasetWriter
+        # NOTE: TensorStore silently treats total_bytes_limit=0 as "no limit"
+        # (it strips zero values from the context spec).  Only positive values
+        # actually register a bound, so we skip context creation for 0.
+        if (
+            tensorstore_cache_bytes is not None
+            and tensorstore_cache_bytes > 0
+            and not isinstance(dataset, CellMapDatasetWriter)
         ):
             import tensorstore as ts
 
@@ -208,6 +215,12 @@ class CellMapDataLoader:
                 tensorstore_cache_bytes,
                 effective_workers,
                 per_worker_bytes,
+            )
+        elif tensorstore_cache_bytes == 0:
+            logger.warning(
+                "tensorstore_cache_bytes=0: TensorStore does not support a 0-byte "
+                "cache limit (it treats 0 as unlimited). The cache is unbounded. "
+                "To meaningfully limit caching, set a positive value.",
             )
 
         # Extract DataLoader parameters with optimized defaults
