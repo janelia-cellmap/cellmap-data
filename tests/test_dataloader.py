@@ -510,6 +510,15 @@ class TestTensorStoreCacheBounding:
         for img in _all_images(dataset):
             assert img.context["cache_pool"].to_json() == {"total_bytes_limit": total}
 
+    def test_zero_bytes_disables_cache(self, dataset):
+        """Setting tensorstore_cache_bytes=0 disables caching entirely."""
+        CellMapDataLoader(dataset, num_workers=2, tensorstore_cache_bytes=0)
+        # TensorStore represents 0-byte limit as empty dict in to_json()
+        for img in _all_images(dataset):
+            assert isinstance(img.context, ts.Context)
+            # A 0-byte cache limit is represented as {} in to_json()
+            assert img.context["cache_pool"].to_json() == {}
+
     def test_context_set_on_target_images(self, dataset):
         """Cache limit is applied to target-source images, not just input-source images."""
         from cellmap_data.image import CellMapImage
@@ -546,6 +555,25 @@ class TestTensorStoreCacheBounding:
             assert img.context["cache_pool"].to_json() == {
                 "total_bytes_limit": expected
             }
+
+    # -- validation ----------------------------------------------------------
+
+    def test_negative_cache_bytes_raises_error(self, dataset):
+        """Negative tensorstore_cache_bytes values are rejected."""
+        with pytest.raises(ValueError, match="must be >= 0"):
+            CellMapDataLoader(dataset, num_workers=1, tensorstore_cache_bytes=-100)
+
+    def test_negative_env_var_raises_error(self, dataset, monkeypatch):
+        """Negative values in CELLMAP_TENSORSTORE_CACHE_BYTES are rejected."""
+        monkeypatch.setenv("CELLMAP_TENSORSTORE_CACHE_BYTES", "-500")
+        with pytest.raises(ValueError, match="must be >= 0"):
+            CellMapDataLoader(dataset, num_workers=1)
+
+    def test_invalid_env_var_raises_error(self, dataset, monkeypatch):
+        """Non-integer values in CELLMAP_TENSORSTORE_CACHE_BYTES are rejected."""
+        monkeypatch.setenv("CELLMAP_TENSORSTORE_CACHE_BYTES", "not_a_number")
+        with pytest.raises(ValueError, match="Invalid value for environment variable"):
+            CellMapDataLoader(dataset, num_workers=1)
 
     # -- CellMapMultiDataset traversal ---------------------------------------
 
