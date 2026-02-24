@@ -9,7 +9,6 @@ import tensorstore as ts
 import torch
 
 from cellmap_data import CellMapDataLoader, CellMapDataset, CellMapMultiDataset
-
 from .test_helpers import create_test_dataset
 
 
@@ -477,14 +476,12 @@ class TestTensorStoreCacheBounding:
         )
         assert loader.tensorstore_cache_bytes == 100_000_000
 
-    def test_no_limit_by_default(self, dataset):
-        """Without the parameter (or env var), cache bytes is None and images keep context=None."""
+    def test_default_limit(self, dataset):
+        """Without the parameter (or env var), cache bytes is set by default."""
+        from cellmap_data.dataloader import _DEFAULT_TENSORSTORE_CACHE_BYTES
+
         loader = CellMapDataLoader(dataset, num_workers=0)
-        assert loader.tensorstore_cache_bytes is None
-        for img in _all_images(dataset):
-            assert (
-                img.context is None
-            ), f"Expected img.context to be None when no cache limit is set, but got {img.context!r}"
+        assert loader.tensorstore_cache_bytes == _DEFAULT_TENSORSTORE_CACHE_BYTES
 
     # -- per-worker byte math ------------------------------------------------
 

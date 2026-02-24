@@ -15,6 +15,14 @@ from .subdataset import CellMapSubset
 
 logger = logging.getLogger(__name__)
 
+# Default TensorStore chunk-cache budget applied when neither the constructor
+# argument nor CELLMAP_TENSORSTORE_CACHE_BYTES env var is set.
+# 2 GiB is a conservative bound that prevents unbounded RAM growth across
+# epochs while still providing meaningful caching for hot regions.
+# Override via CELLMAP_TENSORSTORE_CACHE_BYTES or the tensorstore_cache_bytes
+# constructor argument.
+_DEFAULT_TENSORSTORE_CACHE_BYTES = 2 * 1024**3  # 2 GiB
+
 
 def _set_tensorstore_context(dataset, context) -> None:
     """
@@ -120,10 +128,9 @@ class CellMapDataLoader:
             tensorstore_cache_bytes: Total TensorStore chunk-cache budget in bytes
                 shared across all worker processes.  The budget is split evenly:
                 ``per_worker = tensorstore_cache_bytes // max(1, num_workers)``.
-                Defaults to the ``CELLMAP_TENSORSTORE_CACHE_BYTES`` environment
-                variable if set, otherwise no limit is applied (TensorStore's
-                default unbounded cache).  Set to ``0`` to disable caching
-                entirely.  Bounding this value prevents persistent worker
+                Resolution order: explicit argument → ``CELLMAP_TENSORSTORE_CACHE_BYTES``
+                env var → built-in default of 2 GiB.  Set to ``0`` to disable
+                caching entirely.  Bounding this value prevents persistent worker
                 processes from accumulating chunk data unboundedly across epochs.
             **kwargs: Additional PyTorch DataLoader arguments.
         """
@@ -158,7 +165,7 @@ class CellMapDataLoader:
 
         # Bound TensorStore chunk-cache to prevent unbounded RAM growth in
         # persistent worker processes (Linux fork, Windows/macOS spawn).
-        # Resolve from parameter, then env var, then leave unconfigured.
+        # Resolve from parameter → env var → built-in default.
         if tensorstore_cache_bytes is None:
             _env = os.environ.get("CELLMAP_TENSORSTORE_CACHE_BYTES")
             if _env is not None:
@@ -170,6 +177,15 @@ class CellMapDataLoader:
                         "CELLMAP_TENSORSTORE_CACHE_BYTES: "
                         f"{_env!r}. Expected an integer number of bytes."
                     ) from exc
+            else:
+                tensorstore_cache_bytes = _DEFAULT_TENSORSTORE_CACHE_BYTES
+                logger.info(
+                    "TensorStore cache limit not set; applying default of %d bytes "
+                    "(%.1f GiB). Override via tensorstore_cache_bytes= or "
+                    "CELLMAP_TENSORSTORE_CACHE_BYTES env var. Set to 0 to disable.",
+                    _DEFAULT_TENSORSTORE_CACHE_BYTES,
+                    _DEFAULT_TENSORSTORE_CACHE_BYTES / 1024**3,
+                )
         if tensorstore_cache_bytes is not None and tensorstore_cache_bytes < 0:
             raise ValueError(
                 f"tensorstore_cache_bytes must be >= 0 when set; got {tensorstore_cache_bytes}"
