@@ -32,7 +32,7 @@ def _set_tensorstore_context(dataset, context) -> None:
     limit is picked up by every worker process (via fork inheritance on Linux,
     or via pickle on Windows/macOS spawn).
 
-    If an image's TensorStore array has already been opened (``_array`` cached),
+    If an image's TensorStore array has already been opened (``array`` cached),
     the new context cannot affect that array; a warning is emitted.
     """
     if isinstance(dataset, CellMapMultiDataset):

@@ -563,6 +563,21 @@ class TestTensorStoreCacheBounding:
         with pytest.raises(ValueError, match="Invalid value for environment variable"):
             CellMapDataLoader(dataset, num_workers=1)
 
+    def test_warning_when_cache_less_than_workers(self, dataset, caplog):
+        """A warning is logged when tensorstore_cache_bytes < num_workers."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="cellmap_data.dataloader"):
+            CellMapDataLoader(dataset, num_workers=4, tensorstore_cache_bytes=2)
+
+        # Check that warning was emitted
+        assert any(
+            "per-worker cache limit of 0 bytes" in r.message for r in caplog.records
+        )
+        # Each worker gets 1 byte (the minimum)
+        for img in _all_images(dataset):
+            assert img.context["cache_pool"].to_json() == {"total_bytes_limit": 1}
+
     # -- CellMapMultiDataset traversal ---------------------------------------
 
     def test_multidataset_all_images_bounded(self, tmp_path):
