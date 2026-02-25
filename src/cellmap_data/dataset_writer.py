@@ -1,5 +1,6 @@
 # %%
 import logging
+from functools import cached_property
 from typing import Callable, Mapping, Optional, Sequence
 
 import numpy as np
@@ -98,168 +99,125 @@ class CellMapDatasetWriter(Dataset):
             self._device = device
             self.to(device, non_blocking=True)
 
-    @property
+    @cached_property
     def center(self) -> Mapping[str, float] | None:
         """Returns the center of the dataset in world units."""
-        try:
-            return self._center
-        except AttributeError:
-            if self.bounding_box is None:
-                self._center = None
-            else:
-                center = {}
-                for c, (start, stop) in self.bounding_box.items():
-                    center[c] = start + (stop - start) / 2
-                self._center = center
-            return self._center
+        if self.bounding_box is None:
+            return None
+        return {
+            c: start + (stop - start) / 2
+            for c, (start, stop) in self.bounding_box.items()
+        }
 
-    @property
+    @cached_property
     def smallest_voxel_sizes(self) -> Mapping[str, float]:
         """Returns the smallest voxel size of the dataset."""
-        try:
-            return self._smallest_voxel_sizes
-        except AttributeError:
-            smallest_voxel_size = {c: np.inf for c in self.axis_order}
-            all_sources = list(self.input_sources.values()) + list(
-                self.target_array_writers.values()
-            )
-            for source in all_sources:
-                if isinstance(source, dict):
-                    for sub_source in source.values():
-                        if (
-                            hasattr(sub_source, "scale")
-                            and sub_source.scale is not None
-                        ):
-                            for c, size in sub_source.scale.items():
-                                smallest_voxel_size[c] = min(
-                                    smallest_voxel_size[c], size
-                                )
-                elif hasattr(source, "scale") and source.scale is not None:
-                    for c, size in source.scale.items():
-                        smallest_voxel_size[c] = min(smallest_voxel_size[c], size)
-            self._smallest_voxel_sizes = smallest_voxel_size
-            return self._smallest_voxel_sizes
+        smallest_voxel_size = {c: np.inf for c in self.axis_order}
+        all_sources = list(self.input_sources.values()) + list(
+            self.target_array_writers.values()
+        )
+        for source in all_sources:
+            if isinstance(source, dict):
+                for sub_source in source.values():
+                    if (
+                        hasattr(sub_source, "scale")
+                        and sub_source.scale is not None
+                    ):
+                        for c, size in sub_source.scale.items():
+                            smallest_voxel_size[c] = min(
+                                smallest_voxel_size[c], size
+                            )
+            elif hasattr(source, "scale") and source.scale is not None:
+                for c, size in source.scale.items():
+                    smallest_voxel_size[c] = min(smallest_voxel_size[c], size)
+        return smallest_voxel_size
 
-    @property
+    @cached_property
     def smallest_target_array(self) -> Mapping[str, float]:
         """Returns the smallest target array in world units."""
-        try:
-            return self._smallest_target_array
-        except AttributeError:
-            smallest_target_array = {c: np.inf for c in self.axis_order}
-            for writer in self.target_array_writers.values():
-                for _, writer in writer.items():
-                    for c, size in writer.write_world_shape.items():
-                        smallest_target_array[c] = min(smallest_target_array[c], size)
-            self._smallest_target_array = smallest_target_array
-            return self._smallest_target_array
+        smallest_target_array = {c: np.inf for c in self.axis_order}
+        for writer in self.target_array_writers.values():
+            for _, writer in writer.items():
+                for c, size in writer.write_world_shape.items():
+                    smallest_target_array[c] = min(smallest_target_array[c], size)
+        return smallest_target_array
 
-    @property
+    @cached_property
     def bounding_box(self) -> Mapping[str, list[float]]:
         """Returns the bounding box inclusive of all the target images."""
-        try:
-            return self._bounding_box
-        except AttributeError:
-            bounding_box = None
-            for current_box in self.target_bounds.values():
-                bounding_box = self._get_box_union(current_box, bounding_box)
-            if bounding_box is None:
-                logger.warning(
-                    "Bounding box is None. This may cause errors during sampling."
-                )
-                bounding_box = {c: [-np.inf, np.inf] for c in self.axis_order}
-            self._bounding_box = bounding_box
-            return self._bounding_box
+        bounding_box = None
+        for current_box in self.target_bounds.values():
+            bounding_box = self._get_box_union(current_box, bounding_box)
+        if bounding_box is None:
+            logger.warning(
+                "Bounding box is None. This may cause errors during sampling."
+            )
+            bounding_box = {c: [-np.inf, np.inf] for c in self.axis_order}
+        return bounding_box
 
-    @property
+    @cached_property
     def bounding_box_shape(self) -> Mapping[str, int]:
         """Returns the shape of the bounding box of the dataset in voxels of the smallest voxel size requested."""
-        try:
-            return self._bounding_box_shape
-        except AttributeError:
-            self._bounding_box_shape = self._get_box_shape(self.bounding_box)
-            return self._bounding_box_shape
+        return self._get_box_shape(self.bounding_box)
 
-    @property
+    @cached_property
     def sampling_box(self) -> Mapping[str, list[float]]:
         """Returns the sampling box of the dataset (i.e. where centers should be drawn from and to fully sample within the bounding box)."""
-        try:
-            return self._sampling_box
-        except AttributeError:
-            sampling_box = None
-            for array_name, array_info in self.target_arrays.items():
-                padding = {
-                    c: np.ceil((shape * scale) / 2)
-                    for c, shape, scale in zip(
-                        self.axis_order, array_info["shape"], array_info["scale"]
-                    )
-                }
-                this_box = {
-                    c: [bounds[0] + padding[c], bounds[1] - padding[c]]
-                    for c, bounds in self.target_bounds[array_name].items()
-                }
-                sampling_box = self._get_box_union(this_box, sampling_box)
-            if sampling_box is None:
-                logger.warning(
-                    "Sampling box is None. This may cause errors during sampling."
+        sampling_box = None
+        for array_name, array_info in self.target_arrays.items():
+            padding = {
+                c: np.ceil((shape * scale) / 2)
+                for c, shape, scale in zip(
+                    self.axis_order, array_info["shape"], array_info["scale"]
                 )
-                sampling_box = {c: [-np.inf, np.inf] for c in self.axis_order}
-            self._sampling_box = sampling_box
-            return self._sampling_box
+            }
+            this_box = {
+                c: [bounds[0] + padding[c], bounds[1] - padding[c]]
+                for c, bounds in self.target_bounds[array_name].items()
+            }
+            sampling_box = self._get_box_union(this_box, sampling_box)
+        if sampling_box is None:
+            logger.warning(
+                "Sampling box is None. This may cause errors during sampling."
+            )
+            sampling_box = {c: [-np.inf, np.inf] for c in self.axis_order}
+        return sampling_box
 
-    @property
+    @cached_property
     def sampling_box_shape(self) -> dict[str, int]:
         """Returns the shape of the sampling box."""
-        try:
-            return self._sampling_box_shape
-        except AttributeError:
-            self._sampling_box_shape = self._get_box_shape(self.sampling_box)
-            for c, size in self._sampling_box_shape.items():
-                if size <= 0:
-                    logger.debug(
-                        "Sampling box for axis %s has size %d <= 0. "
-                        "Setting to 1 and padding.",
-                        c,
-                        size,
-                    )
-                    self._sampling_box_shape[c] = 1
-            return self._sampling_box_shape
+        shape = self._get_box_shape(self.sampling_box)
+        for c, size in shape.items():
+            if size <= 0:
+                logger.debug(
+                    "Sampling box for axis %s has size %d <= 0. "
+                    "Setting to 1 and padding.",
+                    c,
+                    size,
+                )
+                shape[c] = 1
+        return shape
 
     def __len__(self) -> int:
         """Returns the number of samples in the dataset."""
         return int(np.prod(list(self.sampling_box_shape.values())))
 
-    @property
+    @cached_property
     def size(self) -> int:
         """Returns the number of samples in the dataset."""
-        try:
-            return self._size
-        except AttributeError:
-            self._size = np.prod(
-                [stop - start for start, stop in self.bounding_box.values()]
-            ).astype(int)
-            return self._size
+        return int(
+            np.prod([stop - start for start, stop in self.bounding_box.values()])
+        )
 
-    @property
+    @cached_property
     def writer_indices(self) -> Sequence[int]:
         """Returns the indices of the dataset that will produce non-overlapping tiles for use in writer, based on the smallest requested target array."""
-        try:
-            return self._writer_indices
-        except AttributeError:
-            self._writer_indices = self.get_indices(self.smallest_target_array)
-            return self._writer_indices
+        return self.get_indices(self.smallest_target_array)
 
-    @property
+    @cached_property
     def blocks(self) -> Subset:
         """A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks."""
-        try:
-            return self._blocks
-        except AttributeError:
-            self._blocks = Subset(
-                self,
-                self.writer_indices,
-            )
-            return self._blocks
+        return Subset(self, self.writer_indices)
 
     def loader(
         self,

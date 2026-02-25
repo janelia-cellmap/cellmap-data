@@ -1,3 +1,4 @@
+from functools import cached_property
 import logging
 import os
 from typing import Any, Callable, Mapping, Optional, Sequence
@@ -162,244 +163,187 @@ class CellMapImage(CellMapImageBase):
             }
         return self._coord_offsets
 
-    @property
+    @cached_property
     def shape(self) -> Mapping[str, int]:
         """Returns the shape of the image."""
-        try:
-            return self._shape
-        except AttributeError:
-            shape = self.group[self.scale_level].shape
-            self._shape: dict[str, int] = {c: int(s) for c, s in zip(self.axes, shape)}
-            return self._shape
+        shape = self.group[self.scale_level].shape
+        return {c: int(s) for c, s in zip(self.axes, shape)}
 
-    @property
+    @cached_property
     def center(self) -> Mapping[str, float]:
         """Returns the center of the image in world units."""
-        try:
-            return self._center
-        except AttributeError:
-            center = {}
-            for c, (start, stop) in self.bounding_box.items():
-                center[c] = start + (stop - start) / 2
-            self._center: dict[str, float] = center
-            return self._center
+        return {
+            c: start + (stop - start) / 2
+            for c, (start, stop) in self.bounding_box.items()
+        }
 
-    @property
+    @cached_property
     def multiscale_attrs(self) -> MultiscaleMetadata:
         """Returns the multiscale metadata of the image."""
-        try:
-            return self._multiscale_attrs
-        except AttributeError:
-            self._multiscale_attrs: MultiscaleMetadata = MultiscaleGroupAttrs(
-                multiscales=self.group.attrs["multiscales"]
-            ).multiscales[0]
-            return self._multiscale_attrs
+        return MultiscaleGroupAttrs(
+            multiscales=self.group.attrs["multiscales"]
+        ).multiscales[0]
 
-    @property
+    @cached_property
     def coordinateTransformations(
         self,
     ) -> tuple[Scale] | tuple[Scale, Translation]:
         """Returns the coordinate transformations of the image, based on the multiscale metadata."""
-        try:
-            return self._coordinateTransformations
-        except AttributeError:
-            # multi_tx = multi.coordinateTransformations
-            dset = [
-                ds
-                for ds in self.multiscale_attrs.datasets
-                if ds.path == self.scale_level
-            ][0]
-            # tx_fused = normalize_transforms(multi_tx, dset.coordinateTransformations)
-            self._coordinateTransformations = dset.coordinateTransformations
-            return self._coordinateTransformations
+        # multi_tx = multi.coordinateTransformations
+        dset = [
+            ds
+            for ds in self.multiscale_attrs.datasets
+            if ds.path == self.scale_level
+        ][0]
+        # tx_fused = normalize_transforms(multi_tx, dset.coordinateTransformations)
+        return dset.coordinateTransformations
 
-    @property
+    @cached_property
     def full_coords(self) -> tuple[xarray.DataArray, ...]:
         """Returns the full coordinates of the image's axes in world units."""
-        try:
-            return self._full_coords
-        except AttributeError:
-            self._full_coords = coords_from_transforms(
-                axes=self.multiscale_attrs.axes,
-                transforms=self.coordinateTransformations,  # type: ignore
-                # transforms=tx_fused,
-                shape=self.group[self.scale_level].shape,  # type: ignore
-            )
-            return self._full_coords
+        return coords_from_transforms(
+            axes=self.multiscale_attrs.axes,
+            transforms=self.coordinateTransformations,  # type: ignore
+            # transforms=tx_fused,
+            shape=self.group[self.scale_level].shape,  # type: ignore
+        )
 
-    @property
+    @cached_property
     def scale_level(self) -> str:
         """Returns the multiscale level of the image."""
-        try:
-            return self._scale_level
-        except AttributeError:
-            self._scale_level = self.find_level(self.scale)
-            return self._scale_level
+        return self.find_level(self.scale)
 
-    @property
+    @cached_property
     def group(self) -> zarr.Group:
         """Returns the zarr group object for the multiscale image."""
-        try:
-            return self._group
-        except AttributeError:
-            if self.path[:5] == "s3://":
-                self._group = zarr.open_group(
-                    zarr.N5FSStore(self.path, anon=True), mode="r"
-                )
-            else:
-                self._group = zarr.open_group(self.path, mode="r")
-            return self._group
+        if self.path[:5] == "s3://":
+            return zarr.open_group(zarr.N5FSStore(self.path, anon=True), mode="r")
+        return zarr.open_group(self.path, mode="r")
 
-    @property
+    @cached_property
     def array_path(self) -> str:
         """Returns the path to the single-scale image array."""
-        try:
-            return self._array_path
-        except AttributeError:
-            self._array_path = os.path.join(self.path, self.scale_level)
-            return self._array_path
+        return os.path.join(self.path, self.scale_level)
 
-    @property
+    @cached_property
     def array(self) -> xarray.DataArray:
         """Returns the image data as an xarray DataArray."""
-        try:
-            return self._array
-        except AttributeError:
-            if (
-                os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower()
-                != "tensorstore"
-            ):
-                data = da.from_array(
-                    self.group[self.scale_level],
-                    chunks="auto",
-                )
-            else:
-                # Construct an xarray with Tensorstore backend
-                spec = xt._zarr_spec_from_path(self.array_path)
+        if (
+            os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower()
+            != "tensorstore"
+        ):
+            data = da.from_array(
+                self.group[self.scale_level],
+                chunks="auto",
+            )
+        else:
+            # Construct an xarray with Tensorstore backend
+            spec = xt._zarr_spec_from_path(self.array_path)
+            array_future = ts.open(
+                spec, read=True, write=False, context=self.context
+            )
+            try:
+                array = array_future.result()
+            except ValueError as e:
+                Warning(e)
+                UserWarning("Falling back to zarr3 driver")
+                spec["driver"] = "zarr3"
                 array_future = ts.open(
                     spec, read=True, write=False, context=self.context
                 )
-                try:
-                    array = array_future.result()
-                except ValueError as e:
-                    Warning(e)
-                    UserWarning("Falling back to zarr3 driver")
-                    spec["driver"] = "zarr3"
-                    array_future = ts.open(
-                        spec, read=True, write=False, context=self.context
-                    )
-                    array = array_future.result()
-                data = xt._TensorStoreAdapter(array)
-            self._array = xarray.DataArray(data=data, coords=self.full_coords)
-            return self._array
+                array = array_future.result()
+            data = xt._TensorStoreAdapter(array)
+        return xarray.DataArray(data=data, coords=self.full_coords)
 
-    @property
+    @cached_property
     def translation(self) -> Mapping[str, float]:
         """Returns the translation of the image."""
-        try:
-            return self._translation
-        except AttributeError:
-            # Get the translation of the image
-            self._translation = {c: self.bounding_box[c][0] for c in self.axes}
-            return self._translation
+        return {c: self.bounding_box[c][0] for c in self.axes}
 
-    @property
+    @cached_property
     def bounding_box(self) -> Mapping[str, list[float]]:
         """Returns the bounding box of the dataset in world units."""
-        try:
-            return self._bounding_box
-        except AttributeError:
-            self._bounding_box = {}
-            for coord in self.full_coords:
-                self._bounding_box[coord.dims[0]] = [
-                    coord.data.min(),
-                    coord.data.max(),
-                ]
-            return self._bounding_box
+        bounding_box = {}
+        for coord in self.full_coords:
+            bounding_box[coord.dims[0]] = [
+                coord.data.min(),
+                coord.data.max(),
+            ]
+        return bounding_box
 
-    @property
+    @cached_property
     def sampling_box(self) -> Optional[Mapping[str, list[float]]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box), in world units."""
-        try:
-            return self._sampling_box
-        except AttributeError:
-            self._sampling_box = {}
-            output_padding = {c: np.ceil(s / 2) for c, s in self.output_size.items()}
-            for c, (start, stop) in self.bounding_box.items():
-                self._sampling_box[c] = [
-                    start + output_padding[c],
-                    stop - output_padding[c],
-                ]
-                try:
-                    assert (
-                        self._sampling_box[c][0] < self._sampling_box[c][1]
-                    ), f"Sampling box for axis {c} is invalid: {self._sampling_box[c]} for image {self.path}. Image is not large enough to sample from as requested."
-                except AssertionError as e:
-                    if self.pad:
-                        self._sampling_box[c] = [
-                            self.center[c] - self.scale[c],
-                            self.center[c] + self.scale[c],
-                        ]
-                    else:
-                        self._sampling_box = None
-                        raise e
-            return self._sampling_box
+        sampling_box = {}
+        output_padding = {c: np.ceil(s / 2) for c, s in self.output_size.items()}
+        for c, (start, stop) in self.bounding_box.items():
+            sampling_box[c] = [
+                start + output_padding[c],
+                stop - output_padding[c],
+            ]
+            try:
+                assert (
+                    sampling_box[c][0] < sampling_box[c][1]
+                ), f"Sampling box for axis {c} is invalid: {sampling_box[c]} for image {self.path}. Image is not large enough to sample from as requested."
+            except AssertionError as e:
+                if self.pad:
+                    sampling_box[c] = [
+                        self.center[c] - self.scale[c],
+                        self.center[c] + self.scale[c],
+                    ]
+                else:
+                    raise e
+        return sampling_box
 
-    @property
+    @cached_property
     def bg_count(self) -> float:
         """Returns the number of background pixels in the ground truth data, normalized by the resolution."""
-        try:
-            return self._bg_count
-        except AttributeError:
-            # Get from cellmap-schemas metadata, then normalize by resolution - get class counts at same time
-            _ = self.class_counts
-            return self._bg_count
+        # Trigger class_counts, which sets self._bg_count as a side effect
+        _ = self.class_counts
+        return self._bg_count
 
-    @property
+    @cached_property
     def class_counts(self) -> float:
         """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
+        # Get from cellmap-schemas metadata, then normalize by resolution
+        s0_scale = None
         try:
-            return self._class_counts
-        except AttributeError:
-            # Get from cellmap-schemas metadata, then normalize by resolution
-            s0_scale = None
-            try:
-                bg_count = self.group["s0"].attrs["cellmap"]["annotation"][
-                    "complement_counts"
-                ]["absent"]
-                for scale in self.group.attrs["multiscales"][0]["datasets"]:
-                    if scale["path"] == "s0":
-                        for transform in scale["coordinateTransformations"]:
-                            if "scale" in transform:
-                                s0_scale = transform["scale"]
-                                break
-                        break
-                if s0_scale is not None:
-                    self._class_counts = (
-                        np.prod(np.array(self.group["s0"].shape)) - bg_count
-                    ) * np.prod(np.array(s0_scale))
-                    self._bg_count = bg_count * np.prod(np.array(s0_scale))
-                else:
-                    raise ValueError("s0_scale not found")
-            except Exception as e:
-                logger.warning(
-                    "Unable to get class counts for %s from metadata, "
-                    "falling back to calculating from array. Error: %s, %s",
-                    self.path,
-                    e,
-                    type(e),
-                )
-                # Fallback to calculating from array
-                array_data = self.array.compute()
-                self._class_counts = float(
-                    np.count_nonzero(array_data)
-                    * np.prod(np.array(list(self.scale.values())))
-                )
-                self._bg_count = float(
-                    (array_data.size - np.count_nonzero(array_data))
-                    * np.prod(np.array(list(self.scale.values())))
-                )
-            return self._class_counts
+            bg_count = self.group["s0"].attrs["cellmap"]["annotation"][
+                "complement_counts"
+            ]["absent"]
+            for scale in self.group.attrs["multiscales"][0]["datasets"]:
+                if scale["path"] == "s0":
+                    for transform in scale["coordinateTransformations"]:
+                        if "scale" in transform:
+                            s0_scale = transform["scale"]
+                            break
+                    break
+            if s0_scale is not None:
+                class_counts = (
+                    np.prod(np.array(self.group["s0"].shape)) - bg_count
+                ) * np.prod(np.array(s0_scale))
+                self._bg_count = bg_count * np.prod(np.array(s0_scale))
+            else:
+                raise ValueError("s0_scale not found")
+        except Exception as e:
+            logger.warning(
+                "Unable to get class counts for %s from metadata, "
+                "falling back to calculating from array. Error: %s, %s",
+                self.path,
+                e,
+                type(e),
+            )
+            # Fallback to calculating from array
+            array_data = self.array.compute()
+            class_counts = float(
+                np.count_nonzero(array_data)
+                * np.prod(np.array(list(self.scale.values())))
+            )
+            self._bg_count = float(
+                (array_data.size - np.count_nonzero(array_data))
+                * np.prod(np.array(list(self.scale.values())))
+            )
+        return class_counts
 
     def to(self, device: str, *args, **kwargs) -> None:
         """Sets what device returned image data will be loaded onto."""
@@ -519,21 +463,17 @@ class CellMapImage(CellMapImageBase):
         else:
             return torch.tensor(data)
 
-    @property
+    @cached_property
     def tolerance(self) -> float:
         """Returns the tolerance for nearest neighbor interpolation."""
-        try:
-            return self._tolerance
-        except AttributeError:
-            # Calculate the tolerance as half the norm of the original image scale (i.e. traversing half a pixel diagonally) +  epsilon (1e-6)
-            actual_scale = [
-                ct
-                for ct in self.coordinateTransformations
-                if isinstance(ct, VectorScale)
-            ][0].scale
-            half_diagonal = np.linalg.norm(actual_scale) / 2
-            self._tolerance = float(half_diagonal + 1e-6)
-            return self._tolerance
+        # Calculate the tolerance as half the norm of the original image scale (i.e. traversing half a pixel diagonally) +  epsilon (1e-6)
+        actual_scale = [
+            ct
+            for ct in self.coordinateTransformations
+            if isinstance(ct, VectorScale)
+        ][0].scale
+        half_diagonal = np.linalg.norm(actual_scale) / 2
+        return float(half_diagonal + 1e-6)
 
     def return_data(
         self,
