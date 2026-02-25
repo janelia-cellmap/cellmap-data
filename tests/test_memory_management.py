@@ -160,3 +160,61 @@ class TestMemoryManagement:
 
         # Cache should be cleared
         assert "array" not in image.__dict__
+
+    def test_simulated_training_loop_memory(self, test_zarr_image):
+        """
+        Simulate a training loop to verify cache is cleared on each iteration.
+        
+        This test simulates the memory leak scenario described in the issue:
+        repeated calls to __getitem__ should not accumulate memory from cached arrays.
+        """
+        path, _ = test_zarr_image
+
+        image = CellMapImage(
+            path=path,
+            target_class="test",
+            target_scale=(4.0, 4.0, 4.0),
+            target_voxel_shape=(8, 8, 8),
+        )
+
+        # Simulate multiple training iterations
+        centers = [
+            {"z": 48.0 + i * 4.0, "y": 48.0 + i * 4.0, "x": 48.0 + i * 4.0}
+            for i in range(10)
+        ]
+
+        for i, center in enumerate(centers):
+            _ = image[center]
+            
+            # After each iteration, array cache should be cleared
+            assert (
+                "array" not in image.__dict__
+            ), f"Iteration {i}: Array cache should be cleared to prevent memory leak"
+
+    def test_cache_clearing_with_interpolation(self, tmp_path):
+        """
+        Test cache clearing when interpolation is used (the main memory leak scenario).
+        
+        When coords require interpolation (not simple float/int), the array.interp()
+        method creates intermediate arrays that could accumulate memory.
+        """
+        data = create_test_image_data((32, 32, 32), pattern="gradient")
+        path = tmp_path / "test_interp.zarr"
+        create_test_zarr_array(path, data, scale=(4.0, 4.0, 4.0))
+
+        image = CellMapImage(
+            path=str(path),
+            target_class="test",
+            target_scale=(4.0, 4.0, 4.0),
+            target_voxel_shape=(8, 8, 8),
+            interpolation="linear",  # Use linear interpolation to trigger interp()
+        )
+
+        # Use spatial transforms to trigger the interpolation code path
+        image.set_spatial_transforms({"rotate": {"z": 15}})
+
+        center = {"z": 64.0, "y": 64.0, "x": 64.0}
+        _ = image[center]
+
+        # Cache should be cleared even after interpolation
+        assert "array" not in image.__dict__

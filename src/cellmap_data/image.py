@@ -241,7 +241,13 @@ class CellMapImage(CellMapImageBase):
 
     @cached_property
     def array(self) -> xarray.DataArray:
-        """Returns the image data as an xarray DataArray."""
+        """
+        Returns the image data as an xarray DataArray.
+        
+        This property is cached but is explicitly cleared after each __getitem__ call
+        to prevent memory leaks from accumulating xarray operations during training.
+        The array will be reopened on next access if needed.
+        """
         if (
             os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower()
             != "tensorstore"
