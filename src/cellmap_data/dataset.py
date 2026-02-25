@@ -495,7 +495,9 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
     @cached_property
     def size(self) -> int:
         """Returns the size of the dataset in voxels of the largest voxel size requested."""
-        return int(np.prod([stop - start for start, stop in self.bounding_box.values()]))
+        return int(
+            np.prod([stop - start for start, stop in self.bounding_box.values()])
+        )
 
     @cached_property
     def class_counts(self) -> Mapping[str, Mapping[str, float]]:
