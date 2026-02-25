@@ -1,6 +1,7 @@
 # %%
 import atexit
 import functools
+from functools import cached_property
 import logging
 import os
 import platform
@@ -390,210 +391,159 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         )
         return (self.__class__, args, self.__dict__)
 
-    @property
+    @cached_property
     def center(self) -> Mapping[str, float] | None:
         """Returns the center of the dataset in world units."""
-        try:
-            return self._center
-        except AttributeError:
-            if self.bounding_box is None:
-                self._center = None
-            else:
-                center = {}
-                for c, (start, stop) in self.bounding_box.items():
-                    center[c] = start + (stop - start) / 2
-                self._center = center
-            return self._center
+        if self.bounding_box is None:
+            return None
+        return {
+            c: start + (stop - start) / 2
+            for c, (start, stop) in self.bounding_box.items()
+        }
 
-    @property
+    @cached_property
     def largest_voxel_sizes(self) -> Mapping[str, float]:
         """Returns the largest voxel size of the dataset."""
-        try:
-            return self._largest_voxel_sizes
-        except AttributeError:
-            largest_voxel_size = dict.fromkeys(self.axis_order, 0.0)
-            for source in list(self.input_sources.values()) + list(
-                self.target_sources.values()
-            ):
-                if isinstance(source, dict):
-                    for _, source in source.items():
-                        if not hasattr(source, "scale") or source.scale is None:  # type: ignore
-                            continue
-                        for c, size in source.scale.items():  # type: ignore
-                            largest_voxel_size[c] = max(largest_voxel_size[c], size)
-                else:
-                    if not hasattr(source, "scale") or source.scale is None:
+        largest_voxel_size = dict.fromkeys(self.axis_order, 0.0)
+        for source in list(self.input_sources.values()) + list(
+            self.target_sources.values()
+        ):
+            if isinstance(source, dict):
+                for _, source in source.items():
+                    if not hasattr(source, "scale") or source.scale is None:  # type: ignore
                         continue
-                    for c, size in source.scale.items():
+                    for c, size in source.scale.items():  # type: ignore
                         largest_voxel_size[c] = max(largest_voxel_size[c], size)
-            self._largest_voxel_sizes = largest_voxel_size
+            else:
+                if not hasattr(source, "scale") or source.scale is None:
+                    continue
+                for c, size in source.scale.items():
+                    largest_voxel_size[c] = max(largest_voxel_size[c], size)
+        return largest_voxel_size
 
-            return self._largest_voxel_sizes
-
-    @property
+    @cached_property
     def bounding_box(self) -> Mapping[str, list[float]]:
         """Returns the bounding box of the dataset."""
-        try:
-            return self._bounding_box
-        except AttributeError:
-            bounding_box: dict[str, list[float]] | None = None
-            all_sources = list(self.input_sources.values()) + list(
-                self.target_sources.values()
-            )
-            for source in all_sources:
-                if isinstance(source, dict):
-                    for sub_source in source.values():
-                        if hasattr(sub_source, "bounding_box"):
-                            bounding_box = self._get_box_intersection(
-                                sub_source.bounding_box, bounding_box
-                            )
-                elif hasattr(source, "bounding_box"):
-                    bounding_box = self._get_box_intersection(
-                        source.bounding_box, bounding_box
-                    )
-            if bounding_box is None:
-                logger.warning(
-                    "Bounding box is None. This may cause errors during sampling."
+        bounding_box: dict[str, list[float]] | None = None
+        all_sources = list(self.input_sources.values()) + list(
+            self.target_sources.values()
+        )
+        for source in all_sources:
+            if isinstance(source, dict):
+                for sub_source in source.values():
+                    if hasattr(sub_source, "bounding_box"):
+                        bounding_box = self._get_box_intersection(
+                            sub_source.bounding_box, bounding_box
+                        )
+            elif hasattr(source, "bounding_box"):
+                bounding_box = self._get_box_intersection(
+                    source.bounding_box, bounding_box
                 )
-                bounding_box = {c: [-np.inf, np.inf] for c in self.axis_order}
-            self._bounding_box = bounding_box
-            return self._bounding_box
+        if bounding_box is None:
+            logger.warning(
+                "Bounding box is None. This may cause errors during sampling."
+            )
+            bounding_box = {c: [-np.inf, np.inf] for c in self.axis_order}
+        return bounding_box
 
-    @property
+    @cached_property
     def bounding_box_shape(self) -> Mapping[str, int]:
         """Returns the shape of the bounding box of the dataset in voxels of the largest voxel size requested."""
-        try:
-            return self._bounding_box_shape
-        except AttributeError:
-            self._bounding_box_shape = self._get_box_shape(self.bounding_box)
-            return self._bounding_box_shape
+        return self._get_box_shape(self.bounding_box)
 
-    @property
+    @cached_property
     def sampling_box(self) -> Mapping[str, list[float]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
-        try:
-            return self._sampling_box
-        except AttributeError:
-            sampling_box: dict[str, list[float]] | None = None
-            all_sources = list(self.input_sources.values()) + list(
-                self.target_sources.values()
-            )
-            for source in all_sources:
-                if isinstance(source, dict):
-                    for sub_source in source.values():
-                        if hasattr(sub_source, "sampling_box"):
-                            sampling_box = self._get_box_intersection(
-                                sub_source.sampling_box, sampling_box
-                            )
-                elif hasattr(source, "sampling_box"):
-                    sampling_box = self._get_box_intersection(
-                        source.sampling_box, sampling_box
-                    )
-            if sampling_box is None:
-                logger.warning(
-                    "Sampling box is None. This may cause errors during sampling."
+        sampling_box: dict[str, list[float]] | None = None
+        all_sources = list(self.input_sources.values()) + list(
+            self.target_sources.values()
+        )
+        for source in all_sources:
+            if isinstance(source, dict):
+                for sub_source in source.values():
+                    if hasattr(sub_source, "sampling_box"):
+                        sampling_box = self._get_box_intersection(
+                            sub_source.sampling_box, sampling_box
+                        )
+            elif hasattr(source, "sampling_box"):
+                sampling_box = self._get_box_intersection(
+                    source.sampling_box, sampling_box
                 )
-                sampling_box = {c: [-np.inf, np.inf] for c in self.axis_order}
-            self._sampling_box = sampling_box
-            return self._sampling_box
+        if sampling_box is None:
+            logger.warning(
+                "Sampling box is None. This may cause errors during sampling."
+            )
+            sampling_box = {c: [-np.inf, np.inf] for c in self.axis_order}
+        return sampling_box
 
-    @property
+    @cached_property
     def sampling_box_shape(self) -> dict[str, int]:
         """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size requested."""
-        try:
-            return self._sampling_box_shape
-        except AttributeError:
-            self._sampling_box_shape = self._get_box_shape(self.sampling_box)
-            if self.pad:
-                for c, size in self._sampling_box_shape.items():
-                    if size <= 0:
-                        logger.debug(
-                            "Sampling box for axis %s has size %d <= 0. "
-                            "Setting to 1 and padding.",
-                            c,
-                            size,
-                        )
-                        self._sampling_box_shape[c] = 1
-            return self._sampling_box_shape
+        shape = self._get_box_shape(self.sampling_box)
+        if self.pad:
+            for c, size in shape.items():
+                if size <= 0:
+                    logger.debug(
+                        "Sampling box for axis %s has size %d <= 0. "
+                        "Setting to 1 and padding.",
+                        c,
+                        size,
+                    )
+                    shape[c] = 1
+        return shape
 
-    @property
+    @cached_property
     def size(self) -> int:
         """Returns the size of the dataset in voxels of the largest voxel size requested."""
-        try:
-            return self._size
-        except AttributeError:
-            size = np.prod([stop - start for start, stop in self.bounding_box.items()])
-            self._size = int(size)
-            return self._size
+        return int(
+            np.prod([stop - start for start, stop in self.bounding_box.values()])
+        )
 
-    @property
+    @cached_property
     def class_counts(self) -> Mapping[str, Mapping[str, float]]:
         """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
-        try:
-            return self._class_counts
-        except AttributeError:
-            class_counts = {"totals": dict.fromkeys(self.classes, 0.0)}
-            class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
-            for array_name, sources in self.target_sources.items():
-                class_counts[array_name] = {}
-                for label, source in sources.items():
-                    if isinstance(source, CellMapImage):
-                        class_counts[array_name][label] = source.class_counts
-                        class_counts[array_name][label + "_bg"] = source.bg_count
-                        class_counts["totals"][label] += source.class_counts
-                        class_counts["totals"][label + "_bg"] += source.bg_count
-                    else:
-                        class_counts[array_name][label] = 0.0
-                        class_counts[array_name][label + "_bg"] = 0.0
-            self._class_counts = class_counts
-            return self._class_counts
+        class_counts = {"totals": dict.fromkeys(self.classes, 0.0)}
+        class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
+        for array_name, sources in self.target_sources.items():
+            class_counts[array_name] = {}
+            for label, source in sources.items():
+                if isinstance(source, CellMapImage):
+                    class_counts[array_name][label] = source.class_counts
+                    class_counts[array_name][label + "_bg"] = source.bg_count
+                    class_counts["totals"][label] += source.class_counts
+                    class_counts["totals"][label + "_bg"] += source.bg_count
+                else:
+                    class_counts[array_name][label] = 0.0
+                    class_counts[array_name][label + "_bg"] = 0.0
+        return class_counts
 
-    @property
+    @cached_property
     def class_weights(self) -> dict[str, float]:
         """Returns the class weights for the dataset based on the number of samples in each class. Classes without any samples will have a weight of 1."""
-        try:
-            return self._class_weights
-        except AttributeError:
-            if self.classes is None:
-                self._class_weights = {}
-            else:
-                self._class_weights = {
-                    c: (
-                        self.class_counts["totals"][c + "_bg"]
-                        / self.class_counts["totals"][c]
-                        if self.class_counts["totals"][c] != 0
-                        else 1
-                    )
-                    for c in self.classes
-                }
-            return self._class_weights
+        if self.classes is None:
+            return {}
+        return {
+            c: (
+                self.class_counts["totals"][c + "_bg"] / self.class_counts["totals"][c]
+                if self.class_counts["totals"][c] != 0
+                else 1
+            )
+            for c in self.classes
+        }
 
-    @property
+    @cached_property
     def validation_indices(self) -> Sequence[int]:
         """Returns the indices of the dataset that will produce non-overlapping tiles for use in validation, based on the largest requested voxel size."""
-        try:
-            return self._validation_indices
-        except AttributeError:
-            chunk_size = {}
-            for c, size in self.bounding_box_shape.items():
-                chunk_size[c] = np.ceil(size - self.sampling_box_shape[c]).astype(int)
-            self._validation_indices = self.get_indices(chunk_size)
-            return self._validation_indices
+        chunk_size = {
+            c: np.ceil(size - self.sampling_box_shape[c]).astype(int)
+            for c, size in self.bounding_box_shape.items()
+        }
+        return self.get_indices(chunk_size)
 
     @property
     def device(self) -> torch.device:
         """Returns the device for the dataset."""
-        try:
-            return self._device
-        except AttributeError:
-            if torch.cuda.is_available():
-                self._device = torch.device("cuda")
-            elif torch.backends.mps.is_available():
-                self._device = torch.device("mps")
-            else:
-                self._device = torch.device("cpu")
-            self.to(self._device, non_blocking=True)
-            return self._device
+        return self._device
 
     def __len__(self) -> int:
         """Returns the number of unique patches in the dataset."""
@@ -1067,5 +1017,6 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         instance = super(CellMapDataset, CellMapDataset).__new__(CellMapDataset)
         instance.__init__("", "", [], {}, {}, force_has_data=False)
         instance.has_data = False
-        instance._sampling_box_shape = {c: 0 for c in instance.axis_order}
+        # Set cached_property value directly in __dict__ to bypass computation
+        instance.__dict__["sampling_box_shape"] = {c: 0 for c in instance.axis_order}
         return instance

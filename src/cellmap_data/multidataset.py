@@ -1,4 +1,5 @@
 import functools
+from functools import cached_property
 import logging
 from typing import Any, Callable, Mapping, Optional, Sequence
 
@@ -96,112 +97,88 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
         """
         return len(self) > 0
 
-    @property
+    @cached_property
     def class_counts(self) -> dict[str, dict[str, float]]:
         """
         Returns the number of samples in each class for each dataset in the multi-dataset, as well as the total number of samples in each class.
         """
-        try:
-            return self._class_counts
-        except AttributeError:
-            class_counts = {"totals": {c: 0.0 for c in self.classes}}
-            class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
-            logger.info("Gathering class counts...")
-            for ds in tqdm(self.datasets):
-                for c in self.classes:
-                    if c in ds.class_counts["totals"]:
-                        class_counts["totals"][c] += ds.class_counts["totals"][c]
-                        class_counts["totals"][c + "_bg"] += ds.class_counts["totals"][
-                            c + "_bg"
-                        ]
-            self._class_counts = class_counts
-            return self._class_counts
+        class_counts = {"totals": {c: 0.0 for c in self.classes}}
+        class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
+        logger.info("Gathering class counts...")
+        for ds in tqdm(self.datasets):
+            for c in self.classes:
+                if c in ds.class_counts["totals"]:
+                    class_counts["totals"][c] += ds.class_counts["totals"][c]
+                    class_counts["totals"][c + "_bg"] += ds.class_counts["totals"][
+                        c + "_bg"
+                    ]
+        return class_counts
 
-    @property
+    @cached_property
     def class_weights(self) -> dict[str, float]:
         """
         Returns the class weights for the multi-dataset based on the number of samples in each class.
         """
-        try:
-            return self._class_weights
-        except AttributeError:
-            if self.classes is None:
-                self._class_weights = {}
-            else:
-                self._class_weights = {
-                    c: (
-                        self.class_counts["totals"][c + "_bg"]
-                        / self.class_counts["totals"][c]
-                        if self.class_counts["totals"][c] != 0
-                        else 1
-                    )
-                    for c in self.classes
-                }
-            return self._class_weights
+        if self.classes is None:
+            return {}
+        return {
+            c: (
+                self.class_counts["totals"][c + "_bg"] / self.class_counts["totals"][c]
+                if self.class_counts["totals"][c] != 0
+                else 1
+            )
+            for c in self.classes
+        }
 
-    @property
+    @cached_property
     def dataset_weights(self) -> Mapping[CellMapDataset, float]:
         """
         Returns the weights for each dataset in the multi-dataset based on the number of samples in each dataset.
         """
-        try:
-            return self._dataset_weights
-        except AttributeError:
-            dataset_weights = {}
-            for dataset in self.datasets:
-                if len(self.classes) == 0:
-                    # If no classes are defined, assign equal weight to all datasets
-                    dataset_weight = 1.0
-                else:
-                    dataset_weight = np.sum(
-                        [
-                            dataset.class_counts["totals"][c] * self.class_weights[c]  # type: ignore
-                            for c in self.classes
-                        ]
-                    )
-                    dataset_weight *= (1 / len(dataset)) if len(dataset) > 0 else 0  # type: ignore
-                dataset_weights[dataset] = dataset_weight
-            self._dataset_weights = dataset_weights
-            return self._dataset_weights
+        dataset_weights = {}
+        for dataset in self.datasets:
+            if len(self.classes) == 0:
+                # If no classes are defined, assign equal weight to all datasets
+                dataset_weight = 1.0
+            else:
+                dataset_weight = np.sum(
+                    [
+                        dataset.class_counts["totals"][c] * self.class_weights[c]  # type: ignore
+                        for c in self.classes
+                    ]
+                )
+                dataset_weight *= (1 / len(dataset)) if len(dataset) > 0 else 0  # type: ignore
+            dataset_weights[dataset] = dataset_weight
+        return dataset_weights
 
-    @property
+    @cached_property
     def sample_weights(self) -> Sequence[float]:
         """
         Returns the weights for each sample in the multi-dataset based on the number of samples in each dataset.
         """
-        try:
-            return self._sample_weights
-        except AttributeError:
-            dataset_weights = self.dataset_weights
-            sample_weights = []
-            for dataset, dataset_weight in dataset_weights.items():
-                sample_weights += [dataset_weight] * len(dataset)
-            self._sample_weights = sample_weights
-            return self._sample_weights
+        sample_weights = []
+        for dataset, dataset_weight in self.dataset_weights.items():
+            sample_weights += [dataset_weight] * len(dataset)
+        return sample_weights
 
-    @property
+    @cached_property
     def validation_indices(self) -> Sequence[int]:
         """
         Returns the indices of the validation set for each dataset in the multi-dataset.
         """
-        try:
-            return self._validation_indices
-        except AttributeError:
-            indices = []
-            for i, dataset in enumerate(self.datasets):
-                try:
-                    if i == 0:
-                        offset = 0
-                    else:
-                        offset = self.cumulative_sizes[i - 1]
-                    sample_indices = np.array(dataset.validation_indices) + offset  # type: ignore
-                    indices.extend(list(sample_indices))
-                except AttributeError:
-                    UserWarning(
-                        f"Unable to get validation indices for dataset {dataset}\n skipping"
-                    )
-            self._validation_indices = indices
-            return self._validation_indices
+        indices = []
+        for i, dataset in enumerate(self.datasets):
+            try:
+                offset = self.cumulative_sizes[i - 1] if i > 0 else 0
+                sample_indices = np.array(dataset.validation_indices) + offset  # type: ignore
+                indices.extend(list(sample_indices))
+            except AttributeError:
+                logger.warning(
+                    "Unable to get validation indices for dataset %r; skipping this "
+                    "dataset when building validation_indices.",
+                    dataset,
+                )
+        return indices
 
     def verify(self) -> bool:
         """
@@ -420,8 +397,11 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
         """Creates an empty dataset."""
         empty_dataset = CellMapMultiDataset([], {}, {}, [CellMapDataset.empty()])
         empty_dataset.classes = []
-        empty_dataset._class_counts = {}
-        empty_dataset._class_weights = {}
-        empty_dataset._validation_indices = []
+        # Pre-populate the cached_property values via instance dict to avoid recomputation
+        vars(empty_dataset).update(
+            class_counts={},
+            class_weights={},
+            validation_indices=[],
+        )
 
         return empty_dataset

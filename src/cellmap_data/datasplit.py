@@ -1,6 +1,7 @@
 import csv
 import logging
 import os
+from functools import cached_property
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 import tensorstore
@@ -245,69 +246,48 @@ class CellMapDataSplit:
         """Returns the string representation of the class."""
         return f"CellMapDataSplit(\n\tInput arrays: {self.input_arrays}\n\tTarget arrays:{self.target_arrays}\n\tClasses: {self.classes}\n\tDataset dict: {self.dataset_dict}\n\tSpatial transforms: {self.spatial_transforms}\n\tRaw value transforms: {self.train_raw_value_transforms}\n\tGT value transforms: {self.target_value_transforms}\n\tForce has data: {self.force_has_data}\n\tContext: {self.context})"
 
-    @property
+    @cached_property
     def train_datasets_combined(self) -> CellMapMultiDataset:
         """A multi-dataset from the combination of all training datasets."""
-        try:
-            return self._train_datasets_combined
-        except AttributeError:
-            self._train_datasets_combined = CellMapMultiDataset(
-                self.classes,
-                self.input_arrays,
-                self.target_arrays,
-                [
-                    ds
-                    for ds in self.train_datasets
-                    if self.force_has_data or ds.has_data
-                ],
-            )
-            return self._train_datasets_combined
+        return CellMapMultiDataset(
+            self.classes,
+            self.input_arrays,
+            self.target_arrays,
+            [ds for ds in self.train_datasets if self.force_has_data or ds.has_data],
+        )
 
-    @property
+    @cached_property
     def validation_datasets_combined(self) -> CellMapMultiDataset:
         """A multi-dataset from the combination of all validation datasets."""
-        try:
-            return self._validation_datasets_combined
-        except AttributeError:
-            if len(self.validation_datasets) == 0:
-                UserWarning("Validation datasets not loaded.")
-                self._validation_datasets_combined = CellMapMultiDataset.empty()
-            else:
-                self._validation_datasets_combined = CellMapMultiDataset(
-                    self.classes,
-                    self.input_arrays,
-                    self.target_arrays,
-                    [
-                        ds
-                        for ds in self.validation_datasets
-                        if self.force_has_data or ds.has_data
-                    ],
-                )
-            return self._validation_datasets_combined
+        if len(self.validation_datasets) == 0:
+            logger.warning("Validation datasets not loaded.")
+            return CellMapMultiDataset.empty()
+        return CellMapMultiDataset(
+            self.classes,
+            self.input_arrays,
+            self.target_arrays,
+            [
+                ds
+                for ds in self.validation_datasets
+                if self.force_has_data or ds.has_data
+            ],
+        )
 
-    @property
+    @cached_property
     def validation_blocks(self) -> CellMapSubset:
         """A subset of the validation datasets, tiling the validation datasets with non-overlapping blocks."""
-        try:
-            return self._validation_blocks
-        except AttributeError:
-            self._validation_blocks = CellMapSubset(
-                self.validation_datasets_combined,
-                self.validation_datasets_combined.validation_indices,
-            )
-            return self._validation_blocks
+        return CellMapSubset(
+            self.validation_datasets_combined,
+            self.validation_datasets_combined.validation_indices,
+        )
 
-    @property
+    @cached_property
     def class_counts(self) -> dict[str, dict[str, float]]:
         """A dictionary containing the class counts for the training and validation datasets."""
-        try:
-            return self._class_counts
-        except AttributeError:
-            self._class_counts = {
-                "train": self.train_datasets_combined.class_counts,
-                "validate": self.validation_datasets_combined.class_counts,
-            }
-            return self._class_counts
+        return {
+            "train": self.train_datasets_combined.class_counts,
+            "validate": self.validation_datasets_combined.class_counts,
+        }
 
     @classmethod
     def from_csv(cls, csv_path) -> dict[str, Sequence[dict[str, str]]]:
@@ -416,13 +396,13 @@ class CellMapDataSplit:
         if train_transforms is not None:
             for dataset in self.train_datasets:
                 dataset.set_raw_value_transforms(train_transforms)
-            if hasattr(self, "_train_datasets_combined"):
-                self._train_datasets_combined.set_raw_value_transforms(train_transforms)
+            if "train_datasets_combined" in self.__dict__:
+                self.train_datasets_combined.set_raw_value_transforms(train_transforms)
         if val_transforms is not None:
             for dataset in self.validation_datasets:
                 dataset.set_raw_value_transforms(val_transforms)
-            if hasattr(self, "_validation_datasets_combined"):
-                self._validation_datasets_combined.set_raw_value_transforms(
+            if "validation_datasets_combined" in self.__dict__:
+                self.validation_datasets_combined.set_raw_value_transforms(
                     val_transforms
                 )
 
@@ -430,15 +410,15 @@ class CellMapDataSplit:
         """Sets the target value transforms for each dataset in the multi-datasets."""
         for dataset in self.train_datasets:
             dataset.set_target_value_transforms(transforms)
-        if hasattr(self, "_train_datasets_combined"):
-            self._train_datasets_combined.set_target_value_transforms(transforms)
+        if "train_datasets_combined" in self.__dict__:
+            self.train_datasets_combined.set_target_value_transforms(transforms)
 
         for dataset in self.validation_datasets:
             dataset.set_target_value_transforms(transforms)
-        if hasattr(self, "_validation_datasets_combined"):
-            self._validation_datasets_combined.set_target_value_transforms(transforms)
-        if hasattr(self, "_validation_blocks"):
-            self._validation_blocks.set_target_value_transforms(transforms)
+        if "validation_datasets_combined" in self.__dict__:
+            self.validation_datasets_combined.set_target_value_transforms(transforms)
+        if "validation_blocks" in self.__dict__:
+            self.validation_blocks.set_target_value_transforms(transforms)
 
     def set_spatial_transforms(
         self,
@@ -449,15 +429,13 @@ class CellMapDataSplit:
         if train_transforms is not None:
             for dataset in self.train_datasets:
                 dataset.spatial_transforms = train_transforms
-            if hasattr(self, "_train_datasets_combined"):
-                self._train_datasets_combined.set_spatial_transforms(train_transforms)
+            if "train_datasets_combined" in self.__dict__:
+                self.train_datasets_combined.set_spatial_transforms(train_transforms)
         if val_transforms is not None:
             for dataset in self.validation_datasets:
                 dataset.spatial_transforms = val_transforms
-            if hasattr(self, "_validation_datasets_combined"):
-                self._validation_datasets_combined.set_spatial_transforms(
-                    val_transforms
-                )
+            if "validation_datasets_combined" in self.__dict__:
+                self.validation_datasets_combined.set_spatial_transforms(val_transforms)
 
     def set_arrays(
         self,
@@ -478,13 +456,12 @@ class CellMapDataSplit:
 
         if usage == "train":
             self.train_datasets = self.datasets["train"]
-            reset_attrs.append("_train_datasets_combined")
+            reset_attrs.append("train_datasets_combined")
         elif usage == "validate":
             self.validation_datasets = self.datasets["validate"]
-            reset_attrs.extend(["_validation_datasets_combined", "_validation_blocks"])
+            reset_attrs.extend(["validation_datasets_combined", "validation_blocks"])
         for attr in reset_attrs:
-            if hasattr(self, attr):
-                delattr(self, attr)
+            self.__dict__.pop(attr, None)
 
     def to(self, device: str | torch.device, non_blocking: bool = True) -> None:
         """Sets the device for the dataloaders."""
@@ -493,9 +470,9 @@ class CellMapDataSplit:
             dataset.to(device, non_blocking=non_blocking)
         for dataset in self.validation_datasets:
             dataset.to(device, non_blocking=non_blocking)
-        if hasattr(self, "_train_datasets_combined"):
-            self._train_datasets_combined.to(device, non_blocking=non_blocking)
-        if hasattr(self, "_validation_datasets_combined"):
-            self._validation_datasets_combined.to(device, non_blocking=non_blocking)
-        if hasattr(self, "_validation_blocks"):
-            self._validation_blocks.to(device, non_blocking=non_blocking)
+        if "train_datasets_combined" in self.__dict__:
+            self.train_datasets_combined.to(device, non_blocking=non_blocking)
+        if "validation_datasets_combined" in self.__dict__:
+            self.validation_datasets_combined.to(device, non_blocking=non_blocking)
+        if "validation_blocks" in self.__dict__:
+            self.validation_blocks.to(device, non_blocking=non_blocking)

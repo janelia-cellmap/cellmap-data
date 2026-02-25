@@ -32,7 +32,7 @@ def _set_tensorstore_context(dataset, context) -> None:
     limit is picked up by every worker process (via fork inheritance on Linux,
     or via pickle on Windows/macOS spawn).
 
-    If an image's TensorStore array has already been opened (``_array`` cached),
+    If an image's TensorStore array has already been opened (``array`` cached),
     the new context cannot affect that array; a warning is emitted.
     """
     if isinstance(dataset, CellMapMultiDataset):
@@ -62,7 +62,7 @@ def _set_tensorstore_context(dataset, context) -> None:
 
 def _apply_context_to_image(image: "CellMapImage", context) -> None:
     """Set the TensorStore context on a single CellMapImage, warning if already opened."""
-    if "_array" in getattr(image, "__dict__", {}):
+    if "array" in getattr(image, "__dict__", {}):
         logger.warning(
             "TensorStore array already opened for %s; "
             "cache_pool limit will not apply to this image.",
@@ -128,6 +128,10 @@ class CellMapDataLoader:
             tensorstore_cache_bytes: Total TensorStore chunk-cache budget in bytes
                 shared across all worker processes.  The budget is split evenly:
                 ``per_worker = tensorstore_cache_bytes // max(1, num_workers)``.
+                **Important:** When ``tensorstore_cache_bytes < num_workers``, each worker
+                receives a minimum of 1 byte (instead of 0, which TensorStore treats as
+                unlimited), so the effective aggregate cache may exceed the requested total.
+                To avoid this, ensure ``tensorstore_cache_bytes >= num_workers``.
                 Resolution order: explicit argument → ``CELLMAP_TENSORSTORE_CACHE_BYTES``
                 env var → built-in default of 2 GiB.  Bounding this value prevents
                 persistent worker processes from accumulating chunk data unboundedly
@@ -206,6 +210,19 @@ class CellMapDataLoader:
 
             effective_workers = max(1, num_workers)
             per_worker_bytes = tensorstore_cache_bytes // effective_workers
+            if per_worker_bytes == 0 and tensorstore_cache_bytes > 0:
+                per_worker_bytes = 1
+                logger.warning(
+                    "tensorstore_cache_bytes=%d with num_workers=%d results in "
+                    "per-worker cache limit of 0 bytes, which TensorStore treats as "
+                    "unlimited. Setting per-worker cache limit to 1 byte to enforce "
+                    "a meaningful bound. To avoid this warning, set tensorstore_cache_bytes "
+                    "to at least %d bytes for num_workers=%d.",
+                    tensorstore_cache_bytes,
+                    num_workers,
+                    effective_workers,
+                    effective_workers,
+                )
             bounded_ctx = ts.Context(
                 {"cache_pool": {"total_bytes_limit": per_worker_bytes}}
             )
@@ -325,6 +342,13 @@ class CellMapDataLoader:
 
     def refresh(self):
         """Refresh the DataLoader with the current sampler state."""
+        if self._pytorch_loader is not None and self._persistent_workers:
+            logger.warning(
+                "refresh() called while persistent_workers=True. "
+                "The old DataLoader's worker processes will remain alive until "
+                "garbage collected. If you need to refresh frequently, consider "
+                "setting persistent_workers=False."
+            )
         if isinstance(self.sampler, MutableSubsetRandomSampler):
             self.sampler.refresh()
 
