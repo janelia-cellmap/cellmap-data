@@ -150,6 +150,10 @@ class CellMapImage(CellMapImageBase):
         This prevents memory accumulation from xarray operations (interp, reindex, sel)
         that create intermediate arrays during training. The cached_property decorator
         stores the value in __dict__, so we remove it to force recomputation on next access.
+        
+        Note: This only clears the Python-level xarray wrapper. The underlying TensorStore
+        connection and chunk cache (managed by self.context) are preserved, so the
+        performance impact is minimal while preventing memory leaks.
         """
         if "array" in self.__dict__:
             del self.__dict__["array"]
