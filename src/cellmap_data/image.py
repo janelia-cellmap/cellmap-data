@@ -130,6 +130,11 @@ class CellMapImage(CellMapImageBase):
         if self.value_transform is not None:
             data = self.value_transform(data)
 
+        # Clear cached array property to prevent memory accumulation from xarray
+        # operations (interp/reindex/sel) during training iterations. The array
+        # will be reopened on next access if needed.
+        self._clear_array_cache()
+
         # Return data on CPU - let the DataLoader handle device transfer with streams
         # This avoids redundant transfers and allows for optimized batch transfers
         return data
@@ -137,6 +142,17 @@ class CellMapImage(CellMapImageBase):
     def __repr__(self) -> str:
         """Returns a string representation of the CellMapImage object."""
         return f"CellMapImage({self.array_path})"
+
+    def _clear_array_cache(self) -> None:
+        """
+        Clear the cached array property to free memory.
+        
+        This prevents memory accumulation from xarray operations (interp, reindex, sel)
+        that create intermediate arrays during training. The cached_property decorator
+        stores the value in __dict__, so we remove it to force recomputation on next access.
+        """
+        if "array" in self.__dict__:
+            del self.__dict__["array"]
 
     @property
     def coord_offsets(self) -> Mapping[str, np.ndarray]:
