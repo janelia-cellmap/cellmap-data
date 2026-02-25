@@ -522,8 +522,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
             return {}
         return {
             c: (
-                self.class_counts["totals"][c + "_bg"]
-                / self.class_counts["totals"][c]
+                self.class_counts["totals"][c + "_bg"] / self.class_counts["totals"][c]
                 if self.class_counts["totals"][c] != 0
                 else 1
             )

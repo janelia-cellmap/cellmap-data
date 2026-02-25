@@ -191,9 +191,7 @@ class CellMapImage(CellMapImageBase):
         """Returns the coordinate transformations of the image, based on the multiscale metadata."""
         # multi_tx = multi.coordinateTransformations
         dset = [
-            ds
-            for ds in self.multiscale_attrs.datasets
-            if ds.path == self.scale_level
+            ds for ds in self.multiscale_attrs.datasets if ds.path == self.scale_level
         ][0]
         # tx_fused = normalize_transforms(multi_tx, dset.coordinateTransformations)
         return dset.coordinateTransformations
@@ -239,9 +237,7 @@ class CellMapImage(CellMapImageBase):
         else:
             # Construct an xarray with Tensorstore backend
             spec = xt._zarr_spec_from_path(self.array_path)
-            array_future = ts.open(
-                spec, read=True, write=False, context=self.context
-            )
+            array_future = ts.open(spec, read=True, write=False, context=self.context)
             try:
                 array = array_future.result()
             except ValueError as e:
@@ -468,9 +464,7 @@ class CellMapImage(CellMapImageBase):
         """Returns the tolerance for nearest neighbor interpolation."""
         # Calculate the tolerance as half the norm of the original image scale (i.e. traversing half a pixel diagonally) +  epsilon (1e-6)
         actual_scale = [
-            ct
-            for ct in self.coordinateTransformations
-            if isinstance(ct, VectorScale)
+            ct for ct in self.coordinateTransformations if isinstance(ct, VectorScale)
         ][0].scale
         half_diagonal = np.linalg.norm(actual_scale) / 2
         return float(half_diagonal + 1e-6)

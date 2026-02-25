@@ -119,14 +119,9 @@ class CellMapDatasetWriter(Dataset):
         for source in all_sources:
             if isinstance(source, dict):
                 for sub_source in source.values():
-                    if (
-                        hasattr(sub_source, "scale")
-                        and sub_source.scale is not None
-                    ):
+                    if hasattr(sub_source, "scale") and sub_source.scale is not None:
                         for c, size in sub_source.scale.items():
-                            smallest_voxel_size[c] = min(
-                                smallest_voxel_size[c], size
-                            )
+                            smallest_voxel_size[c] = min(smallest_voxel_size[c], size)
             elif hasattr(source, "scale") and source.scale is not None:
                 for c, size in source.scale.items():
                     smallest_voxel_size[c] = min(smallest_voxel_size[c], size)

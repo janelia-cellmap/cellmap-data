@@ -253,11 +253,7 @@ class CellMapDataSplit:
             self.classes,
             self.input_arrays,
             self.target_arrays,
-            [
-                ds
-                for ds in self.train_datasets
-                if self.force_has_data or ds.has_data
-            ],
+            [ds for ds in self.train_datasets if self.force_has_data or ds.has_data],
         )
 
     @cached_property
@@ -439,9 +435,7 @@ class CellMapDataSplit:
             for dataset in self.validation_datasets:
                 dataset.spatial_transforms = val_transforms
             if "validation_datasets_combined" in self.__dict__:
-                self.validation_datasets_combined.set_spatial_transforms(
-                    val_transforms
-                )
+                self.validation_datasets_combined.set_spatial_transforms(val_transforms)
 
     def set_arrays(
         self,
