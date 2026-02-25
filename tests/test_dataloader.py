@@ -568,7 +568,7 @@ class TestTensorStoreCacheBounding:
         import logging
 
         with caplog.at_level(logging.WARNING, logger="cellmap_data.dataloader"):
-            CellMapDataLoader(dataset, num_workers=4, tensorstore_cache_bytes=2)
+            CellMapDataLoader(dataset, num_workers=3, tensorstore_cache_bytes=2)
 
         # Check that warning was emitted
         assert any(
