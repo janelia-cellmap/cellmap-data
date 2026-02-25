@@ -460,25 +460,158 @@ class TestCellMapDataset:
         assert len(empty_dataset) == 0
 
         # Verify the newly initialized attributes
-        assert hasattr(empty_dataset, "_sampling_box_shape")
-        assert isinstance(empty_dataset._sampling_box_shape, dict)
-        assert all(v == 0 for v in empty_dataset._sampling_box_shape.values())
+        assert hasattr(empty_dataset, "sampling_box_shape")
+        assert isinstance(empty_dataset.sampling_box_shape, dict)
+        assert all(v == 0 for v in empty_dataset.sampling_box_shape.values())
 
         # Verify axis_order is set (should have default value)
         assert hasattr(empty_dataset, "axis_order")
-        assert len(empty_dataset._sampling_box_shape) == len(empty_dataset.axis_order)
+        assert len(empty_dataset.sampling_box_shape) == len(empty_dataset.axis_order)
 
-    def test_empty_dataset_sampling_box_shape(self):
-        """Test that empty dataset has correct _sampling_box_shape initialization."""
+    def test_empty_datasetsampling_box_shape(self):
+        """Test that empty dataset has correct sampling_box_shape initialization."""
         from cellmap_data import CellMapDataset
 
         empty_dataset = CellMapDataset.empty()
 
         # Verify sampling_box_shape keys match axis_order
-        assert set(empty_dataset._sampling_box_shape.keys()) == set(
+        assert set(empty_dataset.sampling_box_shape.keys()) == set(
             empty_dataset.axis_order
         )
 
         # Verify all dimensions are 0
         for axis in empty_dataset.axis_order:
-            assert empty_dataset._sampling_box_shape[axis] == 0
+            assert empty_dataset.sampling_box_shape[axis] == 0
+
+    def test_bounding_box_shape(self, minimal_dataset_config):
+        """Test that bounding_box_shape property correctly computes shape from bounding box."""
+        config = minimal_dataset_config
+
+        input_arrays = {
+            "raw": {
+                "shape": (8, 8, 8),
+                "scale": (4.0, 4.0, 4.0),
+            }
+        }
+
+        target_arrays = {
+            "gt": {
+                "shape": (8, 8, 8),
+                "scale": (4.0, 4.0, 4.0),
+            }
+        }
+
+        dataset = CellMapDataset(
+            raw_path=config["raw_path"],
+            target_path=config["gt_path"],
+            classes=config["classes"],
+            input_arrays=input_arrays,
+            target_arrays=target_arrays,
+            force_has_data=True,
+        )
+
+        # Access bounding_box_shape
+        bbox_shape = dataset.bounding_box_shape
+
+        # Verify it's a dict with expected keys
+        assert isinstance(bbox_shape, dict)
+        assert set(bbox_shape.keys()) == set(dataset.axis_order)
+
+        # Verify all values are positive integers
+        for axis, size in bbox_shape.items():
+            assert isinstance(size, (int, float))
+            assert size > 0
+
+    def test_size_property(self, minimal_dataset_config):
+        """Test that size property correctly computes dataset size from bounding box.
+
+        This test ensures the bug fix in PR #61 is covered: size must use
+        .values() not .items() to properly unpack bounding box numeric bounds.
+        """
+        config = minimal_dataset_config
+
+        input_arrays = {
+            "raw": {
+                "shape": (8, 8, 8),
+                "scale": (4.0, 4.0, 4.0),
+            }
+        }
+
+        target_arrays = {
+            "gt": {
+                "shape": (8, 8, 8),
+                "scale": (4.0, 4.0, 4.0),
+            }
+        }
+
+        dataset = CellMapDataset(
+            raw_path=config["raw_path"],
+            target_path=config["gt_path"],
+            classes=config["classes"],
+            input_arrays=input_arrays,
+            target_arrays=target_arrays,
+            force_has_data=True,
+        )
+
+        # Access the size property - this would have raised TypeError before the fix
+        size = dataset.size
+
+        # Verify it's a positive integer
+        assert isinstance(size, int)
+        assert size > 0
+
+        # Verify it matches the product of bounding box dimensions
+        import numpy as np
+
+        expected_size = int(
+            np.prod([stop - start for start, stop in dataset.bounding_box.values()])
+        )
+        assert size == expected_size
+
+    def test_size_property_with_known_dimensions(self, tmp_path):
+        """Test size property with specific known bounding box dimensions."""
+        # Create a dataset with known dimensions
+        config = create_test_dataset(
+            tmp_path,
+            raw_shape=(40, 30, 20),  # Known shape
+            num_classes=2,
+            raw_scale=(4.0, 4.0, 4.0),
+        )
+
+        input_arrays = {
+            "raw": {
+                "shape": (8, 8, 8),
+                "scale": (4.0, 4.0, 4.0),
+            }
+        }
+
+        target_arrays = {
+            "gt": {
+                "shape": (8, 8, 8),
+                "scale": (4.0, 4.0, 4.0),
+            }
+        }
+
+        dataset = CellMapDataset(
+            raw_path=config["raw_path"],
+            target_path=config["gt_path"],
+            classes=config["classes"],
+            input_arrays=input_arrays,
+            target_arrays=target_arrays,
+            force_has_data=True,
+        )
+
+        # Get the size
+        size = dataset.size
+
+        # Verify it's the product of the bounding box dimensions
+        # The bounding box should correspond to the raw data shape
+        bbox = dataset.bounding_box
+        import numpy as np
+
+        # Calculate expected size from bounding box
+        dims = [stop - start for start, stop in bbox.values()]
+        expected_size = int(np.prod(dims))
+
+        assert size == expected_size
+        assert size > 0

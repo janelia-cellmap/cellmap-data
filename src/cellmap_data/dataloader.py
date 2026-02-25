@@ -32,7 +32,7 @@ def _set_tensorstore_context(dataset, context) -> None:
     limit is picked up by every worker process (via fork inheritance on Linux,
     or via pickle on Windows/macOS spawn).
 
-    If an image's TensorStore array has already been opened (``_array`` cached),
+    If an image's TensorStore array has already been opened (``array`` cached),
     the new context cannot affect that array; a warning is emitted.
     """
     if isinstance(dataset, CellMapMultiDataset):
@@ -128,6 +128,10 @@ class CellMapDataLoader:
             tensorstore_cache_bytes: Total TensorStore chunk-cache budget in bytes
                 shared across all worker processes.  The budget is split evenly:
                 ``per_worker = tensorstore_cache_bytes // max(1, num_workers)``.
+                **Important:** When ``tensorstore_cache_bytes < num_workers``, each worker
+                receives a minimum of 1 byte (instead of 0, which TensorStore treats as
+                unlimited), so the effective aggregate cache may exceed the requested total.
+                To avoid this, ensure ``tensorstore_cache_bytes >= num_workers``.
                 Resolution order: explicit argument → ``CELLMAP_TENSORSTORE_CACHE_BYTES``
                 env var → built-in default of 2 GiB.  Bounding this value prevents
                 persistent worker processes from accumulating chunk data unboundedly

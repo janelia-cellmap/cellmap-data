@@ -241,8 +241,10 @@ class CellMapImage(CellMapImageBase):
             try:
                 array = array_future.result()
             except ValueError as e:
-                Warning(e)
-                UserWarning("Falling back to zarr3 driver")
+                logger.warning(
+                    "Failed to open with default driver: %s. Falling back to zarr3 driver.",
+                    e,
+                )
                 spec["driver"] = "zarr3"
                 array_future = ts.open(
                     spec, read=True, write=False, context=self.context

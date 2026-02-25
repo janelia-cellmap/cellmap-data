@@ -173,8 +173,10 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
                 sample_indices = np.array(dataset.validation_indices) + offset  # type: ignore
                 indices.extend(list(sample_indices))
             except AttributeError:
-                UserWarning(
-                    f"Unable to get validation indices for dataset {dataset}\n skipping"
+                logger.warning(
+                    "Unable to get validation indices for dataset %r; skipping this "
+                    "dataset when building validation_indices.",
+                    dataset,
                 )
         return indices
 

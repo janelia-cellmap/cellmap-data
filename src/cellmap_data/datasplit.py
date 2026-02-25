@@ -260,7 +260,7 @@ class CellMapDataSplit:
     def validation_datasets_combined(self) -> CellMapMultiDataset:
         """A multi-dataset from the combination of all validation datasets."""
         if len(self.validation_datasets) == 0:
-            UserWarning("Validation datasets not loaded.")
+            logger.warning("Validation datasets not loaded.")
             return CellMapMultiDataset.empty()
         return CellMapMultiDataset(
             self.classes,

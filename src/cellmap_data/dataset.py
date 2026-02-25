@@ -495,7 +495,9 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
     @cached_property
     def size(self) -> int:
         """Returns the size of the dataset in voxels of the largest voxel size requested."""
-        return int(np.prod([stop - start for start, stop in self.bounding_box.items()]))
+        return int(
+            np.prod([stop - start for start, stop in self.bounding_box.values()])
+        )
 
     @cached_property
     def class_counts(self) -> Mapping[str, Mapping[str, float]]:
@@ -1015,5 +1017,6 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
         instance = super(CellMapDataset, CellMapDataset).__new__(CellMapDataset)
         instance.__init__("", "", [], {}, {}, force_has_data=False)
         instance.has_data = False
-        instance._sampling_box_shape = {c: 0 for c in instance.axis_order}
+        # Set cached_property value directly in __dict__ to bypass computation
+        instance.__dict__["sampling_box_shape"] = {c: 0 for c in instance.axis_order}
         return instance
