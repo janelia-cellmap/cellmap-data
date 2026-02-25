@@ -512,11 +512,11 @@ class TestCellMapDataset:
 
         # Access bounding_box_shape
         bbox_shape = dataset.bounding_box_shape
-        
+
         # Verify it's a dict with expected keys
         assert isinstance(bbox_shape, dict)
         assert set(bbox_shape.keys()) == set(dataset.axis_order)
-        
+
         # Verify all values are positive integers
         for axis, size in bbox_shape.items():
             assert isinstance(size, (int, float))
@@ -524,7 +524,7 @@ class TestCellMapDataset:
 
     def test_size_property(self, minimal_dataset_config):
         """Test that size property correctly computes dataset size from bounding box.
-        
+
         This test ensures the bug fix in PR #61 is covered: size must use
         .values() not .items() to properly unpack bounding box numeric bounds.
         """
@@ -555,13 +555,14 @@ class TestCellMapDataset:
 
         # Access the size property - this would have raised TypeError before the fix
         size = dataset.size
-        
+
         # Verify it's a positive integer
         assert isinstance(size, int)
         assert size > 0
-        
+
         # Verify it matches the product of bounding box dimensions
         import numpy as np
+
         expected_size = int(
             np.prod([stop - start for start, stop in dataset.bounding_box.values()])
         )
@@ -602,15 +603,15 @@ class TestCellMapDataset:
 
         # Get the size
         size = dataset.size
-        
+
         # Verify it's the product of the bounding box dimensions
         # The bounding box should correspond to the raw data shape
         bbox = dataset.bounding_box
         import numpy as np
-        
+
         # Calculate expected size from bounding box
         dims = [stop - start for start, stop in bbox.values()]
         expected_size = int(np.prod(dims))
-        
+
         assert size == expected_size
         assert size > 0
