@@ -460,25 +460,25 @@ class TestCellMapDataset:
         assert len(empty_dataset) == 0
 
         # Verify the newly initialized attributes
-        assert hasattr(empty_dataset, "_sampling_box_shape")
-        assert isinstance(empty_dataset._sampling_box_shape, dict)
-        assert all(v == 0 for v in empty_dataset._sampling_box_shape.values())
+        assert hasattr(empty_dataset, "sampling_box_shape")
+        assert isinstance(empty_dataset.sampling_box_shape, dict)
+        assert all(v == 0 for v in empty_dataset.sampling_box_shape.values())
 
         # Verify axis_order is set (should have default value)
         assert hasattr(empty_dataset, "axis_order")
-        assert len(empty_dataset._sampling_box_shape) == len(empty_dataset.axis_order)
+        assert len(empty_dataset.sampling_box_shape) == len(empty_dataset.axis_order)
 
-    def test_empty_dataset_sampling_box_shape(self):
-        """Test that empty dataset has correct _sampling_box_shape initialization."""
+    def test_empty_datasetsampling_box_shape(self):
+        """Test that empty dataset has correct sampling_box_shape initialization."""
         from cellmap_data import CellMapDataset
 
         empty_dataset = CellMapDataset.empty()
 
         # Verify sampling_box_shape keys match axis_order
-        assert set(empty_dataset._sampling_box_shape.keys()) == set(
+        assert set(empty_dataset.sampling_box_shape.keys()) == set(
             empty_dataset.axis_order
         )
 
         # Verify all dimensions are 0
         for axis in empty_dataset.axis_order:
-            assert empty_dataset._sampling_box_shape[axis] == 0
+            assert empty_dataset.sampling_box_shape[axis] == 0
