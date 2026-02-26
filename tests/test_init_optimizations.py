@@ -562,9 +562,9 @@ class TestImmediateExecutorFlagConsistency:
 
         import cellmap_data.multidataset as md_module
 
-        assert hasattr(md_module, "_USE_IMMEDIATE_EXECUTOR"), (
-            "multidataset must import _USE_IMMEDIATE_EXECUTOR from dataset"
-        )
+        assert hasattr(
+            md_module, "_USE_IMMEDIATE_EXECUTOR"
+        ), "multidataset must import _USE_IMMEDIATE_EXECUTOR from dataset"
         # Verify the source: the flag in multidataset should be the same
         # object as the one in dataset (True/False booleans are singletons).
         import cellmap_data.dataset as ds_module
