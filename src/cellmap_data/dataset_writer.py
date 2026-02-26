@@ -95,8 +95,8 @@ class CellMapDatasetWriter(Dataset):
             self.target_array_writers[array_name] = self.get_target_array_writer(
                 array_name, array_info
             )
+        self._device: str | torch.device = device if device is not None else "cpu"
         if device is not None:
-            self._device = device
             self.to(device, non_blocking=True)
 
     @cached_property
@@ -237,11 +237,7 @@ class CellMapDatasetWriter(Dataset):
     @property
     def device(self) -> str | torch.device:
         """Returns the device for the dataset."""
-        try:
-            return self._device
-        except AttributeError:
-            self._device = "cpu"
-            return self._device
+        return self._device
 
     def get_center(self, idx: int) -> dict[str, float]:
         """

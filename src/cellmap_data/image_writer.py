@@ -1,4 +1,5 @@
 import os
+from functools import cached_property
 from typing import Mapping, Optional, Sequence, Union
 
 import numpy as np
@@ -73,143 +74,62 @@ class ImageWriter:
             "chunk_shape": list(write_voxel_shape.values()),
         }
 
-    @property
+    @cached_property
     def array(self) -> xarray.DataArray:
+        os.makedirs(UPath(self.base_path), exist_ok=True)
+        group_path = str(self.base_path).split(".zarr")[0] + ".zarr"
+        for group in [""] + list(
+            UPath(str(self.base_path).split(".zarr")[-1]).parts
+        )[1:]:
+            group_path = UPath(group_path) / group
+            with open(group_path / ".zgroup", "w") as f:
+                f.write('{"zarr_format": 2}')
+        create_multiscale_metadata(
+            ds_name=str(self.base_path),
+            voxel_size=self.metadata["voxel_size"],
+            translation=self.metadata["offset"],
+            units=self.metadata["units"],
+            axes=self.metadata["axes"],
+            base_scale_level=self.scale_level,
+            levels_to_add=0,
+            out_path=str(UPath(self.base_path) / ".zattrs"),
+        )
+        spec = {
+            "driver": "zarr",
+            "kvstore": {"driver": "file", "path": self.path},
+        }
+        open_kwargs = {
+            "read": True,
+            "write": True,
+            "create": True,
+            "delete_existing": self.overwrite,
+            "dtype": self.dtype,
+            "shape": list(self.shape.values()),
+            "fill_value": self.fill_value,
+            "chunk_layout": tensorstore.ChunkLayout(
+                write_chunk_shape=self.chunk_shape
+            ),
+            "context": self.context,
+        }
+        array_future = tensorstore.open(
+            spec,
+            **open_kwargs,
+        )
         try:
-            return self._array
-        except AttributeError:
-            os.makedirs(UPath(self.base_path), exist_ok=True)
-            group_path = str(self.base_path).split(".zarr")[0] + ".zarr"
-            for group in [""] + list(
-                UPath(str(self.base_path).split(".zarr")[-1]).parts
-            )[1:]:
-                group_path = UPath(group_path) / group
-                with open(group_path / ".zgroup", "w") as f:
-                    f.write('{"zarr_format": 2}')
-            create_multiscale_metadata(
-                ds_name=str(self.base_path),
-                voxel_size=self.metadata["voxel_size"],
-                translation=self.metadata["offset"],
-                units=self.metadata["units"],
-                axes=self.metadata["axes"],
-                base_scale_level=self.scale_level,
-                levels_to_add=0,
-                out_path=str(UPath(self.base_path) / ".zattrs"),
-            )
-            spec = {
-                "driver": "zarr",
-                "kvstore": {"driver": "file", "path": self.path},
-            }
-            open_kwargs = {
-                "read": True,
-                "write": True,
-                "create": True,
-                "delete_existing": self.overwrite,
-                "dtype": self.dtype,
-                "shape": list(self.shape.values()),
-                "fill_value": self.fill_value,
-                "chunk_layout": tensorstore.ChunkLayout(
-                    write_chunk_shape=self.chunk_shape
-                ),
-                "context": self.context,
-            }
-            array_future = tensorstore.open(
-                spec,
-                **open_kwargs,
-            )
-            try:
-                array = array_future.result()
-            except ValueError as e:
-                if "ALREADY_EXISTS" in str(e):
-                    raise FileExistsError(
-                        f"Image already exists at {self.path}. Set overwrite=True to overwrite the image."
-                    )
-                Warning(e)
-                UserWarning("Falling back to zarr3 driver")
-                spec["driver"] = "zarr3"
-                array_future = tensorstore.open(spec, **open_kwargs)
-                array = array_future.result()
-            from pydantic_ome_ngff.v04.axis import Axis
-            from pydantic_ome_ngff.v04.transform import VectorScale, VectorTranslation
-            from xarray_ome_ngff.v04.multiscale import coords_from_transforms
-
-            data = xarray.DataArray(
-                data=xt._TensorStoreAdapter(array),
-                coords=coords_from_transforms(
-                    axes=[
-                        Axis(
-                            name=c,
-                            type="space" if c != "c" else "channel",
-                            unit="nm" if c != "c" else "",
-                        )
-                        for c in self.axes
-                    ],
-                    transforms=(
-                        VectorScale(scale=tuple(self.scale.values())),
-                        VectorTranslation(translation=tuple(self.offset.values())),
-                    ),
-                    shape=tuple(self.shape.values()),
-                ),
-            )
-            self._array = data
-            with open(UPath(self.path) / ".zattrs", "w") as f:
-                f.write("{}")
-            return self._array
-
-    @property
-    def chunk_shape(self) -> Sequence[int]:
-        try:
-            return self._chunk_shape
-        except AttributeError:
-            self._chunk_shape = list(self.write_voxel_shape.values())
-            return self._chunk_shape
-
-    @property
-    def world_shape(self) -> Mapping[str, float]:
-        try:
-            return self._world_shape
-        except AttributeError:
-            self._world_shape = {
-                c: self.bounding_box[c][1] - self.bounding_box[c][0]
-                for c in self.spatial_axes
-            }
-            return self._world_shape
-
-    @property
-    def shape(self) -> Mapping[str, int]:
-        try:
-            return self._shape
-        except AttributeError:
-            self._shape = {
-                c: int(np.ceil(self.world_shape[c] / self.scale[c]))
-                for c in self.spatial_axes
-            }
-            return self._shape
-
-    @property
-    def center(self) -> Mapping[str, float]:
-        try:
-            return self._center
-        except AttributeError:
-            self._center = {
-                str(k): float(np.mean(v)) for k, v in self.array.coords.items()
-            }
-            return self._center
-
-    @property
-    def offset(self) -> Mapping[str, float]:
-        try:
-            return self._offset
-        except AttributeError:
-            self._offset = {c: self.bounding_box[c][0] for c in self.spatial_axes}
-            return self._offset
-
-    @property
-    def full_coords(self) -> tuple[xarray.DataArray, ...]:
-        try:
-            return self._full_coords
-        except AttributeError:
-            self._full_coords = coords_from_transforms(
+            array = array_future.result()
+        except ValueError as e:
+            if "ALREADY_EXISTS" in str(e):
+                raise FileExistsError(
+                    f"Image already exists at {self.path}. Set overwrite=True to overwrite the image."
+                )
+            Warning(e)
+            UserWarning("Falling back to zarr3 driver")
+            spec["driver"] = "zarr3"
+            array_future = tensorstore.open(spec, **open_kwargs)
+            array = array_future.result()
+        data = xarray.DataArray(
+            data=xt._TensorStoreAdapter(array),
+            coords=coords_from_transforms(
                 axes=[
                     Axis(
                         name=c,
@@ -223,8 +143,55 @@ class ImageWriter:
                     VectorTranslation(translation=tuple(self.offset.values())),
                 ),
                 shape=tuple(self.shape.values()),
-            )
-            return self._full_coords
+            ),
+        )
+        with open(UPath(self.path) / ".zattrs", "w") as f:
+            f.write("{}")
+        return data
+
+    @cached_property
+    def chunk_shape(self) -> Sequence[int]:
+        return list(self.write_voxel_shape.values())
+
+    @cached_property
+    def world_shape(self) -> Mapping[str, float]:
+        return {
+            c: self.bounding_box[c][1] - self.bounding_box[c][0]
+            for c in self.spatial_axes
+        }
+
+    @cached_property
+    def shape(self) -> Mapping[str, int]:
+        return {
+            c: int(np.ceil(self.world_shape[c] / self.scale[c]))
+            for c in self.spatial_axes
+        }
+
+    @cached_property
+    def center(self) -> Mapping[str, float]:
+        return {str(k): float(np.mean(v)) for k, v in self.array.coords.items()}
+
+    @cached_property
+    def offset(self) -> Mapping[str, float]:
+        return {c: self.bounding_box[c][0] for c in self.spatial_axes}
+
+    @cached_property
+    def full_coords(self) -> tuple[xarray.DataArray, ...]:
+        return coords_from_transforms(
+            axes=[
+                Axis(
+                    name=c,
+                    type="space" if c != "c" else "channel",
+                    unit="nm" if c != "c" else "",
+                )
+                for c in self.axes
+            ],
+            transforms=(
+                VectorScale(scale=tuple(self.scale.values())),
+                VectorTranslation(translation=tuple(self.offset.values())),
+            ),
+            shape=tuple(self.shape.values()),
+        )
 
     def align_coords(
         self, coords: Mapping[str, tuple[Sequence, np.ndarray]]
