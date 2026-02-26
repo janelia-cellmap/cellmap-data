@@ -18,7 +18,6 @@ from cellmap_data.image import CellMapImage
 
 from .test_helpers import create_test_dataset
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -107,9 +106,7 @@ class TestForceHasData:
         )
         assert dataset.has_data is True
 
-    def test_class_counts_not_accessed_when_force_has_data(
-        self, single_dataset_config
-    ):
+    def test_class_counts_not_accessed_when_force_has_data(self, single_dataset_config):
         """CellMapImage.class_counts must never be accessed during __init__
         when force_has_data=True."""
         config = single_dataset_config
@@ -126,9 +123,7 @@ class TestForceHasData:
             )
             mock_counts.assert_not_called()
 
-    def test_class_counts_accessed_without_force_has_data(
-        self, single_dataset_config
-    ):
+    def test_class_counts_accessed_without_force_has_data(self, single_dataset_config):
         """Without force_has_data, class_counts IS accessed (inverse check)."""
         config = single_dataset_config
         with patch.object(

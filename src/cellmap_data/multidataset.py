@@ -113,7 +113,9 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
         logger.info("Gathering class counts for %d datasets...", n_datasets)
         n_workers = min(n_datasets, int(os.environ.get("CELLMAP_MAX_WORKERS", 8)))
         with ThreadPoolExecutor(max_workers=n_workers) as pool:
-            futures = {pool.submit(lambda ds=ds: ds.class_counts): ds for ds in self.datasets}
+            futures = {
+                pool.submit(lambda ds=ds: ds.class_counts): ds for ds in self.datasets
+            }
             with tqdm(total=n_datasets, desc="Gathering class counts") as pbar:
                 for future in as_completed(futures):
                     ds_counts = future.result()
