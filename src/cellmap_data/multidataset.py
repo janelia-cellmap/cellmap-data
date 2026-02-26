@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
 import logging
 import os
+import platform
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 import numpy as np
@@ -110,12 +111,34 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
         }
         class_counts["totals"].update({c + "_bg": 0.0 for c in classes})
         n_datasets = len(self.datasets)
-        logger.info("Gathering class counts for %d datasets...", n_datasets)
-        # If there are no datasets, return the zero-initialized totals without
-        # constructing a ThreadPoolExecutor, which would fail with max_workers=0.
-        if n_datasets == 0:
+        
+        # Short-circuit if no classes or no datasets to avoid unnecessary computation
+        if not classes or n_datasets == 0:
+            logger.info("No classes or datasets to gather counts for, returning empty totals")
             return class_counts
+            
+        logger.info("Gathering class counts for %d datasets...", n_datasets)
         n_workers = min(n_datasets, int(os.environ.get("CELLMAP_MAX_WORKERS", 8)))
+        
+        # On Windows + TensorStore, avoid ThreadPoolExecutor to prevent crashes
+        # when computing class_counts (which may access TensorStore arrays)
+        use_immediate = (
+            platform.system() == "Windows" 
+            and os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower() == "tensorstore"
+        )
+        
+        if use_immediate:
+            # Sequential computation to avoid Windows+TensorStore crashes
+            logger.info("Using sequential computation for class counts (Windows+TensorStore)")
+            for ds in tqdm(self.datasets, desc="Gathering class counts"):
+                ds_counts = ds.class_counts
+                for c in classes:
+                    if c in ds_counts["totals"]:
+                        class_counts["totals"][c] += ds_counts["totals"][c]
+                        class_counts["totals"][c + "_bg"] += ds_counts["totals"][c + "_bg"]
+            return class_counts
+        
+        # Parallel computation for non-Windows or non-TensorStore backends
         with ThreadPoolExecutor(max_workers=n_workers) as pool:
             futures = {
                 pool.submit(lambda ds=ds: ds.class_counts): ds for ds in self.datasets

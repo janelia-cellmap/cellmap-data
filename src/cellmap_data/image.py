@@ -96,48 +96,50 @@ class CellMapImage(CellMapImageBase):
 
     def __getitem__(self, center: Mapping[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
-        if isinstance(list(center.values())[0], int | float):
-            self._current_center = center
+        try:
+            if isinstance(list(center.values())[0], int | float):
+                self._current_center = center
 
-            # Use cached coordinate offsets + translation (much faster than np.linspace)
-            # This eliminates repeated coordinate grid generation
-            coords = {c: self.coord_offsets[c] + center[c] for c in self.axes}
+                # Use cached coordinate offsets + translation (much faster than np.linspace)
+                # This eliminates repeated coordinate grid generation
+                coords = {c: self.coord_offsets[c] + center[c] for c in self.axes}
 
-            # Bounds checking
-            for c in self.axes:
-                if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
-                    UserWarning(
-                        f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
-                    )
-                if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
-                    UserWarning(
-                        f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
-                    )
+                # Bounds checking
+                for c in self.axes:
+                    if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
+                        UserWarning(
+                            f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
+                        )
+                    if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
+                        UserWarning(
+                            f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
+                        )
 
-            # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
-            data = self.apply_spatial_transforms(coords)
-        else:
-            self._current_center = {k: np.mean(v) for k, v in center.items()}
-            self._current_coords = center
-            # Optimized tensor creation: use torch.from_numpy when possible to avoid data copying
-            array_data = self.return_data(self._current_coords).values
-            if isinstance(array_data, np.ndarray):
-                data = torch.from_numpy(array_data)
+                # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
+                data = self.apply_spatial_transforms(coords)
             else:
-                data = torch.tensor(array_data)
+                self._current_center = {k: np.mean(v) for k, v in center.items()}
+                self._current_coords = center
+                # Optimized tensor creation: use torch.from_numpy when possible to avoid data copying
+                array_data = self.return_data(self._current_coords).values
+                if isinstance(array_data, np.ndarray):
+                    data = torch.from_numpy(array_data)
+                else:
+                    data = torch.tensor(array_data)
 
-        # Apply any value transformations to the data
-        if self.value_transform is not None:
-            data = self.value_transform(data)
+            # Apply any value transformations to the data
+            if self.value_transform is not None:
+                data = self.value_transform(data)
 
-        # Clear cached array property to prevent memory accumulation from xarray
-        # operations (interp/reindex/sel) during training iterations. The array
-        # will be reopened on next access if needed.
-        self._clear_array_cache()
-
-        # Return data on CPU - let the DataLoader handle device transfer with streams
-        # This avoids redundant transfers and allows for optimized batch transfers
-        return data
+            # Return data on CPU - let the DataLoader handle device transfer with streams
+            # This avoids redundant transfers and allows for optimized batch transfers
+            return data
+        finally:
+            # Clear cached array property to prevent memory accumulation from xarray
+            # operations (interp/reindex/sel) during training iterations. The array
+            # will be reopened on next access if needed. Use finally to ensure cleanup
+            # even if an exception occurs during data retrieval.
+            self._clear_array_cache()
 
     def __repr__(self) -> str:
         """Returns a string representation of the CellMapImage object."""

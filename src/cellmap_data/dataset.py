@@ -438,8 +438,8 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                 flat_sources.append(source)
 
         # Prefetch bounding boxes in parallel (each triggers a zarr group open)
-        with ThreadPoolExecutor(max_workers=self._max_workers) as pool:
-            boxes = list(pool.map(lambda s: s.bounding_box, flat_sources))
+        # Use self.executor to respect Windows+TensorStore immediate executor handling
+        boxes = list(self.executor.map(lambda s: s.bounding_box, flat_sources))
 
         bounding_box: dict[str, list[float]] | None = None
         for box in boxes:
@@ -474,8 +474,8 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
 
         # Prefetch sampling boxes in parallel; bounding_box is already cached
         # from the bounding_box property so these are cheap if called after it.
-        with ThreadPoolExecutor(max_workers=self._max_workers) as pool:
-            boxes = list(pool.map(lambda s: s.sampling_box, flat_sources))
+        # Use self.executor to respect Windows+TensorStore immediate executor handling
+        boxes = list(self.executor.map(lambda s: s.sampling_box, flat_sources))
 
         sampling_box: dict[str, list[float]] | None = None
         for box in boxes:
