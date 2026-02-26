@@ -78,9 +78,9 @@ class ImageWriter:
     def array(self) -> xarray.DataArray:
         os.makedirs(UPath(self.base_path), exist_ok=True)
         group_path = str(self.base_path).split(".zarr")[0] + ".zarr"
-        for group in [""] + list(
-            UPath(str(self.base_path).split(".zarr")[-1]).parts
-        )[1:]:
+        for group in [""] + list(UPath(str(self.base_path).split(".zarr")[-1]).parts)[
+            1:
+        ]:
             group_path = UPath(group_path) / group
             with open(group_path / ".zgroup", "w") as f:
                 f.write('{"zarr_format": 2}')
@@ -106,9 +106,7 @@ class ImageWriter:
             "dtype": self.dtype,
             "shape": list(self.shape.values()),
             "fill_value": self.fill_value,
-            "chunk_layout": tensorstore.ChunkLayout(
-                write_chunk_shape=self.chunk_shape
-            ),
+            "chunk_layout": tensorstore.ChunkLayout(write_chunk_shape=self.chunk_shape),
             "context": self.context,
         }
         array_future = tensorstore.open(
