@@ -5,7 +5,6 @@ Specifically tests the array cache clearing mechanism to prevent memory leaks.
 """
 
 import pytest
-import numpy as np
 from cellmap_data import CellMapImage
 from .test_helpers import create_test_image_data, create_test_zarr_array
 
