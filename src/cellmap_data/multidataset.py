@@ -1,6 +1,8 @@
 import functools
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
 import logging
+import os
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 import numpy as np
@@ -102,16 +104,26 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
         """
         Returns the number of samples in each class for each dataset in the multi-dataset, as well as the total number of samples in each class.
         """
-        class_counts = {"totals": {c: 0.0 for c in self.classes}}
-        class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
-        logger.info("Gathering class counts...")
-        for ds in tqdm(self.datasets):
-            for c in self.classes:
-                if c in ds.class_counts["totals"]:
-                    class_counts["totals"][c] += ds.class_counts["totals"][c]
-                    class_counts["totals"][c + "_bg"] += ds.class_counts["totals"][
-                        c + "_bg"
-                    ]
+        classes: list[str] = list(self.classes or [])
+        class_counts: dict[str, dict[str, float]] = {
+            "totals": {c: 0.0 for c in classes}
+        }
+        class_counts["totals"].update({c + "_bg": 0.0 for c in classes})
+        n_datasets = len(self.datasets)
+        logger.info("Gathering class counts for %d datasets...", n_datasets)
+        n_workers = min(n_datasets, int(os.environ.get("CELLMAP_MAX_WORKERS", 8)))
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            futures = {pool.submit(lambda ds=ds: ds.class_counts): ds for ds in self.datasets}
+            with tqdm(total=n_datasets, desc="Gathering class counts") as pbar:
+                for future in as_completed(futures):
+                    ds_counts = future.result()
+                    for c in classes:
+                        if c in ds_counts["totals"]:
+                            class_counts["totals"][c] += ds_counts["totals"][c]
+                            class_counts["totals"][c + "_bg"] += ds_counts["totals"][
+                                c + "_bg"
+                            ]
+                    pbar.update(1)
         return class_counts
 
     @cached_property

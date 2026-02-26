@@ -166,7 +166,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                 device=self._device,
             )
         self.target_sources = {}
-        self.has_data = (
+        self.has_data = force_has_data or (
             False if (len(self.target_arrays) > 0 and len(self.classes) > 0) else True
         )
         for array_name, array_info in self.target_arrays.items():
@@ -424,21 +424,27 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
     @cached_property
     def bounding_box(self) -> Mapping[str, list[float]]:
         """Returns the bounding box of the dataset."""
-        bounding_box: dict[str, list[float]] | None = None
         all_sources = list(self.input_sources.values()) + list(
             self.target_sources.values()
         )
+        # Flatten to individual CellMapImage objects
+        flat_sources = []
         for source in all_sources:
             if isinstance(source, dict):
-                for sub_source in source.values():
-                    if hasattr(sub_source, "bounding_box"):
-                        bounding_box = self._get_box_intersection(
-                            sub_source.bounding_box, bounding_box
-                        )
-            elif hasattr(source, "bounding_box"):
-                bounding_box = self._get_box_intersection(
-                    source.bounding_box, bounding_box
+                flat_sources.extend(
+                    s for s in source.values() if hasattr(s, "bounding_box")
                 )
+            elif hasattr(source, "bounding_box"):
+                flat_sources.append(source)
+
+        # Prefetch bounding boxes in parallel (each triggers a zarr group open)
+        with ThreadPoolExecutor(max_workers=self._max_workers) as pool:
+            boxes = list(pool.map(lambda s: s.bounding_box, flat_sources))
+
+        bounding_box: dict[str, list[float]] | None = None
+        for box in boxes:
+            bounding_box = self._get_box_intersection(box, bounding_box)
+
         if bounding_box is None:
             logger.warning(
                 "Bounding box is None. This may cause errors during sampling."
@@ -454,21 +460,27 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
     @cached_property
     def sampling_box(self) -> Mapping[str, list[float]]:
         """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
-        sampling_box: dict[str, list[float]] | None = None
         all_sources = list(self.input_sources.values()) + list(
             self.target_sources.values()
         )
+        flat_sources = []
         for source in all_sources:
             if isinstance(source, dict):
-                for sub_source in source.values():
-                    if hasattr(sub_source, "sampling_box"):
-                        sampling_box = self._get_box_intersection(
-                            sub_source.sampling_box, sampling_box
-                        )
-            elif hasattr(source, "sampling_box"):
-                sampling_box = self._get_box_intersection(
-                    source.sampling_box, sampling_box
+                flat_sources.extend(
+                    s for s in source.values() if hasattr(s, "sampling_box")
                 )
+            elif hasattr(source, "sampling_box"):
+                flat_sources.append(source)
+
+        # Prefetch sampling boxes in parallel; bounding_box is already cached
+        # from the bounding_box property so these are cheap if called after it.
+        with ThreadPoolExecutor(max_workers=self._max_workers) as pool:
+            boxes = list(pool.map(lambda s: s.sampling_box, flat_sources))
+
+        sampling_box: dict[str, list[float]] | None = None
+        for box in boxes:
+            sampling_box = self._get_box_intersection(box, sampling_box)
+
         if sampling_box is None:
             logger.warning(
                 "Sampling box is None. This may cause errors during sampling."
@@ -781,7 +793,7 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                 interpolation="nearest",
                 device=self._device,
             )
-            if not self.has_data:
+            if not self.has_data and not self.force_has_data:
                 self.has_data = array.class_counts > 0
             logger.debug(f"{str(self)} has data: {self.has_data}")
         else:
