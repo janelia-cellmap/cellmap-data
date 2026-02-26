@@ -112,9 +112,14 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
         n_datasets = len(self.datasets)
 
         # Short-circuit if no classes or no datasets to avoid unnecessary computation
-        if not classes or n_datasets == 0:
+        if not classes:
             logger.info(
-                "No classes or datasets to gather counts for, returning empty totals"
+                "No classes configured; returning empty totals dict"
+            )
+            return class_counts
+        if n_datasets == 0:
+            logger.info(
+                "No datasets to gather counts for; returning zero-initialized totals for configured classes"
             )
             return class_counts
 
