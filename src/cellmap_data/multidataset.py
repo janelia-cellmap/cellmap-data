@@ -124,8 +124,26 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
             return class_counts
 
         logger.info("Gathering class counts for %d datasets...", n_datasets)
-        n_workers = min(n_datasets, int(os.environ.get("CELLMAP_MAX_WORKERS", 8)))
 
+        # Determine number of worker threads from environment, with defensive parsing.
+        # Ensure we always have at least 1 worker when n_datasets > 0 to avoid
+        # ThreadPoolExecutor(max_workers=0) raising at runtime.
+        max_workers_env = os.environ.get("CELLMAP_MAX_WORKERS", "8")
+        try:
+            max_workers = int(max_workers_env)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid CELLMAP_MAX_WORKERS=%r; falling back to default of 8",
+                max_workers_env,
+            )
+            max_workers = 8
+        if max_workers < 1:
+            logger.warning(
+                "CELLMAP_MAX_WORKERS=%r is less than 1; using 1 worker instead",
+                max_workers_env,
+            )
+            max_workers = 1
+        n_workers = min(n_datasets, max_workers)
         # On Windows + TensorStore, avoid ThreadPoolExecutor to prevent crashes
         # when computing class_counts (which may access TensorStore arrays).
         # Use the same flag as CellMapDataset for consistency.
