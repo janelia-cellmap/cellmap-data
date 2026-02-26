@@ -106,11 +106,11 @@ class CellMapImage(CellMapImageBase):
                 # Bounds checking
                 for c in self.axes:
                     if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
-                        UserWarning(
+                        logger.warning(
                             f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
                         )
                     if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
-                        UserWarning(
+                        logger.warning(
                             f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
                         )
 

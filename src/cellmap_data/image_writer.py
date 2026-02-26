@@ -1,3 +1,4 @@
+import logging
 import os
 from functools import cached_property
 from typing import Mapping, Optional, Sequence, Union
@@ -14,6 +15,8 @@ from upath import UPath
 from xarray_ome_ngff.v04.multiscale import coords_from_transforms
 
 from cellmap_data.utils import create_multiscale_metadata
+
+logger = logging.getLogger(__name__)
 
 
 class ImageWriter:
@@ -120,8 +123,8 @@ class ImageWriter:
                 raise FileExistsError(
                     f"Image already exists at {self.path}. Set overwrite=True to overwrite the image."
                 )
-            Warning(e)
-            UserWarning("Falling back to zarr3 driver")
+            logger.warning("Error opening with zarr driver: %s", e)
+            logger.warning("Falling back to zarr3 driver")
             spec["driver"] = "zarr3"
             array_future = tensorstore.open(spec, **open_kwargs)
             array = array_future.result()
