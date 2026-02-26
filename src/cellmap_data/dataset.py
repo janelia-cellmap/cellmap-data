@@ -19,7 +19,7 @@ from .base_dataset import CellMapBaseDataset
 from .empty_image import EmptyImage
 from .image import CellMapImage
 from .mutable_sampler import MutableSubsetRandomSampler
-from .read_limiter import MAX_CONCURRENT_READS, limit_tensorstore_reads
+from .utils.read_limiter import MAX_CONCURRENT_READS, limit_tensorstore_reads
 from .utils import get_sliced_shape, is_array_2D, min_redundant_inds, split_target_path
 
 logger = logging.getLogger(__name__)

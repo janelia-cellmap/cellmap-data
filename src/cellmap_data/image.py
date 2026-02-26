@@ -145,15 +145,12 @@ class CellMapImage(CellMapImageBase):
 
     def _clear_array_cache(self) -> None:
         """
-        Clear the cached array property to free memory.
-        
-        This prevents memory accumulation from xarray operations (interp, reindex, sel)
-        that create intermediate arrays during training. The cached_property decorator
-        stores the value in __dict__, so we remove it to force recomputation on next access.
-        
-        Note: This only clears the Python-level xarray wrapper. The underlying TensorStore
-        connection and chunk cache (managed by self.context) are preserved, so the
-        performance impact is minimal while preventing memory leaks.
+        Clear the cached xarray DataArray to release intermediate objects.
+
+        xarray operations (interp, reindex, sel) create intermediate arrays that
+        remain referenced through the DataArray. Clearing the cache after each
+        __getitem__ releases those references without closing the underlying
+        TensorStore handle, which is separately cached in _ts_store and reused.
         """
         if "array" in self.__dict__:
             del self.__dict__["array"]
@@ -244,13 +241,41 @@ class CellMapImage(CellMapImageBase):
         return os.path.join(self.path, self.scale_level)
 
     @cached_property
+    def _ts_store(self) -> ts.TensorStore:  # type: ignore
+        """
+        Opens and caches the TensorStore array handle.
+
+        ts.open() is called exactly once per CellMapImage instance and the
+        resulting handle is kept alive for the instance's lifetime. The handle
+        is lightweight (it holds a reference to the shared context and chunk
+        cache) and is safe to reuse across many __getitem__ calls.
+
+        Separating this from the `array` cached_property means that clearing
+        `array` after each __getitem__ (to release xarray intermediate objects)
+        does not trigger a new ts.open() call on the next access.
+        """
+        spec = xt._zarr_spec_from_path(self.array_path)
+        array_future = ts.open(spec, read=True, write=False, context=self.context)
+        try:
+            return array_future.result()
+        except ValueError as e:
+            logger.warning(
+                "Failed to open with default driver: %s. Falling back to zarr3 driver.",
+                e,
+            )
+            spec["driver"] = "zarr3"
+            return ts.open(spec, read=True, write=False, context=self.context).result()
+
+    @cached_property
     def array(self) -> xarray.DataArray:
         """
         Returns the image data as an xarray DataArray.
-        
-        This property is cached but is explicitly cleared after each __getitem__ call
-        to prevent memory leaks from accumulating xarray operations during training.
-        The array will be reopened on next access if needed.
+
+        This property is cached but is explicitly cleared after each __getitem__
+        call to release xarray intermediate objects (from interp/reindex/sel)
+        that would otherwise accumulate during training. Clearing it is cheap
+        because the underlying TensorStore handle is separately cached in
+        _ts_store and is not reopened.
         """
         if (
             os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower()
@@ -261,22 +286,7 @@ class CellMapImage(CellMapImageBase):
                 chunks="auto",
             )
         else:
-            # Construct an xarray with Tensorstore backend
-            spec = xt._zarr_spec_from_path(self.array_path)
-            array_future = ts.open(spec, read=True, write=False, context=self.context)
-            try:
-                array = array_future.result()
-            except ValueError as e:
-                logger.warning(
-                    "Failed to open with default driver: %s. Falling back to zarr3 driver.",
-                    e,
-                )
-                spec["driver"] = "zarr3"
-                array_future = ts.open(
-                    spec, read=True, write=False, context=self.context
-                )
-                array = array_future.result()
-            data = xt._TensorStoreAdapter(array)
+            data = xt._TensorStoreAdapter(self._ts_store)
         return xarray.DataArray(data=data, coords=self.full_coords)
 
     @cached_property
@@ -350,6 +360,7 @@ class CellMapImage(CellMapImageBase):
             else:
                 raise ValueError("s0_scale not found")
         except Exception as e:
+            # TODO: This fallback is very expensive, and ideally should be avoided. We should add a script to precompute class counts for all images and save them to the metadata to avoid this in the future.
             logger.warning(
                 "Unable to get class counts for %s from metadata, "
                 "falling back to calculating from array. Error: %s, %s",

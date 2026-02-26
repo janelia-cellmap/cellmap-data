@@ -130,9 +130,7 @@ class TestMemoryManagement:
         )
 
         # Set spatial transforms
-        image.set_spatial_transforms(
-            {"mirror": {"x": True}, "rotate": {"z": 15}}
-        )
+        image.set_spatial_transforms({"mirror": {"x": True}, "rotate": {"z": 15}})
 
         center = {"z": 64.0, "y": 64.0, "x": 64.0}
         _ = image[center]
@@ -164,7 +162,7 @@ class TestMemoryManagement:
     def test_simulated_training_loop_memory(self, test_zarr_image):
         """
         Simulate a training loop to verify cache is cleared on each iteration.
-        
+
         This test simulates the memory leak scenario described in the issue:
         repeated calls to __getitem__ should not accumulate memory from cached arrays.
         """
@@ -185,7 +183,7 @@ class TestMemoryManagement:
 
         for i, center in enumerate(centers):
             _ = image[center]
-            
+
             # After each iteration, array cache should be cleared
             assert (
                 "array" not in image.__dict__
@@ -194,7 +192,7 @@ class TestMemoryManagement:
     def test_cache_clearing_with_interpolation(self, tmp_path):
         """
         Test cache clearing when interpolation is used (the main memory leak scenario).
-        
+
         When coords require interpolation (not simple float/int), the array.interp()
         method creates intermediate arrays that could accumulate memory.
         """
