@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
 import logging
 import os
-import platform
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 import numpy as np
@@ -12,7 +11,7 @@ from torch.utils.data import ConcatDataset, WeightedRandomSampler
 from tqdm import tqdm
 
 from .base_dataset import CellMapBaseDataset
-from .dataset import CellMapDataset
+from .dataset import CellMapDataset, _USE_IMMEDIATE_EXECUTOR
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils.sampling import min_redundant_inds
 
@@ -123,14 +122,9 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
         n_workers = min(n_datasets, int(os.environ.get("CELLMAP_MAX_WORKERS", 8)))
 
         # On Windows + TensorStore, avoid ThreadPoolExecutor to prevent crashes
-        # when computing class_counts (which may access TensorStore arrays)
-        use_immediate = (
-            platform.system() == "Windows"
-            and os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower()
-            == "tensorstore"
-        )
-
-        if use_immediate:
+        # when computing class_counts (which may access TensorStore arrays).
+        # Use the same flag as CellMapDataset for consistency.
+        if _USE_IMMEDIATE_EXECUTOR:
             # Sequential computation to avoid Windows+TensorStore crashes
             logger.info(
                 "Using sequential computation for class counts (Windows+TensorStore)"

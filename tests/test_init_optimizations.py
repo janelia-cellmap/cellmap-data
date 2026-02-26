@@ -7,6 +7,11 @@ Covers:
   - bounding_box / sampling_box parallel computation: correctness and cleanup
   - CellMapMultiDataset.class_counts parallel execution: correct aggregation,
     exception propagation, CELLMAP_MAX_WORKERS env-var respected
+  - _ImmediateExecutor: submit/map correctness (Windows+TensorStore drop-in)
+  - Immediate executor code paths in bounding_box, sampling_box, and
+    CellMapMultiDataset.class_counts (simulated via monkeypatching)
+  - Consistency: dataset.py and multidataset.py share the same
+    _USE_IMMEDIATE_EXECUTOR flag
 """
 
 from unittest.mock import PropertyMock, patch
@@ -352,3 +357,216 @@ class TestMultiDatasetClassCountsParallel:
         )
         counts = multi.class_counts
         assert counts["totals"] == {}
+
+
+# ---------------------------------------------------------------------------
+# _ImmediateExecutor unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestImmediateExecutor:
+    """Unit tests for _ImmediateExecutor.
+
+    _ImmediateExecutor is the Windows+TensorStore drop-in that runs every
+    submitted callable synchronously in the calling thread.  It must satisfy
+    the same interface as ThreadPoolExecutor so all existing call sites
+    (submit, map, as_completed, shutdown) work without modification.
+    """
+
+    @pytest.fixture
+    def executor(self):
+        from cellmap_data.dataset import _ImmediateExecutor
+
+        return _ImmediateExecutor()
+
+    def test_submit_executes_synchronously(self, executor):
+        """submit() runs the callable before returning; the future is already done."""
+        calls = []
+        future = executor.submit(calls.append, 99)
+        assert future.done(), "Future should be resolved immediately"
+        assert calls == [99], "Callable should have run synchronously"
+
+    def test_submit_returns_correct_result(self, executor):
+        """submit() stores the return value in the future."""
+        future = executor.submit(lambda x, y: x + y, 3, 4)
+        assert future.result() == 7
+
+    def test_submit_captures_exception(self, executor):
+        """Exceptions raised by the callable are stored, not propagated."""
+        future = executor.submit(lambda: 1 / 0)
+        assert future.exception() is not None
+        assert isinstance(future.exception(), ZeroDivisionError)
+
+    def test_map_returns_results_in_order(self, executor):
+        """map() returns results in the same order as the input iterable."""
+        results = list(executor.map(lambda x: x * 2, [1, 2, 3, 4]))
+        assert results == [2, 4, 6, 8]
+
+    def test_map_with_lambda(self, executor):
+        """map() works with lambda functions, matching the bounding_box usage."""
+        items = [{"v": i} for i in range(5)]
+        results = list(executor.map(lambda d: d["v"], items))
+        assert results == list(range(5))
+
+    def test_map_propagates_exception(self, executor):
+        """Exceptions from map() propagate when the result is consumed."""
+        with pytest.raises(ZeroDivisionError):
+            list(executor.map(lambda x: 1 / x, [1, 0, 2]))
+
+    def test_shutdown_is_noop(self, executor):
+        """shutdown() must not raise even when called multiple times."""
+        executor.shutdown(wait=True)
+        executor.shutdown(wait=False, cancel_futures=True)
+
+    def test_as_completed_works_with_submit(self, executor):
+        """Futures from submit() are compatible with as_completed()."""
+        from concurrent.futures import as_completed
+
+        futures = [executor.submit(lambda i=i: i * 3, i) for i in range(5)]
+        results = {f.result() for f in as_completed(futures)}
+        assert results == {0, 3, 6, 9, 12}
+
+    def test_is_executor_subclass(self):
+        """_ImmediateExecutor must be a subclass of concurrent.futures.Executor
+        so it satisfies the Executor interface including map()."""
+        from concurrent.futures import Executor
+
+        from cellmap_data.dataset import _ImmediateExecutor
+
+        assert issubclass(_ImmediateExecutor, Executor)
+
+
+# ---------------------------------------------------------------------------
+# Immediate executor code paths (simulated via monkeypatching)
+# ---------------------------------------------------------------------------
+
+
+class TestImmediateExecutorPaths:
+    """Verify that bounding_box, sampling_box, and CellMapMultiDataset.class_counts
+    work correctly when _USE_IMMEDIATE_EXECUTOR is True.
+
+    These tests simulate the Windows+TensorStore environment on any platform
+    by monkeypatching the module-level flag and singleton executor.
+    """
+
+    @pytest.fixture
+    def patched_immediate(self, monkeypatch):
+        """Patch dataset module to act as if running on Windows+TensorStore."""
+        import cellmap_data.dataset as ds_module
+        from cellmap_data.dataset import _ImmediateExecutor
+
+        monkeypatch.setattr(ds_module, "_USE_IMMEDIATE_EXECUTOR", True)
+        monkeypatch.setattr(ds_module, "_IMMEDIATE_EXECUTOR", _ImmediateExecutor())
+
+    def test_bounding_box_uses_immediate_executor(
+        self, single_dataset_config, patched_immediate
+    ):
+        """bounding_box must work via executor.map() when using _ImmediateExecutor."""
+        config = single_dataset_config
+        ds = CellMapDataset(
+            raw_path=config["raw_path"],
+            target_path=config["gt_path"],
+            classes=config["classes"],
+            input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            force_has_data=True,
+        )
+        from cellmap_data.dataset import _ImmediateExecutor
+
+        assert isinstance(ds.executor, _ImmediateExecutor)
+        bbox = ds.bounding_box
+        assert isinstance(bbox, dict)
+        for axis in ds.axis_order:
+            assert axis in bbox
+            lo, hi = bbox[axis]
+            assert lo <= hi
+
+    def test_sampling_box_uses_immediate_executor(
+        self, single_dataset_config, patched_immediate
+    ):
+        """sampling_box must work via executor.map() when using _ImmediateExecutor."""
+        config = single_dataset_config
+        ds = CellMapDataset(
+            raw_path=config["raw_path"],
+            target_path=config["gt_path"],
+            classes=config["classes"],
+            input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            force_has_data=True,
+        )
+        sbox = ds.sampling_box
+        assert isinstance(sbox, dict)
+        for axis in ds.axis_order:
+            assert axis in sbox
+            assert len(sbox[axis]) == 2
+
+    def test_getitem_uses_immediate_executor(
+        self, single_dataset_config, patched_immediate
+    ):
+        """__getitem__ must work when _ImmediateExecutor is active."""
+        config = single_dataset_config
+        ds = CellMapDataset(
+            raw_path=config["raw_path"],
+            target_path=config["gt_path"],
+            classes=config["classes"],
+            input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            force_has_data=True,
+        )
+        result = ds[0]
+        assert isinstance(result, dict)
+        assert "raw" in result
+
+    def test_multidataset_class_counts_sequential_path(
+        self, three_datasets, monkeypatch
+    ):
+        """CellMapMultiDataset.class_counts takes the sequential path when
+        _USE_IMMEDIATE_EXECUTOR is True (shared flag from dataset.py)."""
+        import cellmap_data.multidataset as md_module
+
+        monkeypatch.setattr(md_module, "_USE_IMMEDIATE_EXECUTOR", True)
+
+        multi = CellMapMultiDataset(
+            classes=["class_0", "class_1"],
+            input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            datasets=three_datasets,
+        )
+        counts = multi.class_counts
+        assert "totals" in counts
+        for c in ["class_0", "class_1", "class_0_bg", "class_1_bg"]:
+            assert c in counts["totals"]
+
+
+# ---------------------------------------------------------------------------
+# Consistency: dataset.py and multidataset.py share _USE_IMMEDIATE_EXECUTOR
+# ---------------------------------------------------------------------------
+
+
+class TestImmediateExecutorFlagConsistency:
+    """The _USE_IMMEDIATE_EXECUTOR flag must be sourced from dataset.py in
+    both dataset.py and multidataset.py so they always agree on whether
+    to use threads."""
+
+    def test_flag_values_match_across_modules(self):
+        """Both modules read the same flag value at import time."""
+        import cellmap_data.dataset as ds_module
+        import cellmap_data.multidataset as md_module
+
+        assert ds_module._USE_IMMEDIATE_EXECUTOR == md_module._USE_IMMEDIATE_EXECUTOR
+
+    def test_multidataset_imports_flag_from_dataset(self):
+        """multidataset module must expose _USE_IMMEDIATE_EXECUTOR (imported
+        from dataset), not define its own copy."""
+        import inspect
+
+        import cellmap_data.multidataset as md_module
+
+        assert hasattr(md_module, "_USE_IMMEDIATE_EXECUTOR"), (
+            "multidataset must import _USE_IMMEDIATE_EXECUTOR from dataset"
+        )
+        # Verify the source: the flag in multidataset should be the same
+        # object as the one in dataset (True/False booleans are singletons).
+        import cellmap_data.dataset as ds_module
+
+        assert md_module._USE_IMMEDIATE_EXECUTOR is ds_module._USE_IMMEDIATE_EXECUTOR

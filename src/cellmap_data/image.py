@@ -84,7 +84,6 @@ class CellMapImage(CellMapImageBase):
         self._current_spatial_transforms = None
         self._current_coords: Any = None
         self._current_center = None
-        self._coord_offsets = None  # Cache for coordinate offsets (optimization)
         if device is not None:
             self.device = device
         elif torch.cuda.is_available():
@@ -157,7 +156,7 @@ class CellMapImage(CellMapImageBase):
         if "array" in self.__dict__:
             del self.__dict__["array"]
 
-    @property
+    @cached_property
     def coord_offsets(self) -> Mapping[str, np.ndarray]:
         """
         Cached coordinate offsets from center.
@@ -171,16 +170,14 @@ class CellMapImage(CellMapImageBase):
         Mapping[str, np.ndarray]
             Dictionary mapping axis names to coordinate offset arrays.
         """
-        if self._coord_offsets is None:
-            self._coord_offsets = {
-                c: np.linspace(
-                    -self.output_size[c] / 2 + self.scale[c] / 2,
-                    self.output_size[c] / 2 - self.scale[c] / 2,
-                    self.output_shape[c],
-                )
-                for c in self.axes
-            }
-        return self._coord_offsets
+        return {
+            c: np.linspace(
+                -self.output_size[c] / 2 + self.scale[c] / 2,
+                self.output_size[c] / 2 - self.scale[c] / 2,
+                self.output_shape[c],
+            )
+            for c in self.axes
+        }
 
     @cached_property
     def shape(self) -> Mapping[str, int]:

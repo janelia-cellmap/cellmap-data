@@ -5,6 +5,7 @@ from functools import cached_property
 import logging
 import os
 import platform
+from concurrent.futures import Executor as _ConcurrentExecutor
 from concurrent.futures import Future as _ConcurrentFuture
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Mapping, Optional, Sequence
@@ -42,13 +43,15 @@ _USE_IMMEDIATE_EXECUTOR = (
 )
 
 
-class _ImmediateExecutor:
+class _ImmediateExecutor(_ConcurrentExecutor):
     """Drop-in for ThreadPoolExecutor that runs tasks in the calling thread.
 
     On Windows + TensorStore the real ThreadPoolExecutor causes native crashes.
     This executor avoids that by executing every submitted callable synchronously
     before returning, so the returned Future is already resolved.
     ``as_completed`` handles pre-resolved futures correctly (yields immediately).
+    ``map`` is inherited from ``concurrent.futures.Executor`` and works correctly
+    because it calls ``submit`` internally (which returns pre-resolved futures).
     ``shutdown`` is a no-op because there are no threads to join.
     """
 
