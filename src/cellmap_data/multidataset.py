@@ -111,6 +111,10 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
         class_counts["totals"].update({c + "_bg": 0.0 for c in classes})
         n_datasets = len(self.datasets)
         logger.info("Gathering class counts for %d datasets...", n_datasets)
+        # If there are no datasets, return the zero-initialized totals without
+        # constructing a ThreadPoolExecutor, which would fail with max_workers=0.
+        if n_datasets == 0:
+            return class_counts
         n_workers = min(n_datasets, int(os.environ.get("CELLMAP_MAX_WORKERS", 8)))
         with ThreadPoolExecutor(max_workers=n_workers) as pool:
             futures = {
