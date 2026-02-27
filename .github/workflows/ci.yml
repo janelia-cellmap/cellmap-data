@@ -110,6 +110,8 @@ jobs:
     name: Publish
     needs: tag-release
     runs-on: ubuntu-latest
+    env:
+      HATCH_VENV_BUILD_REQUIREMENTS: "virtualenv<20.24.0"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -119,10 +121,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install build tools
-        run: |
-          pip install -U pip
-          pip install 'virtualenv<20.24.0'
-          pip install hatch hatchling twine
+        run: pip install -U pip hatch hatchling twine
       - name: Build sdist and wheel
         run: hatch build -t sdist -t wheel
       - name: Check distributions
