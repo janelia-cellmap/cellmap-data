@@ -1,4 +1,5 @@
 from functools import cached_property
+import json
 import logging
 import os
 from typing import Any, Callable, Mapping, Optional, Sequence
@@ -337,29 +338,61 @@ class CellMapImage(CellMapImageBase):
 
     @cached_property
     def class_counts(self) -> float:
-        """Returns the number of pixels for the contained class in the ground truth data, normalized by the resolution."""
-        # Get from cellmap-schemas metadata, then normalize by resolution
-        s0_scale = None
+        """Returns the number of voxels for the contained class at the training resolution.
+
+        Reads ``complement_counts`` from the s0-level ``.zattrs`` JSON directly
+        (bypassing zarr Array construction) then scales the s0 voxel counts to
+        the training resolution so that counts are comparable across datasets
+        regardless of their native s0 resolution.
+        """
         try:
-            bg_count = self.group["s0"].attrs["cellmap"]["annotation"][
-                "complement_counts"
-            ]["absent"]
-            for scale in self.group.attrs["multiscales"][0]["datasets"]:
-                if scale["path"] == "s0":
-                    for transform in scale["coordinateTransformations"]:
-                        if "scale" in transform:
-                            s0_scale = transform["scale"]
+            # Read s0 attrs directly from the zarr store to avoid the overhead
+            # of opening a full zarr Array (which reads .zarray + .zattrs).
+            store = self.group.store
+            try:
+                # zarr v2 layout: s0/.zattrs and s0/.zarray
+                s0_attrs = json.loads(bytes(store["s0/.zattrs"]).decode("utf-8"))
+                s0_shape = json.loads(bytes(store["s0/.zarray"]).decode("utf-8"))[
+                    "shape"
+                ]
+            except KeyError:
+                # N5 / zarr v3 fallback: open via zarr API
+                s0_arr = self.group["s0"]
+                s0_attrs = dict(s0_arr.attrs)
+                s0_shape = list(s0_arr.shape)
+
+            bg_s0 = int(
+                s0_attrs["cellmap"]["annotation"]["complement_counts"]["absent"]
+            )
+            fg_s0 = int(np.prod(s0_shape)) - bg_s0
+
+            # s0 physical scale from the already-cached multiscale metadata.
+            s0_scale = None
+            for dataset in self.multiscale_attrs.datasets:
+                if dataset.path == "s0":
+                    for transform in dataset.coordinateTransformations:
+                        if isinstance(transform, VectorScale):
+                            s0_scale = list(transform.scale)
                             break
                     break
-            if s0_scale is not None:
-                class_counts = (
-                    np.prod(np.array(self.group["s0"].shape)) - bg_count
-                ) * np.prod(np.array(s0_scale))
-                self._bg_count = bg_count * np.prod(np.array(s0_scale))
-            else:
-                raise ValueError("s0_scale not found")
+
+            if s0_scale is None:
+                raise ValueError("s0 scale not found in multiscale metadata")
+
+            # Convert s0 voxel counts to training-resolution voxel counts so
+            # that datasets with different native resolutions are weighted by
+            # how much data they actually contribute at the training scale.
+            #   training_voxels = s0_voxels * (s0_voxel_vol / training_voxel_vol)
+            s0_voxel_vol = float(np.prod(s0_scale))
+            training_voxel_vol = float(np.prod(list(self.scale.values())))
+            scale_ratio = s0_voxel_vol / training_voxel_vol
+
+            class_counts = float(fg_s0) * scale_ratio
+            self._bg_count = float(bg_s0) * scale_ratio
+
         except Exception as e:
-            # TODO: This fallback is very expensive, and ideally should be avoided. We should add a script to precompute class counts for all images and save them to the metadata to avoid this in the future.
+            # TODO: This fallback is very expensive; precompute complement_counts
+            # for all images via cellmap-schemas to avoid this path.
             logger.warning(
                 "Unable to get class counts for %s from metadata, "
                 "falling back to calculating from array. Error: %s, %s",
@@ -367,16 +400,12 @@ class CellMapImage(CellMapImageBase):
                 e,
                 type(e),
             )
-            # Fallback to calculating from array
+            # Fallback: read the array at training resolution and count voxels.
+            # No scale multiplication — counts are already in training voxels.
             array_data = self.array.compute()
-            class_counts = float(
-                np.count_nonzero(array_data)
-                * np.prod(np.array(list(self.scale.values())))
-            )
-            self._bg_count = float(
-                (array_data.size - np.count_nonzero(array_data))
-                * np.prod(np.array(list(self.scale.values())))
-            )
+            class_counts = float(np.count_nonzero(array_data))
+            self._bg_count = float(array_data.size - np.count_nonzero(array_data))
+
         return class_counts
 
     def to(self, device: str, *args, **kwargs) -> None:

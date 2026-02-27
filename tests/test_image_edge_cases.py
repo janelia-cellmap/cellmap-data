@@ -171,8 +171,111 @@ class TestCellMapImageEdgeCases:
             assert axis in sbox
             assert len(sbox[axis]) == 2
 
+    def test_class_counts_fast_path_value(self, tmp_path):
+        """class_counts fast path reads complement_counts from s0/.zattrs and
+        returns the number of foreground voxels normalized to training resolution.
+
+        With s0_scale == training_scale the ratio is 1, so counts equal the
+        raw foreground voxel count at s0 resolution.
+        """
+        shape = (8, 8, 8)
+        total = int(np.prod(shape))
+        absent = 100  # background voxels at s0
+        expected_fg = total - absent
+
+        data = np.zeros(shape, dtype=np.uint8)
+        path = tmp_path / "label.zarr"
+        create_test_zarr_array(path, data, scale=(4.0, 4.0, 4.0), absent=absent)
+
+        image = CellMapImage(
+            path=str(path),
+            target_class="test_class",
+            target_scale=(4.0, 4.0, 4.0),  # same as s0 scale → ratio 1
+            target_voxel_shape=(4, 4, 4),
+        )
+
+        assert image.class_counts == pytest.approx(expected_fg)
+        assert image.bg_count == pytest.approx(absent)
+
+    def test_class_counts_normalized_by_training_scale(self, tmp_path):
+        """When training scale differs from s0 scale, counts are expressed in
+        training-resolution voxels, not physical volume.
+
+        s0=4nm, training=8nm → each s0 voxel is (4/8)^3 = 0.125 training voxels.
+        """
+        shape = (8, 8, 8)
+        total = int(np.prod(shape))
+        absent = 100
+        expected_fg_training = (total - absent) * (4.0**3 / 8.0**3)
+        expected_bg_training = absent * (4.0**3 / 8.0**3)
+
+        data = np.zeros(shape, dtype=np.uint8)
+        path = tmp_path / "label.zarr"
+        create_test_zarr_array(path, data, scale=(4.0, 4.0, 4.0), absent=absent)
+
+        image = CellMapImage(
+            path=str(path),
+            target_class="test_class",
+            target_scale=(8.0, 8.0, 8.0),  # coarser training scale
+            target_voxel_shape=(4, 4, 4),
+        )
+
+        assert image.class_counts == pytest.approx(expected_fg_training)
+        assert image.bg_count == pytest.approx(expected_bg_training)
+
+    def test_class_counts_fallback_without_metadata(self, tmp_path):
+        """When complement_counts metadata is absent the fallback reads the
+        array directly and returns the raw voxel count (no scale factor).
+        """
+        import json
+
+        shape = (8, 8, 8)
+        # Sphere pattern: some nonzero voxels
+        data = create_test_image_data(shape, pattern="sphere").astype(np.uint8)
+        path = tmp_path / "label_no_meta.zarr"
+        # Write zarr WITHOUT complement_counts metadata
+        import zarr as _zarr
+        from pydantic_ome_ngff.v04.axis import Axis
+        from pydantic_ome_ngff.v04.multiscale import (
+            Dataset as MultiscaleDataset,
+            MultiscaleMetadata,
+        )
+        from pydantic_ome_ngff.v04.transform import VectorScale as _VectorScale
+
+        path.mkdir(parents=True, exist_ok=True)
+        store = _zarr.DirectoryStore(str(path))
+        root = _zarr.group(store=store, overwrite=True)
+        s0 = root.create_dataset("s0", data=data, chunks=(8, 8, 8), overwrite=True)
+        axes = tuple(Axis(name=n, type="space", unit="nanometer") for n in "zyx")
+        ms = MultiscaleMetadata(
+            version="0.4",
+            name="no_meta",
+            axes=axes,
+            datasets=(
+                MultiscaleDataset(
+                    path="s0",
+                    coordinateTransformations=(_VectorScale(type="scale", scale=(4.0, 4.0, 4.0)),),
+                ),
+            ),
+        )
+        root.attrs["multiscales"] = [ms.model_dump(mode="json", exclude_none=True)]
+        # s0 has NO "cellmap" attrs — triggers fallback
+
+        expected_fg = int(np.count_nonzero(data))
+        expected_bg = int(data.size - np.count_nonzero(data))
+
+        image = CellMapImage(
+            path=str(path),
+            target_class="test_class",
+            target_scale=(4.0, 4.0, 4.0),
+            target_voxel_shape=(4, 4, 4),
+        )
+
+        assert image.class_counts == pytest.approx(expected_fg)
+        assert image.bg_count == pytest.approx(expected_bg)
+
     def test_class_counts_property(self, test_zarr_image):
-        """Test the class_counts property."""
+        """class_counts returns a non-negative float."""
         path, _ = test_zarr_image
 
         image = CellMapImage(
@@ -183,9 +286,8 @@ class TestCellMapImageEdgeCases:
         )
 
         counts = image.class_counts
-
-        # Should be a numeric value or dict
-        assert isinstance(counts, (int, float, dict))
+        assert isinstance(counts, float)
+        assert counts >= 0.0
 
     def test_pad_parameter_true(self, test_zarr_image):
         """Test padding when pad=True."""
