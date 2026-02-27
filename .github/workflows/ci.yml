@@ -118,10 +118,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Upgrade virtualenv (compatible)
-        run: pip install 'virtualenv<=20.23.0'  # Pin to max safe version!
       - name: Install build tools
-        run: pip install -U pip hatch hatchling twine
+        run: |
+          pip install -U pip
+          pip install 'virtualenv<20.24.0'
+          pip install hatch hatchling twine
       - name: Build sdist and wheel
         run: hatch build -t sdist -t wheel
       - name: Check distributions
