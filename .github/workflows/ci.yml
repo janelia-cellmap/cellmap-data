@@ -117,9 +117,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Upgrade virtualenv
-        run: pip install --upgrade virtualenv
+                python-version: "3.11"
+      - name: Upgrade virtualenv (compatible)
+        run: pip install 'virtualenv<20.25'
       - name: Install build tools
         run: pip install -U pip hatch hatchling twine
       - name: Build sdist and wheel
