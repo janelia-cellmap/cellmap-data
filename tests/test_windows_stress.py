@@ -24,7 +24,7 @@ from typing import List
 import pytest
 
 from cellmap_data import CellMapDataset
-from cellmap_data.read_limiter import (
+from cellmap_data.utils.read_limiter import (
     MAX_CONCURRENT_READS,
     _read_semaphore,
     limit_tensorstore_reads,

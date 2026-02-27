@@ -376,3 +376,75 @@ class TestCellMapImageEdgeCases:
         )
 
         assert np.isnan(image.pad_value)
+
+    # -----------------------------------------------------------------------
+    # coord_offsets caching
+    # -----------------------------------------------------------------------
+
+    def test_coord_offsets_is_cached_property(self, test_zarr_image):
+        """coord_offsets must use @cached_property, not a manual null-check pattern.
+
+        Verifies: (a) the returned dict has the expected axes, (b) successive
+        accesses return the exact same objects (cached, not recomputed), and
+        (c) the offsets are symmetric around zero for each axis.
+        """
+        path, _ = test_zarr_image
+        image = CellMapImage(
+            path=path,
+            target_class="test_class",
+            target_scale=(4.0, 4.0, 4.0),
+            target_voxel_shape=(8, 8, 8),
+        )
+
+        offsets1 = image.coord_offsets
+        offsets2 = image.coord_offsets
+
+        # Cached: same object returned on every access
+        assert offsets1 is offsets2
+
+        # Stored in __dict__ (cached_property, not regular property)
+        assert "coord_offsets" in image.__dict__
+
+        # Correct axes present
+        for axis in image.axes:
+            assert axis in offsets1
+            arr = offsets1[axis]
+            assert len(arr) == image.output_shape[axis]
+            # Symmetric around zero within float tolerance
+            assert abs(arr[0] + arr[-1]) < 1e-9
+
+    def test_coord_offsets_not_cleared_by_array_cache_clear(self, test_zarr_image):
+        """_clear_array_cache must only clear 'array', leaving coord_offsets intact."""
+        path, _ = test_zarr_image
+        image = CellMapImage(
+            path=path,
+            target_class="test_class",
+            target_scale=(4.0, 4.0, 4.0),
+            target_voxel_shape=(8, 8, 8),
+        )
+
+        offsets_before = image.coord_offsets  # populate cache
+        assert "coord_offsets" in image.__dict__
+
+        image._clear_array_cache()
+
+        # coord_offsets must still be cached after cache clear
+        assert "coord_offsets" in image.__dict__
+        assert image.coord_offsets is offsets_before
+
+    def test_coord_offsets_values_match_output_size_and_scale(self, test_zarr_image):
+        """coord_offsets values must span exactly [-output_size/2+scale/2, output_size/2-scale/2]."""
+        path, _ = test_zarr_image
+        image = CellMapImage(
+            path=path,
+            target_class="test_class",
+            target_scale=(4.0, 4.0, 4.0),
+            target_voxel_shape=(8, 8, 8),
+        )
+
+        for axis in image.axes:
+            arr = image.coord_offsets[axis]
+            expected_lo = -image.output_size[axis] / 2 + image.scale[axis] / 2
+            expected_hi = image.output_size[axis] / 2 - image.scale[axis] / 2
+            assert abs(arr[0] - expected_lo) < 1e-9
+            assert abs(arr[-1] - expected_hi) < 1e-9

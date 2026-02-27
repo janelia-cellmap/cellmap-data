@@ -117,3 +117,6 @@ clean/
 __pycache__/
 mypy_cache/
 .claude/
+*.out
+*.log
+*.err

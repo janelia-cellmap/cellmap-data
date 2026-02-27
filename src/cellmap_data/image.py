@@ -84,7 +84,6 @@ class CellMapImage(CellMapImageBase):
         self._current_spatial_transforms = None
         self._current_coords: Any = None
         self._current_center = None
-        self._coord_offsets = None  # Cache for coordinate offsets (optimization)
         if device is not None:
             self.device = device
         elif torch.cuda.is_available():
@@ -96,49 +95,68 @@ class CellMapImage(CellMapImageBase):
 
     def __getitem__(self, center: Mapping[str, float]) -> torch.Tensor:
         """Returns image data centered around the given point, based on the scale and shape of the target output image."""
-        if isinstance(list(center.values())[0], int | float):
-            self._current_center = center
+        try:
+            if isinstance(list(center.values())[0], int | float):
+                self._current_center = center
 
-            # Use cached coordinate offsets + translation (much faster than np.linspace)
-            # This eliminates repeated coordinate grid generation
-            coords = {c: self.coord_offsets[c] + center[c] for c in self.axes}
+                # Use cached coordinate offsets + translation (much faster than np.linspace)
+                # This eliminates repeated coordinate grid generation
+                coords = {c: self.coord_offsets[c] + center[c] for c in self.axes}
 
-            # Bounds checking
-            for c in self.axes:
-                if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
-                    UserWarning(
-                        f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
-                    )
-                if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
-                    UserWarning(
-                        f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
-                    )
+                # Bounds checking
+                for c in self.axes:
+                    if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
+                        logger.warning(
+                            f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
+                        )
+                    if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
+                        logger.warning(
+                            f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
+                        )
 
-            # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
-            data = self.apply_spatial_transforms(coords)
-        else:
-            self._current_center = {k: np.mean(v) for k, v in center.items()}
-            self._current_coords = center
-            # Optimized tensor creation: use torch.from_numpy when possible to avoid data copying
-            array_data = self.return_data(self._current_coords).values
-            if isinstance(array_data, np.ndarray):
-                data = torch.from_numpy(array_data)
+                # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
+                data = self.apply_spatial_transforms(coords)
             else:
-                data = torch.tensor(array_data)
+                self._current_center = {k: np.mean(v) for k, v in center.items()}
+                self._current_coords = center
+                # Optimized tensor creation: use torch.from_numpy when possible to avoid data copying
+                array_data = self.return_data(self._current_coords).values
+                if isinstance(array_data, np.ndarray):
+                    data = torch.from_numpy(array_data)
+                else:
+                    data = torch.tensor(array_data)
 
-        # Apply any value transformations to the data
-        if self.value_transform is not None:
-            data = self.value_transform(data)
+            # Apply any value transformations to the data
+            if self.value_transform is not None:
+                data = self.value_transform(data)
 
-        # Return data on CPU - let the DataLoader handle device transfer with streams
-        # This avoids redundant transfers and allows for optimized batch transfers
-        return data
+            # Return data on CPU - let the DataLoader handle device transfer with streams
+            # This avoids redundant transfers and allows for optimized batch transfers
+            return data
+        finally:
+            # Clear cached array property to prevent memory accumulation from xarray
+            # operations (interp/reindex/sel) during training iterations. The array
+            # will be reopened on next access if needed. Use finally to ensure cleanup
+            # even if an exception occurs during data retrieval.
+            self._clear_array_cache()
 
     def __repr__(self) -> str:
         """Returns a string representation of the CellMapImage object."""
         return f"CellMapImage({self.array_path})"
 
-    @property
+    def _clear_array_cache(self) -> None:
+        """
+        Clear the cached xarray DataArray to release intermediate objects.
+
+        xarray operations (interp, reindex, sel) create intermediate arrays that
+        remain referenced through the DataArray. Clearing the cache after each
+        __getitem__ releases those references without closing the underlying
+        TensorStore handle, which is separately cached in _ts_store and reused.
+        """
+        if "array" in self.__dict__:
+            del self.__dict__["array"]
+
+    @cached_property
     def coord_offsets(self) -> Mapping[str, np.ndarray]:
         """
         Cached coordinate offsets from center.
@@ -152,16 +170,14 @@ class CellMapImage(CellMapImageBase):
         Mapping[str, np.ndarray]
             Dictionary mapping axis names to coordinate offset arrays.
         """
-        if self._coord_offsets is None:
-            self._coord_offsets = {
-                c: np.linspace(
-                    -self.output_size[c] / 2 + self.scale[c] / 2,
-                    self.output_size[c] / 2 - self.scale[c] / 2,
-                    self.output_shape[c],
-                )
-                for c in self.axes
-            }
-        return self._coord_offsets
+        return {
+            c: np.linspace(
+                -self.output_size[c] / 2 + self.scale[c] / 2,
+                self.output_size[c] / 2 - self.scale[c] / 2,
+                self.output_shape[c],
+            )
+            for c in self.axes
+        }
 
     @cached_property
     def shape(self) -> Mapping[str, int]:
@@ -224,8 +240,42 @@ class CellMapImage(CellMapImageBase):
         return os.path.join(self.path, self.scale_level)
 
     @cached_property
+    def _ts_store(self) -> ts.TensorStore:  # type: ignore
+        """
+        Opens and caches the TensorStore array handle.
+
+        ts.open() is called exactly once per CellMapImage instance and the
+        resulting handle is kept alive for the instance's lifetime. The handle
+        is lightweight (it holds a reference to the shared context and chunk
+        cache) and is safe to reuse across many __getitem__ calls.
+
+        Separating this from the `array` cached_property means that clearing
+        `array` after each __getitem__ (to release xarray intermediate objects)
+        does not trigger a new ts.open() call on the next access.
+        """
+        spec = xt._zarr_spec_from_path(self.array_path)
+        array_future = ts.open(spec, read=True, write=False, context=self.context)
+        try:
+            return array_future.result()
+        except ValueError as e:
+            logger.warning(
+                "Failed to open with default driver: %s. Falling back to zarr3 driver.",
+                e,
+            )
+            spec["driver"] = "zarr3"
+            return ts.open(spec, read=True, write=False, context=self.context).result()
+
+    @cached_property
     def array(self) -> xarray.DataArray:
-        """Returns the image data as an xarray DataArray."""
+        """
+        Returns the image data as an xarray DataArray.
+
+        This property is cached but is explicitly cleared after each __getitem__
+        call to release xarray intermediate objects (from interp/reindex/sel)
+        that would otherwise accumulate during training. Clearing it is cheap
+        because the underlying TensorStore handle is separately cached in
+        _ts_store and is not reopened.
+        """
         if (
             os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore").lower()
             != "tensorstore"
@@ -235,22 +285,7 @@ class CellMapImage(CellMapImageBase):
                 chunks="auto",
             )
         else:
-            # Construct an xarray with Tensorstore backend
-            spec = xt._zarr_spec_from_path(self.array_path)
-            array_future = ts.open(spec, read=True, write=False, context=self.context)
-            try:
-                array = array_future.result()
-            except ValueError as e:
-                logger.warning(
-                    "Failed to open with default driver: %s. Falling back to zarr3 driver.",
-                    e,
-                )
-                spec["driver"] = "zarr3"
-                array_future = ts.open(
-                    spec, read=True, write=False, context=self.context
-                )
-                array = array_future.result()
-            data = xt._TensorStoreAdapter(array)
+            data = xt._TensorStoreAdapter(self._ts_store)
         return xarray.DataArray(data=data, coords=self.full_coords)
 
     @cached_property
@@ -324,6 +359,7 @@ class CellMapImage(CellMapImageBase):
             else:
                 raise ValueError("s0_scale not found")
         except Exception as e:
+            # TODO: This fallback is very expensive, and ideally should be avoided. We should add a script to precompute class counts for all images and save them to the metadata to avoid this in the future.
             logger.warning(
                 "Unable to get class counts for %s from metadata, "
                 "falling back to calculating from array. Error: %s, %s",
