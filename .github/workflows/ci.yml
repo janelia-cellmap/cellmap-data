@@ -108,10 +108,8 @@ jobs:
 
   publish:
     name: Publish
-    needs: tag-release
     runs-on: ubuntu-latest
-    env:
-      HATCH_VENV_BUILD_REQUIREMENTS: "virtualenv<20.24.0"
+    needs: tag-release
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,9 +119,16 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install build tools
-        run: pip install -U pip hatch hatchling twine
+        run: |
+          python -m pip install -U pip
+          # Ensure a compatible virtualenv is installed in the main environment
+          python -m pip install "virtualenv<20.24.0"
+          python -m pip install hatch hatchling twine
       - name: Build sdist and wheel
-        run: hatch build -t sdist -t wheel
+        run: hatch build --no-hooks -t sdist -t wheel
+        env:
+          # This tells Hatch to not use its own isolated build environment
+          HATCH_BUILD_HOOKS_ENABLE: false
       - name: Check distributions
         run: twine check dist/*
       - name: Publish to PyPI
