@@ -113,9 +113,7 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
 
         # Short-circuit if no classes or no datasets to avoid unnecessary computation
         if not classes:
-            logger.info(
-                "No classes configured; returning empty totals dict"
-            )
+            logger.info("No classes configured; returning empty totals dict")
             return class_counts
         if n_datasets == 0:
             logger.info(
