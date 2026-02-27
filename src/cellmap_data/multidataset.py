@@ -1,8 +1,6 @@
 import functools
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
 import logging
-import os
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 import numpy as np
@@ -11,7 +9,7 @@ from torch.utils.data import ConcatDataset, WeightedRandomSampler
 from tqdm import tqdm
 
 from .base_dataset import CellMapBaseDataset
-from .dataset import CellMapDataset, _USE_IMMEDIATE_EXECUTOR
+from .dataset import CellMapDataset
 from .mutable_sampler import MutableSubsetRandomSampler
 from .utils.sampling import min_redundant_inds
 
@@ -123,58 +121,16 @@ class CellMapMultiDataset(CellMapBaseDataset, ConcatDataset):
 
         logger.info("Gathering class counts for %d datasets...", n_datasets)
 
-        # Determine number of worker threads from environment, with defensive parsing.
-        # Ensure we always have at least 1 worker when n_datasets > 0 to avoid
-        # ThreadPoolExecutor(max_workers=0) raising at runtime.
-        max_workers_env = os.environ.get("CELLMAP_MAX_WORKERS", "8")
-        try:
-            max_workers = int(max_workers_env)
-        except (TypeError, ValueError):
-            logger.warning(
-                "Invalid CELLMAP_MAX_WORKERS=%r; falling back to default of 8",
-                max_workers_env,
-            )
-            max_workers = 8
-        if max_workers < 1:
-            logger.warning(
-                "CELLMAP_MAX_WORKERS=%r is less than 1; using 1 worker instead",
-                max_workers_env,
-            )
-            max_workers = 1
-        n_workers = min(n_datasets, max_workers)
-        # On Windows + TensorStore, avoid ThreadPoolExecutor to prevent crashes
-        # when computing class_counts (which may access TensorStore arrays).
-        # Use the same flag as CellMapDataset for consistency.
-        if _USE_IMMEDIATE_EXECUTOR:
-            # Sequential computation to avoid Windows+TensorStore crashes
-            logger.info(
-                "Using sequential computation for class counts (Windows+TensorStore)"
-            )
-            for ds in tqdm(self.datasets, desc="Gathering class counts"):
-                ds_counts = ds.class_counts
-                for c in classes:
-                    if c in ds_counts["totals"]:
-                        class_counts["totals"][c] += ds_counts["totals"][c]
-                        class_counts["totals"][c + "_bg"] += ds_counts["totals"][
-                            c + "_bg"
-                        ]
-            return class_counts
-
-        # Parallel computation for non-Windows or non-TensorStore backends
-        with ThreadPoolExecutor(max_workers=n_workers) as pool:
-            futures = {
-                pool.submit(lambda ds=ds: ds.class_counts): ds for ds in self.datasets
-            }
-            with tqdm(total=n_datasets, desc="Gathering class counts") as pbar:
-                for future in as_completed(futures):
-                    ds_counts = future.result()
-                    for c in classes:
-                        if c in ds_counts["totals"]:
-                            class_counts["totals"][c] += ds_counts["totals"][c]
-                            class_counts["totals"][c + "_bg"] += ds_counts["totals"][
-                                c + "_bg"
-                            ]
-                    pbar.update(1)
+        # Sequential scan: class_counts is now a fast metadata read (two JSON
+        # files per image via the zarr store).  A thread pool offered no
+        # meaningful speedup and caused all workers to block simultaneously on
+        # NFS hard-mounts, making progress stall at 0/N indefinitely.
+        for ds in tqdm(self.datasets, desc="Gathering class counts"):
+            ds_counts = ds.class_counts
+            for c in classes:
+                if c in ds_counts["totals"]:
+                    class_counts["totals"][c] += ds_counts["totals"][c]
+                    class_counts["totals"][c + "_bg"] += ds_counts["totals"][c + "_bg"]
         return class_counts
 
     @cached_property

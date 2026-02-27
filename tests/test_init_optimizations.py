@@ -517,15 +517,9 @@ class TestImmediateExecutorPaths:
         assert isinstance(result, dict)
         assert "raw" in result
 
-    def test_multidataset_class_counts_sequential_path(
-        self, three_datasets, monkeypatch
-    ):
-        """CellMapMultiDataset.class_counts takes the sequential path when
-        _USE_IMMEDIATE_EXECUTOR is True (shared flag from dataset.py)."""
-        import cellmap_data.multidataset as md_module
-
-        monkeypatch.setattr(md_module, "_USE_IMMEDIATE_EXECUTOR", True)
-
+    def test_multidataset_class_counts_is_sequential(self, three_datasets):
+        """CellMapMultiDataset.class_counts runs sequentially (no thread pool)
+        and returns well-formed totals."""
         multi = CellMapMultiDataset(
             classes=["class_0", "class_1"],
             input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
@@ -536,37 +530,3 @@ class TestImmediateExecutorPaths:
         assert "totals" in counts
         for c in ["class_0", "class_1", "class_0_bg", "class_1_bg"]:
             assert c in counts["totals"]
-
-
-# ---------------------------------------------------------------------------
-# Consistency: dataset.py and multidataset.py share _USE_IMMEDIATE_EXECUTOR
-# ---------------------------------------------------------------------------
-
-
-class TestImmediateExecutorFlagConsistency:
-    """The _USE_IMMEDIATE_EXECUTOR flag must be sourced from dataset.py in
-    both dataset.py and multidataset.py so they always agree on whether
-    to use threads."""
-
-    def test_flag_values_match_across_modules(self):
-        """Both modules read the same flag value at import time."""
-        import cellmap_data.dataset as ds_module
-        import cellmap_data.multidataset as md_module
-
-        assert ds_module._USE_IMMEDIATE_EXECUTOR == md_module._USE_IMMEDIATE_EXECUTOR
-
-    def test_multidataset_imports_flag_from_dataset(self):
-        """multidataset module must expose _USE_IMMEDIATE_EXECUTOR (imported
-        from dataset), not define its own copy."""
-        import inspect
-
-        import cellmap_data.multidataset as md_module
-
-        assert hasattr(
-            md_module, "_USE_IMMEDIATE_EXECUTOR"
-        ), "multidataset must import _USE_IMMEDIATE_EXECUTOR from dataset"
-        # Verify the source: the flag in multidataset should be the same
-        # object as the one in dataset (True/False booleans are singletons).
-        import cellmap_data.dataset as ds_module
-
-        assert md_module._USE_IMMEDIATE_EXECUTOR is ds_module._USE_IMMEDIATE_EXECUTOR
