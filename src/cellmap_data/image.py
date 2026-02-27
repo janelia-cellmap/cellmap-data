@@ -426,9 +426,9 @@ class CellMapImage(CellMapImageBase):
                 # Get s0 array shape to compute the total s0 voxel count.
                 _store = self.group.store
                 try:
-                    s0_shape = json.loads(
-                        bytes(_store["s0/.zarray"]).decode("utf-8")
-                    )["shape"]
+                    s0_shape = json.loads(bytes(_store["s0/.zarray"]).decode("utf-8"))[
+                        "shape"
+                    ]
                 except KeyError:
                     s0_shape = list(self.group["s0"].shape)
 

@@ -245,7 +245,9 @@ class TestCellMapImageEdgeCases:
             datasets=(
                 MultiscaleDataset(
                     path="s0",
-                    coordinateTransformations=(_VectorScale(type="scale", scale=scale),),
+                    coordinateTransformations=(
+                        _VectorScale(type="scale", scale=scale),
+                    ),
                 ),
             ),
         )
