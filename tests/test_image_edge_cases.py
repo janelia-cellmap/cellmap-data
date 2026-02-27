@@ -223,17 +223,8 @@ class TestCellMapImageEdgeCases:
         assert image.class_counts == pytest.approx(expected_fg_training)
         assert image.bg_count == pytest.approx(expected_bg_training)
 
-    def test_class_counts_fallback_without_metadata(self, tmp_path):
-        """When complement_counts metadata is absent the fallback reads the
-        array directly and returns the raw voxel count (no scale factor).
-        """
-        import json
-
-        shape = (8, 8, 8)
-        # Sphere pattern: some nonzero voxels
-        data = create_test_image_data(shape, pattern="sphere").astype(np.uint8)
-        path = tmp_path / "label_no_meta.zarr"
-        # Write zarr WITHOUT complement_counts metadata
+    def _make_zarr_without_cellmap_attrs(self, path, data, scale=(4.0, 4.0, 4.0)):
+        """Create a zarr group at *path* with OME-NGFF metadata but no cellmap attrs."""
         import zarr as _zarr
         from pydantic_ome_ngff.v04.axis import Axis
         from pydantic_ome_ngff.v04.multiscale import (
@@ -245,7 +236,7 @@ class TestCellMapImageEdgeCases:
         path.mkdir(parents=True, exist_ok=True)
         store = _zarr.DirectoryStore(str(path))
         root = _zarr.group(store=store, overwrite=True)
-        s0 = root.create_dataset("s0", data=data, chunks=(8, 8, 8), overwrite=True)
+        root.create_dataset("s0", data=data, chunks=data.shape, overwrite=True)
         axes = tuple(Axis(name=n, type="space", unit="nanometer") for n in "zyx")
         ms = MultiscaleMetadata(
             version="0.4",
@@ -254,12 +245,21 @@ class TestCellMapImageEdgeCases:
             datasets=(
                 MultiscaleDataset(
                     path="s0",
-                    coordinateTransformations=(_VectorScale(type="scale", scale=(4.0, 4.0, 4.0)),),
+                    coordinateTransformations=(_VectorScale(type="scale", scale=scale),),
                 ),
             ),
         )
         root.attrs["multiscales"] = [ms.model_dump(mode="json", exclude_none=True)]
         # s0 has NO "cellmap" attrs — triggers fallback
+
+    def test_class_counts_fallback_without_metadata(self, tmp_path):
+        """When complement_counts metadata is absent the fallback reads the
+        array directly and returns the raw voxel count (no scale factor).
+        """
+        shape = (8, 8, 8)
+        data = create_test_image_data(shape, pattern="sphere").astype(np.uint8)
+        path = tmp_path / "label_no_meta.zarr"
+        self._make_zarr_without_cellmap_attrs(path, data, scale=(4.0, 4.0, 4.0))
 
         expected_fg = int(np.count_nonzero(data))
         expected_bg = int(data.size - np.count_nonzero(data))
@@ -273,6 +273,76 @@ class TestCellMapImageEdgeCases:
 
         assert image.class_counts == pytest.approx(expected_fg)
         assert image.bg_count == pytest.approx(expected_bg)
+
+    def test_class_counts_fallback_writes_metadata(self, tmp_path):
+        """After the fallback fires, complement_counts should be written back to
+        s0/.zattrs so that subsequent calls use the fast path.
+        """
+        import json
+
+        shape = (8, 8, 8)
+        data = create_test_image_data(shape, pattern="sphere").astype(np.uint8)
+        path = tmp_path / "label_writeback.zarr"
+        self._make_zarr_without_cellmap_attrs(path, data, scale=(4.0, 4.0, 4.0))
+
+        image = CellMapImage(
+            path=str(path),
+            target_class="test_class",
+            target_scale=(4.0, 4.0, 4.0),
+            target_voxel_shape=(4, 4, 4),
+        )
+        _ = image.class_counts  # triggers fallback + write-back
+
+        # The s0/.zattrs file should now contain the complement_counts entry.
+        zattrs_path = path / "s0" / ".zattrs"
+        assert zattrs_path.exists(), "s0/.zattrs was not written"
+        with open(zattrs_path) as f:
+            s0_attrs = json.load(f)
+
+        bg_s0 = s0_attrs["cellmap"]["annotation"]["complement_counts"]["absent"]
+        expected_bg_s0 = int(data.size - np.count_nonzero(data))
+        assert bg_s0 == expected_bg_s0
+
+    def test_class_counts_fallback_writeback_converts_scale(self, tmp_path):
+        """When training scale differs from s0 scale the written absent count
+        must be in s0 voxels, not training voxels.
+
+        s0=4nm, training=8nm → training voxel covers 8x the s0 voxel volume,
+        so fg_s0 = fg_training * (8^3 / 4^3) = fg_training * 8.
+        """
+        import json
+
+        shape = (8, 8, 8)  # s0 shape; 512 voxels total
+        data = create_test_image_data(shape, pattern="sphere").astype(np.uint8)
+        path = tmp_path / "label_scale_writeback.zarr"
+        self._make_zarr_without_cellmap_attrs(path, data, scale=(4.0, 4.0, 4.0))
+
+        image = CellMapImage(
+            path=str(path),
+            target_class="test_class",
+            target_scale=(8.0, 8.0, 8.0),  # coarser training resolution
+            target_voxel_shape=(4, 4, 4),
+        )
+        _ = image.class_counts  # triggers fallback + write-back
+
+        zattrs_path = path / "s0" / ".zattrs"
+        with open(zattrs_path) as f:
+            s0_attrs = json.load(f)
+
+        bg_s0 = s0_attrs["cellmap"]["annotation"]["complement_counts"]["absent"]
+        total_s0 = int(np.prod(shape))
+
+        # fg_training = count_nonzero at training resolution (same data since
+        # training scale is just a resampling spec; the actual array loaded is
+        # the training-resolution crop).  For this test the array IS the s0
+        # data, so fg_training = count_nonzero(data).
+        fg_training = int(np.count_nonzero(data))
+        # scale_ratio (training→s0) = training_voxel_vol / s0_voxel_vol = 8^3/4^3 = 8
+        fg_s0_expected = int(round(fg_training * (8.0**3 / 4.0**3)))
+        fg_s0_expected = min(fg_s0_expected, total_s0)
+        bg_s0_expected = total_s0 - fg_s0_expected
+
+        assert bg_s0 == bg_s0_expected
 
     def test_class_counts_property(self, test_zarr_image):
         """class_counts returns a non-negative float."""

@@ -403,8 +403,64 @@ class CellMapImage(CellMapImageBase):
             # Fallback: read the array at training resolution and count voxels.
             # No scale multiplication — counts are already in training voxels.
             array_data = self.array.compute()
-            class_counts = float(np.count_nonzero(array_data))
-            self._bg_count = float(array_data.size - np.count_nonzero(array_data))
+            fg_training = int(np.count_nonzero(array_data))
+            class_counts = float(fg_training)
+            self._bg_count = float(array_data.size - fg_training)
+
+            # Write the computed counts back to s0/.zattrs so future calls use
+            # the fast path.  Counts must be converted from training resolution
+            # back to s0 resolution because the metadata always lives at s0.
+            try:
+                s0_scale = None
+                for _dataset in self.multiscale_attrs.datasets:
+                    if _dataset.path == "s0":
+                        for transform in _dataset.coordinateTransformations:
+                            if isinstance(transform, VectorScale):
+                                s0_scale = list(transform.scale)
+                                break
+                        break
+
+                if s0_scale is None:
+                    raise ValueError("s0 scale not found in multiscale metadata")
+
+                # Get s0 array shape to compute the total s0 voxel count.
+                _store = self.group.store
+                try:
+                    s0_shape = json.loads(
+                        bytes(_store["s0/.zarray"]).decode("utf-8")
+                    )["shape"]
+                except KeyError:
+                    s0_shape = list(self.group["s0"].shape)
+
+                total_s0 = int(np.prod(s0_shape))
+                s0_voxel_vol = float(np.prod(s0_scale))
+                training_voxel_vol = float(np.prod(list(self.scale.values())))
+
+                # fg_s0 = fg_training * (training_voxel_vol / s0_voxel_vol)
+                fg_s0 = int(round(fg_training * training_voxel_vol / s0_voxel_vol))
+                fg_s0 = min(fg_s0, total_s0)  # clamp to valid range
+                bg_s0 = total_s0 - fg_s0
+
+                # Merge into existing s0 attrs via a writable group handle.
+                writable_group = zarr.open_group(self.path, mode="r+")
+                s0_zarr = writable_group["s0"]
+                existing_attrs = dict(s0_zarr.attrs)
+                cellmap = existing_attrs.setdefault("cellmap", {})
+                annotation = cellmap.setdefault("annotation", {})
+                complement_counts = annotation.setdefault("complement_counts", {})
+                complement_counts["absent"] = bg_s0
+                s0_zarr.attrs.update(existing_attrs)
+                logger.info(
+                    "Wrote complement_counts metadata for %s: absent=%d",
+                    self.path,
+                    bg_s0,
+                )
+            except Exception as write_err:
+                logger.warning(
+                    "Unable to write complement_counts metadata for %s: %s",
+                    self.path,
+                    write_err,
+                )
 
         return class_counts
 
