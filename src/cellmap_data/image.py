@@ -104,15 +104,22 @@ class CellMapImage(CellMapImageBase):
                 # This eliminates repeated coordinate grid generation
                 coords = {c: self.coord_offsets[c] + center[c] for c in self.axes}
 
-                # Bounds checking
+                # Bounds checking: warn when crop edges extend beyond the
+                # annotation bounding box.  This is normal and handled by
+                # padding when the crop window is larger than the annotation
+                # volume, so log at DEBUG to avoid noise during training.
                 for c in self.axes:
                     if center[c] - self.output_size[c] / 2 < self.bounding_box[c][0]:
-                        logger.warning(
-                            f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] - self.output_size[c] / 2} would be less than {self.bounding_box[c][0]}"
+                        logger.debug(
+                            f"Crop edge for axis {c} in image {self.path} extends "
+                            f"below annotation bounds: {center[c] - self.output_size[c] / 2} "
+                            f"< {self.bounding_box[c][0]} (center={center[c]})"
                         )
                     if center[c] + self.output_size[c] / 2 > self.bounding_box[c][1]:
-                        logger.warning(
-                            f"Center {center[c]} is out of bounds for axis {c} in image {self.path}. {center[c] + self.output_size[c] / 2} would be greater than {self.bounding_box[c][1]}"
+                        logger.debug(
+                            f"Crop edge for axis {c} in image {self.path} extends "
+                            f"above annotation bounds: {center[c] + self.output_size[c] / 2} "
+                            f"> {self.bounding_box[c][1]} (center={center[c]})"
                         )
 
                 # Apply any spatial transformations to the coordinates and return the image data as a PyTorch tensor
