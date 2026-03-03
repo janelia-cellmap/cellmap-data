@@ -344,3 +344,124 @@ class TestCellMapDatasetEdgeCases:
         # Should be iterable
         indices = list(sampler)
         assert len(indices) == num_samples
+
+
+class TestProcessExecutorSingleton:
+    """Tests for the per-process shared ThreadPoolExecutor.
+
+    Before the fix, each CellMapDataset created its own ThreadPoolExecutor,
+    causing thread explosion when many datasets exist inside DataLoader workers.
+    After the fix, all datasets in a process share one pool.
+    """
+
+    @pytest.fixture
+    def two_datasets(self, tmp_path):
+        """Create two independent datasets in the same process."""
+        configs = []
+        datasets = []
+        for i in range(2):
+            cfg = create_minimal_test_dataset(tmp_path / f"ds{i}")
+            configs.append(cfg)
+            datasets.append(
+                CellMapDataset(
+                    raw_path=str(cfg["raw_path"]),
+                    target_path=str(cfg["gt_path"]),
+                    classes=cfg["classes"],
+                    input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+                    target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+                    force_has_data=True,
+                )
+            )
+        return datasets
+
+    def test_executor_is_shared_across_datasets(self, two_datasets):
+        """Two datasets in the same process must return the exact same executor object."""
+        ds0, ds1 = two_datasets
+        assert ds0.executor is ds1.executor
+
+    def test_executor_is_module_level_singleton(self, two_datasets):
+        """The executor must live in the module-level _PROCESS_EXECUTORS dict."""
+        import os
+
+        from cellmap_data.dataset import _PROCESS_EXECUTORS
+
+        ds0, _ = two_datasets
+        pid = os.getpid()
+        assert pid in _PROCESS_EXECUTORS
+        assert _PROCESS_EXECUTORS[pid] is ds0.executor
+
+    def test_close_does_not_shut_down_shared_pool(self, two_datasets):
+        """close() on one dataset must not prevent other datasets from using the pool."""
+        ds0, ds1 = two_datasets
+
+        # Trigger executor creation on both
+        _ = ds0.executor
+        _ = ds1.executor
+
+        # Close the first dataset
+        ds0.close()
+        assert ds0._executor is None
+
+        # The second dataset must still be able to submit work
+        future = ds1.executor.submit(lambda: 42)
+        assert future.result() == 42
+
+    def test_del_does_not_shut_down_shared_pool(self, two_datasets):
+        """__del__ on one dataset must not prevent other datasets from using the pool."""
+        ds0, ds1 = two_datasets
+        _ = ds0.executor
+        executor_ref = ds1.executor
+
+        ds0.__del__()
+        assert ds0._executor is None
+
+        # Pool is still operational
+        future = executor_ref.submit(lambda: "alive")
+        assert future.result() == "alive"
+
+    def test_executor_lazy_init(self, tmp_path):
+        """Executor must not be created until first access via the property."""
+        from cellmap_data.dataset import _PROCESS_EXECUTORS
+
+        import os
+
+        cfg = create_minimal_test_dataset(tmp_path / "lazy")
+        # Clear any existing entry so the laziness is observable
+        _PROCESS_EXECUTORS.pop(os.getpid(), None)
+
+        ds = CellMapDataset(
+            raw_path=str(cfg["raw_path"]),
+            target_path=str(cfg["gt_path"]),
+            classes=cfg["classes"],
+            input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+            force_has_data=True,
+        )
+
+        assert ds._executor is None  # not yet created
+        _ = ds.executor               # trigger lazy init
+        assert os.getpid() in _PROCESS_EXECUTORS
+
+    def test_pid_change_triggers_new_executor(self, two_datasets):
+        """Simulating a PID change (post-fork child) causes a fresh executor lookup."""
+        import os
+        from unittest.mock import patch
+
+        from cellmap_data.dataset import _PROCESS_EXECUTORS
+
+        ds0, _ = two_datasets
+        original_executor = ds0.executor  # ensure cached
+        fake_pid = os.getpid() + 99999    # a PID that isn't in the dict
+
+        with patch("cellmap_data.dataset.os.getpid", return_value=fake_pid):
+            # Force re-evaluation by clearing the cached pid
+            ds0._executor_pid = None
+            new_executor = ds0.executor
+
+        # A new entry was created for the fake PID
+        assert fake_pid in _PROCESS_EXECUTORS
+        # The new executor is different from the original process's executor
+        assert new_executor is not original_executor
+
+        # Cleanup: remove the fake PID entry
+        _PROCESS_EXECUTORS.pop(fake_pid, None)

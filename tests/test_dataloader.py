@@ -650,3 +650,110 @@ class TestTensorStoreCacheBounding:
         assert "raw" in batch
         assert isinstance(batch["raw"], torch.Tensor)
         assert batch["raw"].shape[0] == 2
+
+
+class TestRefreshCleanup:
+    """Tests for refresh() explicitly releasing the old DataLoader.
+
+    Before the fix, calling refresh() while persistent_workers=True left old
+    worker processes alive until GC, causing process accumulation across epochs.
+    After the fix, the old loader is explicitly deleted before creating a new one.
+    """
+
+    @pytest.fixture
+    def loader(self, tmp_path):
+        config = create_test_dataset(
+            tmp_path,
+            raw_shape=(24, 24, 24),
+            num_classes=2,
+            raw_scale=(4.0, 4.0, 4.0),
+        )
+        input_arrays = {"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}}
+        target_arrays = {"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}}
+        dataset = CellMapDataset(
+            raw_path=config["raw_path"],
+            target_path=config["gt_path"],
+            classes=config["classes"],
+            input_arrays=input_arrays,
+            target_arrays=target_arrays,
+            force_has_data=True,
+        )
+        return CellMapDataLoader(dataset, batch_size=2, num_workers=0)
+
+    def test_refresh_replaces_loader(self, loader):
+        """refresh() must replace _pytorch_loader with a new object."""
+        old_loader = loader._pytorch_loader
+        loader.refresh()
+        new_loader = loader._pytorch_loader
+
+        assert new_loader is not None
+        assert new_loader is not old_loader
+
+    def test_refresh_multiple_times_does_not_accumulate(self, loader):
+        """Calling refresh() repeatedly must not leave stale references."""
+        import gc
+        import weakref
+
+        # Hold a weak reference to the first loader
+        old_loader = loader._pytorch_loader
+        ref = weakref.ref(old_loader)
+        del old_loader
+
+        loader.refresh()
+
+        # Force GC to collect any reference cycles
+        gc.collect()
+
+        # The old loader should have been released
+        assert ref() is None, (
+            "Old DataLoader was not released after refresh(); "
+            "worker processes may be leaking."
+        )
+
+    def test_refresh_with_persistent_workers_releases_old_loader(self, tmp_path):
+        """With persistent_workers=True, refresh() must still release the old loader."""
+        import gc
+        import weakref
+
+        config = create_test_dataset(
+            tmp_path,
+            raw_shape=(24, 24, 24),
+            num_classes=2,
+            raw_scale=(4.0, 4.0, 4.0),
+        )
+        input_arrays = {"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}}
+        target_arrays = {"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}}
+        dataset = CellMapDataset(
+            raw_path=config["raw_path"],
+            target_path=config["gt_path"],
+            classes=config["classes"],
+            input_arrays=input_arrays,
+            target_arrays=target_arrays,
+            force_has_data=True,
+        )
+        # num_workers=1 makes persistent_workers meaningful
+        persistent_loader = CellMapDataLoader(
+            dataset,
+            batch_size=2,
+            num_workers=1,
+            persistent_workers=True,
+        )
+
+        old_pytorch_loader = persistent_loader._pytorch_loader
+        ref = weakref.ref(old_pytorch_loader)
+        del old_pytorch_loader
+
+        persistent_loader.refresh()
+        gc.collect()
+
+        assert ref() is None, (
+            "Old DataLoader with persistent_workers=True was not released after "
+            "refresh(); worker processes are leaking."
+        )
+
+    def test_refresh_loader_is_functional(self, loader):
+        """After refresh(), the new loader must still produce valid batches."""
+        loader.refresh()
+        batch = next(iter(loader))
+        assert "raw" in batch
+        assert isinstance(batch["raw"], torch.Tensor)

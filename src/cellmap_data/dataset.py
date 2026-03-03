@@ -42,6 +42,48 @@ _USE_IMMEDIATE_EXECUTOR = (
     _OS_NAME == "Windows" and _DATA_BACKEND.lower() == "tensorstore"
 )
 
+# Per-process executor singleton.
+#
+# Using one ThreadPoolExecutor per CellMapDataset causes a thread explosion
+# when many dataset instances exist inside DataLoader worker processes:
+#   Before: N_datasets × num_workers × max_workers threads
+#   After:  num_workers × max_workers threads
+#
+# _PROCESS_EXECUTORS is keyed by PID so that forked child processes (DataLoader
+# workers on Linux) automatically get their own fresh pool on first access.
+# dict.setdefault() is atomic under CPython's GIL, avoiding the need for an
+# explicit lock (and the fork-safety issues that come with one).
+_PROCESS_EXECUTORS: dict[int, ThreadPoolExecutor] = {}
+
+
+def _get_process_executor(max_workers: int) -> ThreadPoolExecutor:
+    """Return the per-process shared ThreadPoolExecutor, creating it on first call.
+
+    The first CellMapDataset created in a process determines the pool size.
+    Subsequent datasets in the same process reuse the existing pool regardless
+    of their own max_workers setting.
+    """
+    pid = os.getpid()
+    if pid not in _PROCESS_EXECUTORS:
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        # setdefault is atomic under the GIL; if two threads race here the
+        # loser's executor is discarded cleanly.
+        existing = _PROCESS_EXECUTORS.setdefault(pid, executor)
+        if existing is not executor:
+            executor.shutdown(wait=False)
+    return _PROCESS_EXECUTORS[pid]
+
+
+def _shutdown_process_executor() -> None:
+    """Shut down the executor for the current process (registered via atexit)."""
+    pid = os.getpid()
+    executor = _PROCESS_EXECUTORS.pop(pid, None)
+    if executor is not None:
+        executor.shutdown(wait=True, cancel_futures=True)
+
+
+atexit.register(_shutdown_process_executor)
+
 
 class _ImmediateExecutor(_ConcurrentExecutor):
     """Drop-in for ThreadPoolExecutor that runs tasks in the calling thread.
@@ -219,61 +261,57 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
             len(self.target_arrays),
             len(self.classes),
         )
-        atexit.register(self.close)
 
     @property
     def executor(self) -> ThreadPoolExecutor | _ImmediateExecutor:
         """
-        Lazy initialization of persistent executor.
+        Lazy accessor for the per-process shared executor.
 
-        On Windows + TensorStore returns a module-level ``_ImmediateExecutor``
-        that runs every submitted callable synchronously in the calling thread.
-        This avoids the native crash (0xC0000409 / STATUS_STACK_BUFFER_OVERRUN)
-        that occurs when TensorStore's ``.read().result()`` is called from a
-        Python ``ThreadPoolExecutor`` worker thread on Windows.
+        On Windows + TensorStore returns the module-level ``_ImmediateExecutor``
+        singleton (runs tasks synchronously to avoid native crashes).
 
-        On all other platforms returns the usual persistent ``ThreadPoolExecutor``.
+        On all other platforms returns the per-process ``ThreadPoolExecutor``
+        singleton from ``_get_process_executor``.  Using a process-level pool
+        instead of a per-dataset pool prevents thread explosion when many
+        ``CellMapDataset`` instances exist inside DataLoader worker processes.
 
-        In both cases ``self._executor`` and ``self._executor_pid`` are kept in
-        sync so that ``close()``, ``__del__``, and tests can inspect them
-        consistently regardless of platform.
+        ``self._executor`` and ``self._executor_pid`` cache the result so the
+        PID lookup only happens when the PID changes (i.e. after fork).
         """
         current_pid = os.getpid()
 
         if _USE_IMMEDIATE_EXECUTOR:
-            # Use the module-level singleton but still track state so that
-            # _executor / _executor_pid are never left as None after first access.
             if self._executor is None or self._executor_pid != current_pid:
                 self._executor = _IMMEDIATE_EXECUTOR
                 self._executor_pid = current_pid
             return self._executor  # type: ignore[return-value]
 
-        # Non-Windows path: detect process forking and create a fresh executor.
-        if self._executor_pid != current_pid:
-            self._executor = None
+        # Re-fetch the process executor if PID changed (post-fork child).
+        if self._executor_pid != current_pid or self._executor is None:
+            self._executor = _get_process_executor(self._max_workers)
             self._executor_pid = current_pid
-
-        if self._executor is None:
-            self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
         return self._executor
 
     def __str__(self) -> str:
         return f"CellMapDataset(raw_path={self.raw_path}, target_path={self.target_path}, classes={self.classes})"
 
     def __del__(self):
-        """Cleanup ThreadPoolExecutor to prevent resource leaks."""
-        if hasattr(self, "_executor") and self._executor is not None:
-            self._executor.shutdown(wait=True)
+        """Release the cached executor reference.
+
+        The shared per-process pool is shut down by the module-level atexit
+        handler (_shutdown_process_executor), not per-dataset, so we must not
+        call shutdown() here.
+        """
+        self._executor = None
 
     def close(self) -> None:
-        """Shut down the ThreadPoolExecutor and release resources.
+        """Release the cached executor reference.
 
-        Called automatically via atexit to ensure clean shutdown at interpreter
-        exit, regardless of whether __del__ is invoked.
+        The per-process shared pool is shut down via the module-level atexit
+        handler (_shutdown_process_executor).  Individual datasets must not
+        shut it down, as doing so would break all other datasets in the process.
         """
-        if hasattr(self, "_executor") and self._executor is not None:
-            self._executor.shutdown(wait=True, cancel_futures=True)
-            self._executor = None
+        self._executor = None
 
     def __new__(
         cls,
@@ -634,16 +672,16 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                         array = None
                     return label, array
 
-                label_futures = [
-                    self.executor.submit(get_label_array, label)
-                    for label in self.classes
-                ]
-                for future in as_completed(label_futures):
-                    label, array = future.result()
+                # Run label reads synchronously within this pool thread.
+                # Submitting sub-futures to the same shared pool and blocking
+                # on as_completed() inside a pool thread causes deadlock when
+                # all pool slots are occupied by blocking get_target_array tasks.
+                for label in self.classes:
+                    lbl, array = get_label_array(label)
                     if array is not None:
-                        class_arrays[label] = array
+                        class_arrays[lbl] = array
                     else:
-                        inferred_arrays.append(label)
+                        inferred_arrays.append(lbl)
 
                 empty_array = self.get_empty_store(
                     self.target_arrays[array_name], device=self.device
@@ -659,13 +697,9 @@ class CellMapDataset(CellMapBaseDataset, Dataset):
                             array[mask] = 0
                     return label, array
 
-                infer_futures = [
-                    self.executor.submit(infer_label_array, label)
-                    for label in inferred_arrays
-                ]
-                for future in as_completed(infer_futures):
-                    label, array = future.result()
-                    class_arrays[label] = array
+                for label in inferred_arrays:
+                    lbl, array = infer_label_array(label)
+                    class_arrays[lbl] = array
 
                 stacked_arrays = []
                 for label in self.classes:

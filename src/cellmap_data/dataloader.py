@@ -342,13 +342,14 @@ class CellMapDataLoader:
 
     def refresh(self):
         """Refresh the DataLoader with the current sampler state."""
-        if self._pytorch_loader is not None and self._persistent_workers:
-            logger.warning(
-                "refresh() called while persistent_workers=True. "
-                "The old DataLoader's worker processes will remain alive until "
-                "garbage collected. If you need to refresh frequently, consider "
-                "setting persistent_workers=False."
-            )
+        if self._pytorch_loader is not None:
+            # Explicitly drop the old loader before creating a new one.
+            # With persistent_workers=True, simply reassigning self._pytorch_loader
+            # keeps workers alive until GC; explicit deletion triggers immediate
+            # shutdown via DataLoader.__del__ → reference counting.
+            old_loader = self._pytorch_loader
+            self._pytorch_loader = None
+            del old_loader
         if isinstance(self.sampler, MutableSubsetRandomSampler):
             self.sampler.refresh()
 
