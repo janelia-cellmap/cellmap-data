@@ -367,8 +367,12 @@ class TestProcessExecutorSingleton:
                     raw_path=str(cfg["raw_path"]),
                     target_path=str(cfg["gt_path"]),
                     classes=cfg["classes"],
-                    input_arrays={"raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
-                    target_arrays={"gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}},
+                    input_arrays={
+                        "raw": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}
+                    },
+                    target_arrays={
+                        "gt": {"shape": (8, 8, 8), "scale": (4.0, 4.0, 4.0)}
+                    },
                     force_has_data=True,
                 )
             )
@@ -439,7 +443,7 @@ class TestProcessExecutorSingleton:
         )
 
         assert ds._executor is None  # not yet created
-        _ = ds.executor               # trigger lazy init
+        _ = ds.executor  # trigger lazy init
         assert os.getpid() in _PROCESS_EXECUTORS
 
     def test_pid_change_triggers_new_executor(self, two_datasets):
@@ -451,7 +455,7 @@ class TestProcessExecutorSingleton:
 
         ds0, _ = two_datasets
         original_executor = ds0.executor  # ensure cached
-        fake_pid = os.getpid() + 99999    # a PID that isn't in the dict
+        fake_pid = os.getpid() + 99999  # a PID that isn't in the dict
 
         with patch("cellmap_data.dataset.os.getpid", return_value=fake_pid):
             # Force re-evaluation by clearing the cached pid
