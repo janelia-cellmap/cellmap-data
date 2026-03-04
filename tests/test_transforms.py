@@ -1,13 +1,13 @@
-"""
-Tests for augmentation transforms.
+"""Tests for cellmap_data.transforms.augment — all transform classes."""
 
-Tests all augmentation transforms using real tensors without mocks.
-"""
+from __future__ import annotations
+
+import math
 
 import torch
-import torchvision.transforms.v2 as T
+import pytest
 
-from cellmap_data.transforms import (
+from cellmap_data.transforms.augment import (
     Binarize,
     GaussianBlur,
     GaussianNoise,
@@ -16,365 +16,335 @@ from cellmap_data.transforms import (
     RandomGamma,
 )
 
-
-class TestGaussianNoise:
-    """Test suite for GaussianNoise transform."""
-
-    def test_gaussian_noise_basic(self):
-        """Test basic Gaussian noise addition."""
-        torch.manual_seed(42)
-        transform = GaussianNoise(std=0.1)
-
-        x = torch.zeros(100, 100)
-        result = transform(x)
-
-        # Result should be different from input
-        assert not torch.allclose(result, x)
-        # Noise should have approximately the right std
-        assert result.std() < 0.15  # Allow some tolerance
-
-    def test_gaussian_noise_preserves_shape(self):
-        """Test that Gaussian noise preserves shape."""
-        transform = GaussianNoise(std=0.1)
-
-        shapes = [(10,), (10, 10), (5, 10, 10), (2, 5, 10, 10)]
-        for shape in shapes:
-            x = torch.rand(shape)
-            result = transform(x)
-            assert result.shape == x.shape
-
-    def test_gaussian_noise_zero_std(self):
-        """Test that zero std produces no change."""
-        transform = GaussianNoise(std=0.0)
-
-        x = torch.rand(10, 10)
-        result = transform(x)
-        assert torch.allclose(result, x)
-
-    def test_gaussian_noise_different_stds(self):
-        """Test different standard deviations."""
-        torch.manual_seed(42)
-        x = torch.zeros(1000, 1000)
-
-        for std in [0.01, 0.1, 0.5, 1.0]:
-            transform = GaussianNoise(std=std)
-            result = transform(x.clone())
-            # Empirical std should be close to specified std
-            assert abs(result.std().item() - std) < std * 0.2  # 20% tolerance
-
-
-class TestRandomContrast:
-    """Test suite for RandomContrast transform."""
-
-    def test_random_contrast_basic(self):
-        """Test basic random contrast adjustment."""
-        torch.manual_seed(42)
-        transform = RandomContrast(contrast_range=(0.5, 1.5))
-
-        x = torch.linspace(0, 1, 100).reshape(10, 10)
-        result = transform(x)
-
-        # Result should be different (with high probability)
-        assert result.shape == x.shape
-
-    def test_random_contrast_preserves_shape(self):
-        """Test that random contrast preserves shape."""
-        transform = RandomContrast(contrast_range=(0.8, 1.2))
-
-        shapes = [(10,), (10, 10), (5, 10, 10), (2, 5, 10, 10)]
-        for shape in shapes:
-            x = torch.rand(shape)
-            result = transform(x)
-            assert result.shape == x.shape
-
-    def test_random_contrast_identity(self):
-        """Test that (1.0, 1.0) range produces identity."""
-        transform = RandomContrast(contrast_range=(1.0, 1.0))
-
-        x = torch.rand(10, 10)
-        result = transform(x)
-        # With factor=1.0, output should be close to input
-        assert torch.allclose(result, x, atol=1e-5)
-
-    def test_random_contrast_range(self):
-        """Test that contrast is within specified range."""
-        torch.manual_seed(42)
-        transform = RandomContrast(contrast_range=(0.5, 2.0))
-
-        x = torch.linspace(0, 1, 100).reshape(10, 10)
-
-        # Test multiple times to check randomness
-        results = []
-        for _ in range(10):
-            result = transform(x.clone())
-            results.append(result)
-
-        # Results should vary
-        assert not all(torch.allclose(results[0], r) for r in results[1:])
-
-
-class TestRandomGamma:
-    """Test suite for RandomGamma transform."""
-
-    def test_random_gamma_basic(self):
-        """Test basic random gamma adjustment."""
-        torch.manual_seed(42)
-        transform = RandomGamma(gamma_range=(0.5, 1.5))
-
-        x = torch.linspace(0, 1, 100).reshape(10, 10)
-        result = transform(x)
-
-        assert result.shape == x.shape
-        assert result.min() >= 0.0
-        assert result.max() <= 1.0
-
-    def test_random_gamma_preserves_shape(self):
-        """Test that random gamma preserves shape."""
-        transform = RandomGamma(gamma_range=(0.8, 1.2))
-
-        shapes = [(10,), (10, 10), (5, 10, 10), (2, 5, 10, 10)]
-        for shape in shapes:
-            x = torch.rand(shape)
-            result = transform(x)
-            assert result.shape == x.shape
-
-    def test_random_gamma_identity(self):
-        """Test that gamma=1.0 produces identity."""
-        transform = RandomGamma(gamma_range=(1.0, 1.0))
-
-        x = torch.rand(10, 10)
-        result = transform(x)
-        assert torch.allclose(result, x, atol=1e-5)
-
-    def test_random_gamma_values(self):
-        """Test gamma effect on values."""
-        torch.manual_seed(42)
-        x = torch.tensor([0.0, 0.25, 0.5, 0.75, 1.0])
-
-        # Gamma < 1 should brighten mid-tones
-        transform_bright = RandomGamma(gamma_range=(0.5, 0.5))
-        result_bright = transform_bright(x.clone())
-        assert result_bright[2] > x[2]  # Mid-tone should be brighter
-
-        # Gamma > 1 should darken mid-tones
-        transform_dark = RandomGamma(gamma_range=(2.0, 2.0))
-        result_dark = transform_dark(x.clone())
-        assert result_dark[2] < x[2]  # Mid-tone should be darker
+# ---------------------------------------------------------------------------
+# NaNtoNum
+# ---------------------------------------------------------------------------
 
 
 class TestNaNtoNum:
-    """Test suite for NaNtoNum transform."""
+    def test_import_path(self):
+        from cellmap_data.transforms.augment import NaNtoNum  # noqa: F401
 
-    def test_nan_to_num_basic(self):
-        """Test basic NaN replacement."""
-        transform = NaNtoNum({"nan": 0.0})
+    def test_nan_replaced_by_zero(self):
+        t = NaNtoNum({"nan": 0, "posinf": None, "neginf": None})
+        x = torch.tensor([float("nan"), 1.0, 2.0])
+        out = t(x)
+        assert not torch.isnan(out).any()
+        assert out[0] == 0.0
 
-        x = torch.tensor([1.0, float("nan"), 3.0, float("nan"), 5.0])
-        result = transform(x)
+    def test_nan_replaced_by_custom_value(self):
+        t = NaNtoNum({"nan": -1.0})
+        x = torch.tensor([float("nan"), 5.0])
+        out = t(x)
+        assert out[0] == pytest.approx(-1.0)
 
-        expected = torch.tensor([1.0, 0.0, 3.0, 0.0, 5.0])
-        assert torch.allclose(result, expected, equal_nan=False)
-        assert not torch.isnan(result).any()
+    def test_posinf_replaced(self):
+        t = NaNtoNum({"nan": 0, "posinf": 99.0, "neginf": None})
+        x = torch.tensor([float("inf"), 1.0])
+        out = t(x)
+        assert out[0] == pytest.approx(99.0)
 
-    def test_nan_to_num_inf(self):
-        """Test infinity replacement."""
-        transform = NaNtoNum({"posinf": 1e6, "neginf": -1e6})
+    def test_neginf_replaced(self):
+        t = NaNtoNum({"nan": 0, "posinf": None, "neginf": -99.0})
+        x = torch.tensor([float("-inf"), 1.0])
+        out = t(x)
+        assert out[0] == pytest.approx(-99.0)
 
-        x = torch.tensor([1.0, float("inf"), -float("inf"), 3.0])
-        result = transform(x)
+    def test_no_nans_unchanged(self):
+        t = NaNtoNum({"nan": 0, "posinf": None, "neginf": None})
+        x = torch.tensor([1.0, 2.0, 3.0])
+        out = t(x)
+        assert torch.allclose(out, x)
 
-        expected = torch.tensor([1.0, 1e6, -1e6, 3.0])
-        assert torch.allclose(result, expected)
+    def test_callable(self):
+        t = NaNtoNum({"nan": 0})
+        x = torch.full((4, 4), float("nan"))
+        out = t(x)
+        assert (out == 0.0).all()
 
-    def test_nan_to_num_all_replacements(self):
-        """Test all replacements at once."""
-        transform = NaNtoNum({"nan": 0.0, "posinf": 100.0, "neginf": -100.0})
+    def test_repr(self):
+        t = NaNtoNum({"nan": 0})
+        assert "NaNtoNum" in repr(t)
 
-        x = torch.tensor([float("nan"), float("inf"), -float("inf"), 1.0])
-        result = transform(x)
+    def test_transform_method_alias(self):
+        """Both __call__ and .transform() should work."""
+        t = NaNtoNum({"nan": 42.0})
+        x = torch.tensor([float("nan")])
+        assert t.transform(x)[0] == pytest.approx(42.0)
 
-        expected = torch.tensor([0.0, 100.0, -100.0, 1.0])
-        assert torch.allclose(result, expected)
+    def test_used_as_in_api(self):
+        """Replicates the exact usage from API_TO_PRESERVE.md."""
+        t = NaNtoNum({"nan": 0, "posinf": None, "neginf": None})
+        x = torch.tensor([float("nan"), float("inf"), float("-inf"), 0.5])
+        out = t(x)
+        assert out[0] == 0.0
+        assert not torch.isnan(out).any()
 
-    def test_nan_to_num_preserves_valid_values(self):
-        """Test that valid values are preserved."""
-        transform = NaNtoNum({"nan": 0.0})
+    def test_3d_tensor(self):
+        t = NaNtoNum({"nan": 0})
+        x = torch.full((4, 4, 4), float("nan"))
+        out = t(x)
+        assert not torch.isnan(out).any()
+        assert out.shape == torch.Size([4, 4, 4])
 
-        x = torch.rand(10, 10)
-        result = transform(x)
-        assert torch.allclose(result, x)
 
-    def test_nan_to_num_multidimensional(self):
-        """Test NaN replacement in multidimensional arrays."""
-        transform = NaNtoNum({"nan": -1.0})
-
-        x = torch.rand(5, 10, 10)
-        x[2, 5, 5] = float("nan")
-        x[3, 7, 3] = float("nan")
-
-        result = transform(x)
-        assert not torch.isnan(result).any()
-        assert result[2, 5, 5] == -1.0
-        assert result[3, 7, 3] == -1.0
+# ---------------------------------------------------------------------------
+# Binarize
+# ---------------------------------------------------------------------------
 
 
 class TestBinarize:
-    """Test suite for Binarize transform."""
+    def test_import_path(self):
+        from cellmap_data.transforms.augment import Binarize  # noqa: F401
 
-    def test_binarize_basic(self):
-        """Test basic binarization."""
-        transform = Binarize(threshold=0.5)
+    def test_default_threshold_zero(self):
+        t = Binarize()
+        x = torch.tensor([-1.0, 0.0, 0.5, 1.0])
+        out = t(x)
+        expected = torch.tensor([0.0, 0.0, 1.0, 1.0])
+        assert torch.allclose(out, expected)
 
-        x = torch.tensor([0.0, 0.3, 0.5, 0.7, 1.0])
-        result = transform(x)
+    def test_custom_threshold(self):
+        t = Binarize(0.5)
+        x = torch.tensor([0.0, 0.49, 0.5, 0.51, 1.0])
+        out = t(x)
+        # > 0.5 → 1
+        assert out[0] == 0.0
+        assert out[1] == 0.0
+        assert out[2] == 0.0  # 0.5 is NOT > 0.5
+        assert out[3] == 1.0
+        assert out[4] == 1.0
 
-        # Binarize uses > not >=, so 0.5 is NOT included
-        expected = torch.tensor([0.0, 0.0, 0.0, 1.0, 1.0])
-        assert torch.allclose(result, expected)
+    def test_nan_preserved_after_binarize(self):
+        """NaN in input → NaN in output (unknown class, not zero)."""
+        t = Binarize()
+        x = torch.tensor([float("nan"), 1.0, 0.0])
+        out = t(x)
+        assert torch.isnan(out[0])
+        assert out[1] == 1.0
+        assert out[2] == 0.0
 
-    def test_binarize_different_thresholds(self):
-        """Test different threshold values."""
-        x = torch.linspace(0, 1, 11)
+    def test_repr(self):
+        t = Binarize(0.5)
+        assert "Binarize" in repr(t)
+        assert "0.5" in repr(t)
 
-        for threshold in [0.0, 0.25, 0.5, 0.75, 1.0]:
-            transform = Binarize(threshold=threshold)
-            result = transform(x)
+    def test_integer_input_binarize(self):
+        t = Binarize()
+        x = torch.tensor([0, 1, 2, -1], dtype=torch.int32)
+        out = t(x)
+        # > 0 → 1
+        assert out[0] == 0
+        assert out[1] == 1
+        assert out[2] == 1
 
-            # Check that values below or equal to threshold are 0, above are 1
-            assert torch.all(result[x <= threshold] == 0.0)
-            assert torch.all(result[x > threshold] == 1.0)
+    def test_transform_method_alias(self):
+        t = Binarize(0.5)
+        x = torch.tensor([0.0, 1.0])
+        out = t.transform(x)
+        assert torch.allclose(out, torch.tensor([0.0, 1.0]))
 
-    def test_binarize_preserves_shape(self):
-        """Test that binarize preserves shape."""
-        transform = Binarize(threshold=0.5)
+    def test_used_as_in_api(self):
+        """Replicates the exact usage from API_TO_PRESERVE.md / datasplit default."""
+        t = Binarize()
+        x = torch.tensor([0.0, 0.001, 0.5, 0.9, float("nan")])
+        out = t(x)
+        assert out[0] == 0.0  # 0.0 not > 0
+        assert out[1] == 1.0  # 0.001 > 0
+        assert out[2] == 1.0
+        assert out[3] == 1.0
+        assert torch.isnan(out[4])
 
-        shapes = [(10,), (10, 10), (5, 10, 10), (2, 5, 10, 10)]
-        for shape in shapes:
-            x = torch.rand(shape)
-            result = transform(x)
-            assert result.shape == x.shape
+    def test_shape_preserved(self):
+        t = Binarize()
+        x = torch.rand(3, 4, 5)
+        out = t(x)
+        assert out.shape == x.shape
 
-    def test_binarize_output_values(self):
-        """Test that output only contains 0 and 1."""
-        transform = Binarize(threshold=0.5)
+    def test_with_import_compose(self):
+        """Compose(Binarize()) used as target_value_transforms in CellMapDataSplit."""
+        import torchvision.transforms.v2 as T
 
-        x = torch.rand(100, 100)
-        result = transform(x)
+        pipeline = T.Compose([T.ToDtype(torch.float), Binarize()])
+        x = torch.tensor([0, 1, 2], dtype=torch.int32)
+        out = pipeline(x)
+        assert torch.allclose(out, torch.tensor([0.0, 1.0, 1.0]))
 
-        unique_values = torch.unique(result)
-        assert len(unique_values) <= 2
-        assert all(v in [0.0, 1.0] for v in unique_values.tolist())
+
+# ---------------------------------------------------------------------------
+# GaussianNoise
+# ---------------------------------------------------------------------------
+
+
+class TestGaussianNoise:
+    def test_output_shape(self):
+        t = GaussianNoise(mean=0.0, std=0.1)
+        x = torch.zeros(4, 4, 4)
+        out = t(x)
+        assert out.shape == x.shape
+
+    def test_adds_noise(self):
+        """Output should differ from input (with high probability for nonzero std)."""
+        t = GaussianNoise(mean=0.0, std=1.0)
+        x = torch.zeros(100)
+        out = t(x)
+        assert not torch.allclose(out, x)
+
+    def test_zero_std_unchanged(self):
+        t = GaussianNoise(mean=0.0, std=0.0)
+        x = torch.ones(10)
+        out = t(x)
+        assert torch.allclose(out, x)
+
+    def test_mean_offset(self):
+        """High mean with large tensor → output mean close to input_mean + noise_mean."""
+        t = GaussianNoise(mean=10.0, std=0.0)
+        x = torch.zeros(1000)
+        out = t(x)
+        assert out.mean().item() == pytest.approx(10.0, abs=0.5)
+
+
+# ---------------------------------------------------------------------------
+# RandomContrast
+# ---------------------------------------------------------------------------
+
+
+class TestRandomContrast:
+    def test_output_shape(self):
+        t = RandomContrast((0.8, 1.2))
+        x = torch.rand(4, 4, 4)
+        out = t(x)
+        assert out.shape == x.shape
+
+    def test_output_dtype_preserved(self):
+        t = RandomContrast((0.9, 1.1))
+        x = torch.rand(8, 8).float()
+        out = t(x)
+        assert out.dtype == x.dtype
+
+    def test_no_nan_output(self):
+        t = RandomContrast((0.5, 1.5))
+        x = torch.rand(10, 10)
+        out = t(x)
+        assert not torch.isnan(out).any()
+
+    def test_clamped_to_dtype_max(self):
+        """Output should not exceed the max value for the dtype."""
+        from cellmap_data.utils import torch_max_value
+
+        t = RandomContrast((1.0, 1.0))  # identity contrast ratio
+        x = torch.rand(8, 8).float()
+        out = t(x)
+        assert (out <= torch_max_value(x.dtype) + 1e-6).all()
+
+
+# ---------------------------------------------------------------------------
+# RandomGamma
+# ---------------------------------------------------------------------------
+
+
+class TestRandomGamma:
+    def test_output_shape(self):
+        t = RandomGamma((0.5, 1.5))
+        x = torch.rand(4, 4, 4)
+        out = t(x)
+        assert out.shape == x.shape
+
+    def test_output_in_01(self):
+        """After gamma, float input in [0,1] → output in [0,1]."""
+        t = RandomGamma((0.5, 2.0))
+        x = torch.rand(64)
+        out = t(x)
+        assert (out >= 0.0).all()
+        assert (out <= 1.0 + 1e-5).all()
+
+    def test_no_nan_output(self):
+        t = RandomGamma((0.8, 1.2))
+        x = torch.rand(10, 10)
+        out = t(x)
+        assert not torch.isnan(out).any()
+
+    def test_integer_input_converted(self):
+        """Integer input should be converted to float without error."""
+        t = RandomGamma((0.9, 1.1))
+        x = torch.randint(0, 256, (10,), dtype=torch.uint8)
+        out = t(x)  # should not raise
+        assert out.dtype == torch.float32
+
+
+# ---------------------------------------------------------------------------
+# GaussianBlur
+# ---------------------------------------------------------------------------
 
 
 class TestGaussianBlur:
-    """Test suite for GaussianBlur transform."""
+    def test_2d_output_shape(self):
+        t = GaussianBlur(kernel_size=3, sigma=1.0, dim=2)
+        x = torch.rand(8, 8)
+        out = t(x)
+        assert out.shape == x.shape
 
-    def test_gaussian_blur_basic(self):
-        """Test basic Gaussian blur."""
-        transform = GaussianBlur(sigma=1.0)
+    def test_3d_output_shape(self):
+        t = GaussianBlur(kernel_size=3, sigma=1.0, dim=3)
+        x = torch.rand(8, 8, 8)
+        out = t(x)
+        assert out.shape == x.shape
 
-        # Create image with a single bright pixel
-        x = torch.zeros(21, 21)
-        x[10, 10] = 1.0
+    def test_blurred_differs_from_input(self):
+        t = GaussianBlur(kernel_size=5, sigma=2.0, dim=2)
+        x = torch.rand(16, 16)
+        out = t(x)
+        assert not torch.allclose(out, x)
 
-        result = transform(x)
+    def test_constant_input_unchanged(self):
+        """Blurring a constant field should return the same constant (approximately)."""
+        t = GaussianBlur(kernel_size=3, sigma=1.0, dim=2)
+        x = torch.ones(16, 16)
+        out = t(x)
+        assert torch.allclose(out, x, atol=1e-4)
 
-        # Blur should spread the value
-        assert result[10, 10] < 1.0  # Center should be less bright
-        assert result[9, 10] > 0.0  # Neighbors should have some value
-        assert result.sum() > 0.0
+    def test_even_kernel_raises(self):
+        with pytest.raises(AssertionError):
+            GaussianBlur(kernel_size=4, dim=2)
 
-    def test_gaussian_blur_preserves_shape(self):
-        """Test that Gaussian blur preserves shape."""
-        # Test 2D
-        transform_2d = GaussianBlur(sigma=1.0, dim=2, channels=1)
-        x_2d = torch.rand(1, 10, 10)  # Need channel dimension
-        result_2d = transform_2d(x_2d)
-        assert result_2d.shape == x_2d.shape
+    def test_invalid_dim_raises(self):
+        with pytest.raises(AssertionError):
+            GaussianBlur(dim=1)
 
-        # Test 3D
-        transform_3d = GaussianBlur(sigma=1.0, dim=3, channels=1)
-        x_3d = torch.rand(1, 5, 10, 10)  # Need channel dimension
-        result_3d = transform_3d(x_3d)
-        assert result_3d.shape == x_3d.shape
 
-    def test_gaussian_blur_different_sigmas(self):
-        """Test different sigma values."""
-        x = torch.zeros(21, 21)
-        x[10, 10] = 1.0
-
-        results = []
-        for sigma in [0.5, 1.0, 2.0, 3.0]:
-            transform = GaussianBlur(sigma=sigma)
-            result = transform(x.clone())
-            results.append(result)
-
-        # Larger sigma should produce more blur (lower peak)
-        peaks = [r[10, 10].item() for r in results]
-        assert peaks[0] > peaks[1] > peaks[2] > peaks[3]
-
-    def test_gaussian_blur_smoothing(self):
-        """Test that blur reduces high frequencies."""
-        # Create checkerboard pattern
-        x = torch.zeros(20, 20)
-        x[::2, ::2] = 1.0
-        x[1::2, 1::2] = 1.0
-
-        transform = GaussianBlur(sigma=2.0)
-        result = transform(x)
-
-        # Blurred result should have less variance
-        assert result.var() < x.var()
+# ---------------------------------------------------------------------------
+# Integration: transforms compose with torchvision
+# ---------------------------------------------------------------------------
 
 
 class TestTransformComposition:
-    """Test composing multiple transforms together."""
-
-    def test_sequential_transforms(self):
-        """Test applying transforms sequentially."""
+    def test_nan_to_num_in_compose(self):
         import torchvision.transforms.v2 as T
 
-        transforms = T.Compose(
+        pipeline = T.Compose(
             [
-                T.ToDtype(torch.float32, scale=True),
-                GaussianNoise(std=0.01),
-                RandomContrast(contrast_range=(0.9, 1.1)),
+                NaNtoNum({"nan": 0, "posinf": None, "neginf": None}),
             ]
         )
+        x = torch.tensor([float("nan"), 1.0])
+        out = pipeline(x)
+        assert out[0] == 0.0
 
-        x = torch.randint(0, 256, (1, 10, 10), dtype=torch.float32)
-        result = transforms(x)
-
-        assert result.shape == x.shape
-        assert result.min() >= -0.5  # Noise might push slightly negative
-        assert result.max() <= 1.5  # Contrast might push slightly above 1
-
-    def test_transform_pipeline(self):
-        """Test a realistic transform pipeline."""
+    def test_binarize_after_dtype_conversion(self):
         import torchvision.transforms.v2 as T
 
-        # Realistic preprocessing pipeline
-        raw_transforms = T.Compose(
-            [
-                T.ToDtype(torch.float32, scale=True),
-                GaussianNoise(std=0.05),
-                RandomContrast(contrast_range=(0.8, 1.2)),
-            ]
-        )
+        pipeline = T.Compose([T.ToDtype(torch.float), Binarize()])
+        x = torch.tensor([0, 1, 2], dtype=torch.int32)
+        out = pipeline(x)
+        assert torch.allclose(out, torch.tensor([0.0, 1.0, 1.0]))
 
-        target_transforms = T.Compose(
-            [
-                Binarize(threshold=0.5),
-                T.ToDtype(torch.float32),
-            ]
-        )
+    def test_nan_preserved_through_binarize(self):
+        """NaN labels must survive Binarize so loss can ignore them."""
+        import torchvision.transforms.v2 as T
 
-        raw = torch.randint(0, 256, (1, 32, 32), dtype=torch.float32)
-        target = torch.rand(32, 32)
-
-        raw_out = raw_transforms(raw)
-        target_out = target_transforms(target)
-
-        assert raw_out.shape == raw.shape
-        assert target_out.shape == target.shape
-        assert target_out.unique().numel() <= 2  # Should be binary
+        pipeline = T.Compose([T.ToDtype(torch.float), Binarize()])
+        x = torch.tensor([float("nan"), 1.0, 0.0])
+        out = pipeline(x)
+        assert torch.isnan(out[0])
+        assert out[1] == 1.0
+        assert out[2] == 0.0

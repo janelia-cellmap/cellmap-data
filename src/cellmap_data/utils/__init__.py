@@ -5,6 +5,7 @@ from .figs import (
     get_image_grid,
     get_image_grid_numpy,
 )
+from .geometry import box_intersection, box_shape, box_union
 from .metadata import (
     add_multiscale_metadata_levels,
     create_multiscale_metadata,
@@ -17,12 +18,11 @@ from .misc import (
     get_sliced_shape,
     is_array_2D,
     longest_common_substring,
+    min_redundant_inds,
     permute_singleton_dimension,
     split_target_path,
     torch_max_value,
 )
-from .sampling import min_redundant_inds
-from .view import get_neuroglancer_link, open_neuroglancer
 
 __all__ = [
     "fig_to_image",
@@ -30,6 +30,9 @@ __all__ = [
     "get_image_dict",
     "get_image_grid",
     "get_image_grid_numpy",
+    "box_intersection",
+    "box_shape",
+    "box_union",
     "add_multiscale_metadata_levels",
     "create_multiscale_metadata",
     "find_level",
@@ -39,10 +42,8 @@ __all__ = [
     "get_sliced_shape",
     "is_array_2D",
     "longest_common_substring",
+    "min_redundant_inds",
     "permute_singleton_dimension",
     "split_target_path",
     "torch_max_value",
-    "min_redundant_inds",
-    "get_neuroglancer_link",
-    "open_neuroglancer",
 ]
