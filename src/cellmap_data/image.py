@@ -188,10 +188,19 @@ class CellMapImage(CellMapImageBase):
         }
 
     @cached_property
+    def _array_shape(self) -> tuple[int, ...]:
+        """Shape of the selected scale-level array.
+
+        Cached as a compact tuple of ints rather than opening the zarr array
+        on every access.  Used by ``full_coords`` and ``shape`` so that both
+        share the same single zarr metadata read.
+        """
+        return tuple(int(s) for s in self.group[self.scale_level].shape)
+
+    @cached_property
     def shape(self) -> Mapping[str, int]:
         """Returns the shape of the image."""
-        shape = self.group[self.scale_level].shape
-        return {c: int(s) for c, s in zip(self.axes, shape)}
+        return {c: s for c, s in zip(self.axes, self._array_shape)}
 
     @cached_property
     def center(self) -> Mapping[str, float]:
@@ -220,14 +229,25 @@ class CellMapImage(CellMapImageBase):
         # tx_fused = normalize_transforms(multi_tx, dset.coordinateTransformations)
         return dset.coordinateTransformations
 
-    @cached_property
+    @property
     def full_coords(self) -> tuple[xarray.DataArray, ...]:
-        """Returns the full coordinates of the image's axes in world units."""
+        """Returns the full coordinates of the image's axes in world units.
+
+        This is a plain ``@property`` (not ``@cached_property``) so the large
+        coordinate arrays are NOT kept alive between ``__getitem__`` calls.
+        ``bounding_box`` accesses it once (during its own cached initialisation)
+        and then the arrays are freed.  ``array`` accesses it each time it is
+        rebuilt (after ``_clear_array_cache``), which is also once per
+        ``__getitem__``, so there is no performance regression.
+
+        All inputs (``multiscale_attrs``, ``coordinateTransformations``,
+        ``_array_shape``) are individually cached, so reconstruction is pure
+        in-process arithmetic — no NFS reads after the first call.
+        """
         return coords_from_transforms(
             axes=self.multiscale_attrs.axes,
             transforms=self.coordinateTransformations,  # type: ignore
-            # transforms=tx_fused,
-            shape=self.group[self.scale_level].shape,  # type: ignore
+            shape=self._array_shape,  # type: ignore
         )
 
     @cached_property

@@ -622,3 +622,123 @@ class TestCellMapImageEdgeCases:
             expected_hi = image.output_size[axis] / 2 - image.scale[axis] / 2
             assert abs(arr[0] - expected_lo) < 1e-9
             assert abs(arr[-1] - expected_hi) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# full_coords memory fix: property (not cached) + _array_shape
+# ---------------------------------------------------------------------------
+
+
+class TestFullCoordsMemoryFix:
+    """Verify the full_coords / _array_shape memory-reduction change.
+
+    full_coords was changed from @cached_property to @property so that the
+    large per-axis coordinate arrays are not held in memory between
+    __getitem__ calls.  _array_shape replaces the per-call zarr shape read
+    with a compact cached tuple.
+    """
+
+    @pytest.fixture
+    def image(self, tmp_path):
+        data = create_test_image_data((32, 32, 32), pattern="gradient")
+        path = tmp_path / "test_image.zarr"
+        create_test_zarr_array(path, data, scale=(4.0, 4.0, 4.0))
+        return CellMapImage(
+            path=str(path),
+            target_class="test_class",
+            target_scale=(4.0, 4.0, 4.0),
+            target_voxel_shape=(8, 8, 8),
+        )
+
+    # ------------------------------------------------------------------
+    # _array_shape: cached, compact
+    # ------------------------------------------------------------------
+
+    def test_array_shape_is_cached(self, image):
+        """_array_shape must be a @cached_property (stored in __dict__)."""
+        _ = image._array_shape
+        assert "_array_shape" in image.__dict__
+
+    def test_array_shape_is_tuple_of_ints(self, image):
+        """_array_shape must be a tuple of plain Python ints."""
+        shape = image._array_shape
+        assert isinstance(shape, tuple)
+        assert all(isinstance(s, int) for s in shape)
+
+    def test_array_shape_matches_source_array(self, image):
+        """_array_shape must match the underlying zarr array dimensions."""
+        shape = image._array_shape
+        assert shape == (32, 32, 32)
+
+    def test_array_shape_same_object_on_repeated_access(self, image):
+        """_array_shape returns the same tuple object (cached, not recomputed)."""
+        s1 = image._array_shape
+        s2 = image._array_shape
+        assert s1 is s2
+
+    # ------------------------------------------------------------------
+    # full_coords: NOT cached between calls
+    # ------------------------------------------------------------------
+
+    def test_full_coords_not_in_dict_after_bounding_box(self, image):
+        """After bounding_box initialises, full_coords must NOT be in __dict__.
+
+        bounding_box is the primary consumer of full_coords during setup;
+        the fix requires that the large coord arrays are freed immediately
+        after bounding_box is cached.
+        """
+        _ = image.bounding_box  # triggers full_coords access internally
+        assert "full_coords" not in image.__dict__
+
+    def test_full_coords_not_cached_after_getitem(self, image):
+        """After a __getitem__ call, full_coords must not be in __dict__."""
+        center = {"z": 64.0, "y": 64.0, "x": 64.0}
+        _ = image[center]
+        assert "full_coords" not in image.__dict__
+
+    def test_full_coords_returns_new_object_each_access(self, image):
+        """full_coords must produce a new tuple on every call (not cached)."""
+        fc1 = image.full_coords
+        fc2 = image.full_coords
+        assert fc1 is not fc2
+
+    def test_full_coords_values_consistent(self, image):
+        """Repeated calls to full_coords must return equivalent coordinate values."""
+        import numpy as np
+
+        fc1 = image.full_coords
+        fc2 = image.full_coords
+        assert len(fc1) == len(fc2)
+        for da1, da2 in zip(fc1, fc2):
+            np.testing.assert_array_equal(da1.values, da2.values)
+            assert da1.dims == da2.dims
+
+    # ------------------------------------------------------------------
+    # shape property still correct (now delegates to _array_shape)
+    # ------------------------------------------------------------------
+
+    def test_shape_property_correct(self, image):
+        """shape must still return the correct axis→size mapping."""
+        shape = image.shape
+        assert isinstance(shape, dict)
+        for axis in image.axes:
+            assert axis in shape
+            assert shape[axis] == 32
+
+    def test_shape_uses_array_shape(self, image):
+        """shape values must match _array_shape elements."""
+        arr_shape = image._array_shape
+        for s, axis in zip(arr_shape, image.axes):
+            assert image.shape[axis] == s
+
+    # ------------------------------------------------------------------
+    # bounding_box correctness preserved after the refactor
+    # ------------------------------------------------------------------
+
+    def test_bounding_box_still_correct_after_refactor(self, image):
+        """bounding_box must still return valid min/max per axis."""
+        bbox = image.bounding_box
+        assert set(bbox.keys()) == set(image.axes)
+        for axis in image.axes:
+            lo, hi = bbox[axis]
+            assert lo <= hi
