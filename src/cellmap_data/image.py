@@ -199,9 +199,17 @@ class CellMapImage:
 
     @cached_property
     def sampling_box(self) -> dict[str, tuple[float, float]] | None:
-        """Shrunk bounding box where patch centres can be drawn without going OOB.
+        """Bounding box where patch centres can be drawn.
 
-        Returns ``None`` if the array is smaller than the requested patch.
+        When the array is large enough to contain the full output patch, the
+        box is the bounding box shrunk by ``output_size / 2`` on each side so
+        that reads never extend outside the array.
+
+        When the array is *smaller* than the output patch:
+        - If ``pad=True``: returns a single-centre box positioned at the
+          midpoint of the bounding box.  ``len(dataset)`` will be 1 and
+          out-of-bounds voxels are filled with ``pad_value``.
+        - If ``pad=False``: returns ``None`` (dataset excluded).
         """
         bb = self.bounding_box
         result: dict[str, tuple[float, float]] = {}
@@ -210,8 +218,16 @@ class CellMapImage:
             lo = bb[ax][0] + half
             hi = bb[ax][1] - half
             if lo >= hi:
-                return None
-            result[ax] = (lo, hi)
+                if not self.pad:
+                    return None
+                # Crop smaller than output: expose a single sample at the centre
+                bb_center = (bb[ax][0] + bb[ax][1]) / 2.0
+                result[ax] = (
+                    bb_center - self.scale[ax] / 2.0,
+                    bb_center + self.scale[ax] / 2.0,
+                )
+            else:
+                result[ax] = (lo, hi)
         return result
 
     def get_center(self, idx: int) -> dict[str, float]:
@@ -248,8 +264,25 @@ class CellMapImage:
     # ------------------------------------------------------------------
 
     def _compute_read_shape(self) -> list[int]:
-        """Read shape large enough to accommodate the current rotation."""
-        base = [self.output_shape[ax] for ax in self.axes]
+        """Number of zarr voxels to read to cover ``output_shape * target_scale``
+        nm of world space.
+
+        When the selected zarr level has a different voxel size from the target
+        scale, reading ``output_shape`` zarr voxels covers the wrong world
+        extent.  The correct count is::
+
+            zarr_voxels = round(output_voxels * target_scale / zarr_voxel_size)
+
+        The rotation case further enlarges the read to accommodate the
+        oversized pre-rotation patch.
+        """
+        base = [
+            max(1, int(round(
+                self.output_shape[ax] * self.scale[ax]
+                / self._voxel_size.get(ax, self.scale[ax])
+            )))
+            for ax in self.axes
+        ]
         if self._current_spatial_transforms is None:
             return base
         R = self._current_spatial_transforms.get("rotation_matrix")
@@ -280,14 +313,32 @@ class CellMapImage:
         pad_widths: list[tuple[int, int]] = []
 
         for i, ax in enumerate(self.axes):
-            vs = self._voxel_size.get(ax, 1.0)
+            vs = self._voxel_size.get(ax, self.scale[ax])
             vox_center = (center[ax] - self._origin.get(ax, 0.0)) / vs
             start = int(np.floor(vox_center - read_shape[i] / 2.0))
-            end = start + read_shape[i]
 
-            pad_lo = max(0, -start)
-            pad_hi = max(0, end - arr_shape[i])
-            slices.append(slice(max(0, start), min(arr_shape[i], end)))
+            # Compute pad and slice such that pad_lo + valid_len + pad_hi == read_shape[i]
+            # even when the read window is partially or fully outside the array.
+            pad_lo = max(0, min(read_shape[i], -start))
+            remaining = read_shape[i] - pad_lo
+            arr_start = max(0, start)
+            valid_len = max(0, min(arr_shape[i], arr_start + remaining) - arr_start)
+            pad_hi = remaining - valid_len
+
+            if valid_len == 0:
+                logger.warning(
+                    "Fully out-of-bounds read for %r axis %r: centre=%.1f is "
+                    "outside array extent [%.1f, %.1f] nm.  This should not "
+                    "happen in normal usage — check that the centre was drawn "
+                    "from within sampling_box.",
+                    self.path,
+                    ax,
+                    center[ax],
+                    self._origin.get(ax, 0.0),
+                    self._origin.get(ax, 0.0) + arr_shape[i] * vs,
+                )
+
+            slices.append(slice(arr_start, arr_start + valid_len))
             pad_widths.append((pad_lo, pad_hi))
 
         # Prepend slices for leading non-spatial dims (e.g. channel)
@@ -310,16 +361,13 @@ class CellMapImage:
 
         # Resample if voxel size differs from target scale
         needs_resample = any(
-            abs(self._voxel_size.get(ax, 1.0) - self.scale[ax])
+            abs(self._voxel_size.get(ax, self.scale[ax]) - self.scale[ax])
             / max(self.scale[ax], 1e-9)
             > 0.01
             for ax in self.axes
         )
         if needs_resample:
-            zoom = [self._voxel_size.get(ax, 1.0) / self.scale[ax] for ax in self.axes]
-            out_spatial = [
-                max(1, int(round(read_shape[i] * zoom[i]))) for i in range(spatial_ndim)
-            ]
+            out_spatial = [self.output_shape[ax] for ax in self.axes]
             # Bring data to [N, C, *spatial] for interpolate
             orig_ndim = data.ndim
             while data.ndim < spatial_ndim + 2:
@@ -373,6 +421,31 @@ class CellMapImage:
                 full_perm = list(range(n_lead)) + [n_lead + p for p in perm]
                 data = data.permute(*full_perm).contiguous()
 
+        # Enforce exact output_shape: centre-crop oversized dims, pad undersized
+        # dims.  Undersized dims arise from near-boundary reads when pad=False;
+        # padding them here makes the output shape predictable regardless of the
+        # pad setting.
+        target_shape = [self.output_shape[ax] for ax in self.axes]
+        actual = [data.shape[data.ndim - spatial_ndim + i] for i in range(spatial_ndim)]
+        if any(actual[i] != target_shape[i] for i in range(spatial_ndim)):
+            # Centre-crop any oversized spatial dims
+            crop_sl: list[Any] = [slice(None)] * (data.ndim - spatial_ndim)
+            for i in range(spatial_ndim):
+                curr, tgt = actual[i], target_shape[i]
+                lo = max(0, (curr - tgt) // 2)
+                crop_sl.append(slice(lo, lo + min(curr, tgt)))
+            data = data[tuple(crop_sl)]
+
+            # Pad any undersized spatial dims (symmetric, pad_value fill)
+            actual = [data.shape[data.ndim - spatial_ndim + i] for i in range(spatial_ndim)]
+            pad_needed = [target_shape[i] - actual[i] for i in range(spatial_ndim)]
+            if any(p > 0 for p in pad_needed):
+                size_pad: list[int] = []
+                for p in reversed(pad_needed):
+                    size_pad += [p // 2, p - p // 2]
+                size_pad += [0, 0] * (data.ndim - spatial_ndim)
+                data = F.pad(data, size_pad, mode="constant", value=self.pad_value)
+
         if self.value_transform is not None:
             data = self.value_transform(data)
 
@@ -417,7 +490,7 @@ class CellMapImage:
         )
 
         # Replace zero-padded corners with pad_value (only matters for continuous data)
-        if not np.isnan(self.pad_value) and self.pad_value != 0.0:
+        if self.pad_value != 0.0:
             # grid_sample fills OOB with 0; patch with pad_value
             oob_mask = (grid[..., 0].abs() > 1) | (grid[..., 1].abs() > 1)
             if spatial_ndim == 3:

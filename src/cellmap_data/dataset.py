@@ -191,14 +191,23 @@ class CellMapDataset(Dataset):
 
     @cached_property
     def sampling_box(self) -> dict[str, tuple[float, float]] | None:
-        """Intersection of all source sampling boxes."""
+        """Intersection of all source sampling boxes.
+
+        ``EmptyImage`` sources (``bounding_box is None``) are skipped.
+        A ``CellMapImage`` with a crop smaller than the output patch returns
+        a single-centre ``sampling_box`` when ``pad=True`` (so
+        ``len(dataset)`` becomes 1), or ``None`` when ``pad=False`` (which
+        causes this method to return ``None`` and exclude the dataset).
+        """
         box = None
         for src in list(self.input_sources.values()) + list(
             self.target_sources.values()
         ):
             sb = src.sampling_box
             if sb is None:
-                continue
+                if src.bounding_box is None:
+                    continue  # EmptyImage — no spatial constraint
+                return None  # pad=False and crop too small → exclude
             box = sb if box is None else box_intersection(box, sb)
             if box is None:
                 return None
@@ -240,10 +249,29 @@ class CellMapDataset(Dataset):
         result: dict[str, Any] = {"idx": torch.tensor(idx)}
 
         for name, src in self.input_sources.items():
-            result[name] = src[center]
+            tensor = src[center]
+            # Drop any singleton spatial dims (e.g. Z=1 for flat-3D inputs),
+            # then prepend C=1 so the batch has shape [N, C, *spatial] as
+            # expected by PyTorch convolutions.
+            if 1 in tensor.shape:
+                tensor = tensor.squeeze()
+            result[name] = tensor.unsqueeze(0)  # [C=1, *spatial]
 
-        for cls, src in self.target_sources.items():
-            result[cls] = src[center]
+        # Stack per-class tensors under each target array name.
+        # The challenge (and train.py) accesses targets via target_arrays keys
+        # (e.g. batch["output"]), not individual class names.
+        if self.target_arrays:
+            class_tensors = []
+            for cls in self.classes:
+                t = self.target_sources[cls][center]
+                # Match the same singleton-dim squeeze applied to inputs so
+                # spatial dims are consistent between inputs and targets.
+                if 1 in t.shape:
+                    t = t.squeeze()
+                class_tensors.append(t)
+            stacked = torch.stack(class_tensors, dim=0)  # [n_classes, *spatial]
+            for arr_name in self.target_arrays:
+                result[arr_name] = stacked
 
         # Reset spatial transforms
         for src in list(self.input_sources.values()) + list(
@@ -279,10 +307,18 @@ class CellMapDataset(Dataset):
         mirror_cfg = cfg.get("mirror")
         if mirror_cfg:
             if isinstance(mirror_cfg, dict):
-                result["mirror"] = {
-                    ax: bool(self._rng.random() < 0.5) if enabled else False
-                    for ax, enabled in mirror_cfg.items()
-                }
+                # Support {"axes": {"x": 0.5, ...}} wrapper or flat {"x": 0.5, ...}
+                axis_probs = mirror_cfg.get("axes", mirror_cfg)
+                if isinstance(axis_probs, dict):
+                    result["mirror"] = {
+                        ax: bool(self._rng.random() < prob)
+                        for ax, prob in axis_probs.items()
+                    }
+                else:
+                    axes = next(iter(self.input_sources.values())).axes
+                    result["mirror"] = {
+                        ax: bool(self._rng.random() < 0.5) for ax in axes
+                    }
             else:
                 axes = next(iter(self.input_sources.values())).axes
                 result["mirror"] = {ax: bool(self._rng.random() < 0.5) for ax in axes}
@@ -299,17 +335,19 @@ class CellMapDataset(Dataset):
         if rotate_cfg:
             axes = next(iter(self.input_sources.values())).axes
             if isinstance(rotate_cfg, dict):
-                # e.g. {"z": 45} → random angle in [-45, 45] degrees
-                angle_dict: dict[str, float] = {}
-                for ax, max_angle in rotate_cfg.items():
-                    if isinstance(max_angle, (list, tuple)):
-                        lo, hi = max_angle
-                    else:
-                        lo, hi = -float(max_angle), float(max_angle)
-                    angle_dict[ax] = float(self._rng.uniform(lo, hi))
-                R = _make_rotation_matrix(axes, angle_dict)
-                if R is not None:
-                    result["rotation_matrix"] = R
+                # Support {"axes": {"x": 45, ...}} wrapper or flat {"x": 45, ...}
+                axis_angles = rotate_cfg.get("axes", rotate_cfg)
+                if isinstance(axis_angles, dict):
+                    angle_dict: dict[str, float] = {}
+                    for ax, max_angle in axis_angles.items():
+                        if isinstance(max_angle, (list, tuple)):
+                            lo, hi = max_angle
+                        else:
+                            lo, hi = -float(max_angle), float(max_angle)
+                        angle_dict[ax] = float(self._rng.uniform(lo, hi))
+                    R = _make_rotation_matrix(axes, angle_dict)
+                    if R is not None:
+                        result["rotation_matrix"] = R
 
         return result if result else None
 

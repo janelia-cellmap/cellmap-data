@@ -47,7 +47,7 @@ class TestCellMapDataLoader:
             raw = batch["raw"]
             assert isinstance(raw, torch.Tensor)
             # batch_size is 2 but last batch may be smaller
-            assert raw.shape[1:] == torch.Size([4, 4, 4])
+            assert raw.shape[1:] == torch.Size([1, 4, 4, 4])
             break
 
     def test_len(self, tmp_path):

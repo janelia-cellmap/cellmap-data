@@ -42,11 +42,46 @@ class TestCellMapImageBasics:
         assert sb["z"][0] == pytest.approx(16.0)
         assert sb["z"][1] == pytest.approx(144.0)
 
-    def test_sampling_box_none_when_too_small(self, tmp_path):
-        # Patch (100 voxels) larger than array (10 voxels * 8nm = 80nm)
+    def test_sampling_box_none_when_too_small_no_pad(self, tmp_path):
+        """Array smaller than output patch with pad=False → sampling_box is None."""
         path = create_test_zarr(tmp_path, shape=(10, 10, 10))
-        img = CellMapImage(path, "raw", [8.0, 8.0, 8.0], [100, 100, 100])
+        img = CellMapImage(path, "raw", [8.0, 8.0, 8.0], [100, 100, 100], pad=False)
         assert img.sampling_box is None
+
+    def test_sampling_box_single_centre_when_too_small_with_pad(self, tmp_path):
+        """Array smaller than output patch with pad=True → single-centre sampling_box."""
+        # 10 voxels * 8nm = 80nm array, output 100 voxels * 8nm = 800nm patch
+        path = create_test_zarr(tmp_path, shape=(10, 10, 10))
+        img = CellMapImage(path, "raw", [8.0, 8.0, 8.0], [100, 100, 100], pad=True)
+        sb = img.sampling_box
+        assert sb is not None
+        # Single centre: box width == scale == 8nm
+        for ax in img.axes:
+            assert sb[ax][1] - sb[ax][0] == pytest.approx(8.0)
+        # Centre of bounding box is midpoint of [0, 80] = 40nm
+        # → sampling_box centre = 40nm → lo = 40 - 4 = 36, hi = 40 + 4 = 44
+        assert sb["z"][0] == pytest.approx(36.0)
+        assert sb["z"][1] == pytest.approx(44.0)
+
+    def test_sampling_box_single_centre_yields_len_one(self, tmp_path):
+        """get_center(0) for a single-centre image returns the bounding box midpoint."""
+        path = create_test_zarr(tmp_path, shape=(10, 10, 10))
+        img = CellMapImage(path, "raw", [8.0, 8.0, 8.0], [100, 100, 100], pad=True)
+        center = img.get_center(0)
+        # bounding_box midpoint is 40nm in each axis
+        for ax in img.axes:
+            assert center[ax] == pytest.approx(40.0)
+
+    def test_small_crop_read_shape_and_nan(self, tmp_path):
+        """Reading a small crop (pad=True) returns the full output shape with NaN padding."""
+        path = create_test_zarr(tmp_path, shape=(10, 10, 10))
+        img = CellMapImage(path, "raw", [8.0, 8.0, 8.0], [100, 100, 100], pad=True)
+        center = img.get_center(0)
+        patch = img[center]
+        assert patch.shape == torch.Size([100, 100, 100])
+        # 10*10*10 = 1000 valid voxels; rest are NaN
+        valid = (~torch.isnan(patch)).sum().item()
+        assert valid == 1000
 
     def test_scale_level_best_match(self, tmp_path):
         path = create_test_zarr(tmp_path, voxel_size=[8.0, 8.0, 8.0])
@@ -81,13 +116,51 @@ class TestCellMapImageBasics:
         # Should have some NaN in the padded region
         assert torch.isnan(patch).any()
 
-    def test_no_padding_clamps(self, tmp_path):
-        """Reading near edge with pad=False → no NaN, just smaller or clamped data."""
+    def test_partial_oob_left_correct_shape(self, tmp_path):
+        """Partial OOB on the left: output shape must equal target, left region is NaN."""
+        path = create_test_zarr(tmp_path, shape=(8, 8, 8))
+        img = CellMapImage(path, "raw", [8.0, 8.0, 8.0], [4, 4, 4], pad=True)
+        # Centre near edge: 4nm = 0.5 voxel, so half the patch extends before origin
+        center = {"z": 4.0, "y": 32.0, "x": 32.0}
+        patch = img[center]
+        assert patch.shape == torch.Size([4, 4, 4])
+        # z-slices before origin should be NaN; interior slices should not be all-NaN
+        assert torch.isnan(patch[0]).all()  # first z slice is OOB
+        assert not torch.isnan(patch[-1]).all()  # last z slice is in-bounds
+
+    def test_partial_oob_right_correct_shape(self, tmp_path):
+        """Partial OOB on the right: output shape must equal target, right region is NaN."""
+        path = create_test_zarr(tmp_path, shape=(8, 8, 8))
+        img = CellMapImage(path, "raw", [8.0, 8.0, 8.0], [4, 4, 4], pad=True)
+        # 8 voxels * 8nm = 64nm; centre at 60nm = 7.5th voxel
+        center = {"z": 60.0, "y": 32.0, "x": 32.0}
+        patch = img[center]
+        assert patch.shape == torch.Size([4, 4, 4])
+        assert not torch.isnan(patch[0]).all()  # first z slice is in-bounds
+        assert torch.isnan(patch[-1]).all()  # last z slice is OOB
+
+    def test_fully_oob_returns_all_nan_with_warning(self, tmp_path, caplog):
+        """Fully OOB read returns all-pad_value tensor and emits a logger warning."""
+        import logging
+
+        path = create_test_zarr(tmp_path, shape=(8, 8, 8))
+        img = CellMapImage(path, "raw", [8.0, 8.0, 8.0], [4, 4, 4], pad=True)
+        # Centre far outside bounding_box [0, 64] nm
+        center = {"z": 10000.0, "y": 32.0, "x": 32.0}
+        with caplog.at_level(logging.WARNING, logger="cellmap_data.image"):
+            patch = img[center]
+        assert patch.shape == torch.Size([4, 4, 4])
+        assert torch.isnan(patch).all()
+        assert any("out-of-bounds" in msg for msg in caplog.messages)
+
+    def test_no_padding_within_sampling_box(self, tmp_path):
+        """Reading a centre within sampling_box with pad=False → no NaN, shape == output."""
         path = create_test_zarr(tmp_path, shape=(8, 8, 8))
         img = CellMapImage(path, "raw", [8.0, 8.0, 8.0], [4, 4, 4], pad=False)
-        center = {"z": 4.0, "y": 4.0, "x": 4.0}
+        # sampling_box is [16, 48] nm; use centre of the array (32 nm)
+        center = {"z": 32.0, "y": 32.0, "x": 32.0}
         patch = img[center]
-        # No NaN expected (clamped read, may be smaller shape)
+        assert patch.shape == torch.Size([4, 4, 4])
         assert not torch.isnan(patch).any()
 
     def test_get_center(self, tmp_path):

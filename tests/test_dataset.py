@@ -84,7 +84,7 @@ class TestCellMapDataset:
         )
         item = ds[0]
         assert isinstance(item["raw"], torch.Tensor)
-        assert item["raw"].shape == torch.Size([4, 4, 4])
+        assert item["raw"].shape == torch.Size([1, 4, 4, 4])
 
     def test_getitem_missing_class_nan(self, tmp_path):
         info = create_test_dataset(tmp_path, classes=["mito"])
@@ -98,10 +98,13 @@ class TestCellMapDataset:
             pad=True,
         )
         item = ds[0]
-        # unannotated class → NaN
-        assert torch.isnan(item["er"]).all()
-        # annotated class → not all NaN
-        assert not torch.isnan(item["mito"]).all()
+        # Target classes are stacked under the target array key ("labels").
+        # classes=["mito", "er"] → index 0=mito, 1=er
+        target = item["labels"]  # shape [2, z, y, x]
+        # unannotated class (er, index 1) → NaN
+        assert torch.isnan(target[1]).all()
+        # annotated class (mito, index 0) → not all NaN
+        assert not torch.isnan(target[0]).all()
 
     def test_get_crop_class_matrix_shape(self, tmp_path):
         info = create_test_dataset(tmp_path, classes=["mito"])
@@ -173,6 +176,88 @@ class TestCellMapDataset:
         )
         r = repr(ds)
         assert "CellMapDataset" in r
+
+    def test_small_crop_pad_true_len_one(self, tmp_path):
+        """Label crop smaller than output patch with pad=True → len=1, valid sample."""
+        # raw: 100³ at 8nm = 800nm (large); output: 4³ at 8nm = 32nm
+        # raw sampling_box: [16, 784] nm in each axis
+        # label: 2³ at 8nm = 16nm, origin at 50nm → bb=[50,66], centre=58nm (inside raw sb)
+        from .test_helpers import _write_ome_ngff
+        import numpy as np, os
+
+        large_raw = (np.random.default_rng(0).random((100, 100, 100)) * 255).astype(np.uint8)
+        raw_path = str(tmp_path / "raw.zarr")
+        _write_ome_ngff(raw_path, large_raw, [8.0, 8.0, 8.0])
+
+        gt_base = str(tmp_path / "gt.zarr")
+        os.makedirs(gt_base, exist_ok=True)
+        import json
+        with open(os.path.join(gt_base, ".zgroup"), "w") as f:
+            f.write('{"zarr_format": 2}')
+
+        small_data = np.ones((2, 2, 2), dtype=np.uint8)
+        classes = ["mito", "er"]
+        for cls in classes:
+            _write_ome_ngff(
+                os.path.join(gt_base, cls),
+                small_data,
+                [8.0, 8.0, 8.0],
+                origin=[50.0, 50.0, 50.0],
+            )
+
+        gt_path = f"{gt_base}/[mito,er]"
+        ds = CellMapDataset(
+            raw_path=raw_path,
+            target_path=gt_path,
+            classes=classes,
+            input_arrays=INPUT_ARRAYS,
+            target_arrays=TARGET_ARRAYS,
+            pad=True,
+        )
+        assert len(ds) == 1
+        sample = ds[0]
+        assert sample["raw"].shape == torch.Size([1, 4, 4, 4])
+        assert sample["labels"].shape == torch.Size([2, 4, 4, 4])
+        # 2³=8 valid voxels per class inside a 4³=64-voxel patch → NaN outside
+        nan_count = torch.isnan(sample["labels"]).sum().item()
+        assert nan_count > 0
+
+    def test_small_crop_pad_false_excluded(self, tmp_path):
+        """Label crop smaller than output patch with pad=False → dataset excluded (len=0)."""
+        from .test_helpers import _write_ome_ngff
+        import numpy as np, os
+
+        large_raw = (np.random.default_rng(0).random((100, 100, 100)) * 255).astype(np.uint8)
+        raw_path = str(tmp_path / "raw.zarr")
+        _write_ome_ngff(raw_path, large_raw, [8.0, 8.0, 8.0])
+
+        gt_base = str(tmp_path / "gt.zarr")
+        os.makedirs(gt_base, exist_ok=True)
+        import json
+        with open(os.path.join(gt_base, ".zgroup"), "w") as f:
+            f.write('{"zarr_format": 2}')
+
+        small_data = np.ones((2, 2, 2), dtype=np.uint8)
+        classes = ["mito", "er"]
+        for cls in classes:
+            _write_ome_ngff(
+                os.path.join(gt_base, cls),
+                small_data,
+                [8.0, 8.0, 8.0],
+                origin=[50.0, 50.0, 50.0],
+            )
+
+        gt_path = f"{gt_base}/[mito,er]"
+        ds = CellMapDataset(
+            raw_path=raw_path,
+            target_path=gt_path,
+            classes=classes,
+            input_arrays=INPUT_ARRAYS,
+            target_arrays=TARGET_ARRAYS,
+            pad=False,
+        )
+        assert ds.sampling_box is None
+        assert len(ds) == 0
 
     def test_class_counts(self, tmp_path):
         info = create_test_dataset(tmp_path)
