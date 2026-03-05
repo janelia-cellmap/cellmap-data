@@ -216,11 +216,8 @@ class CellMapDataset(Dataset):
     @cached_property
     def _target_scale(self) -> dict[str, float]:
         """Scale of the first target array spec."""
-        first = next(iter(self.target_arrays.values()))
-        scale_seq = first["scale"]
         first_target_src = next(iter(self.target_sources.values()))
-        axes = first_target_src.axes
-        return {c: float(s) for c, s in zip(axes, scale_seq)}
+        return dict(first_target_src.scale)
 
     # ------------------------------------------------------------------
     # Dataset interface

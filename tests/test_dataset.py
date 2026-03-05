@@ -56,6 +56,23 @@ class TestCellMapDataset:
         )
         assert len(ds) > 0
 
+    def test_len_2d_arrays_no_keyerror(self, tmp_path):
+        """Regression: 2D array specs (scale/shape with 2 values) on 3D zarr data
+        must not raise KeyError when computing __len__ via _target_scale."""
+        info = create_test_dataset(tmp_path, shape=(32, 32, 32))
+        input_2d = {"raw": {"shape": (4, 4), "scale": (8.0, 8.0)}}
+        target_2d = {"labels": {"shape": (4, 4), "scale": (8.0, 8.0)}}
+        ds = CellMapDataset(
+            raw_path=info["raw_path"],
+            target_path=info["gt_path"],
+            classes=info["classes"],
+            input_arrays=input_2d,
+            target_arrays=target_2d,
+            force_has_data=True,
+            pad=True,
+        )
+        assert len(ds) > 0
+
     def test_getitem_returns_dict_with_idx(self, tmp_path):
         info = create_test_dataset(tmp_path)
         ds = CellMapDataset(

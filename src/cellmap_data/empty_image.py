@@ -34,6 +34,10 @@ class EmptyImage:
         self.path = path
         self.label_class = target_class
         axis_order = list(axis_order)
+        if len(axis_order) > len(target_scale):
+            target_scale = [target_scale[0]] * (
+                len(axis_order) - len(target_scale)
+            ) + list(target_scale)
         if len(axis_order) > len(target_voxel_shape):
             ndim_fix = len(axis_order) - len(target_voxel_shape)
             target_voxel_shape = [1] * ndim_fix + list(target_voxel_shape)

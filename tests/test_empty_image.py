@@ -46,3 +46,11 @@ def test_empty_image_clone():
     p1 = img[{"z": 0.0, "y": 0.0, "x": 0.0}]
     p2 = img[{"z": 0.0, "y": 0.0, "x": 0.0}]
     assert p1 is not p2
+
+
+def test_empty_image_2d_scale_has_all_axes():
+    """Regression: 2D scale/shape with default axis_order='zyx' must produce a
+    scale dict covering all three axes (z, y, x), not just two."""
+    img = EmptyImage("fake/path", "mito", [8.0, 8.0], [4, 4])
+    assert set(img.scale.keys()) == {"z", "y", "x"}
+    assert set(img.axes) == {"z", "y", "x"}
