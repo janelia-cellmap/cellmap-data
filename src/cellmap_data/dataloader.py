@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Iterator, Optional, Sequence, Union
 
+import numpy as np
 import torch
 import torch.utils.data
 from torch.utils.data import DataLoader, Dataset, Subset
@@ -12,6 +13,37 @@ from torch.utils.data import DataLoader, Dataset, Subset
 from .sampler import ClassBalancedSampler
 
 logger = logging.getLogger(__name__)
+
+
+def _collect_datasets(dataset) -> list:
+    """Recursively collect all leaf datasets that own an ``_rng``."""
+    if hasattr(dataset, "_rng"):
+        return [dataset]
+    result = []
+    for attr in ("datasets", "dataset"):
+        child = getattr(dataset, attr, None)
+        if child is None:
+            continue
+        if isinstance(child, (list, tuple)):
+            for ds in child:
+                result.extend(_collect_datasets(ds))
+        else:
+            result.extend(_collect_datasets(child))
+    return result
+
+
+def _worker_init_fn(worker_id: int) -> None:
+    """Seed each dataset's numpy RNG from the per-worker torch seed.
+
+    PyTorch derives a unique seed per worker from the DataLoader's base seed
+    (which respects ``torch.manual_seed``).  This function propagates that
+    seed to every constituent ``CellMapDataset._rng`` so that spatial
+    augmentation transforms are reproducible given the same global seed.
+    """
+    worker_info = torch.utils.data.get_worker_info()
+    seed = worker_info.seed % (2**32)
+    for i, ds in enumerate(_collect_datasets(worker_info.dataset)):
+        ds._rng = np.random.default_rng(seed + i)
 
 
 class CellMapDataLoader:
@@ -100,8 +132,24 @@ class CellMapDataLoader:
         else:
             self._sampler = None
 
-        # pin_memory: use on CUDA, skip otherwise to avoid issues
-        pin = kwargs.pop("pin_memory", str(device).startswith("cuda"))
+        # Seed numpy RNGs so augmentation is reproducible when a torch seed is set.
+        # Derive a base seed from the provided generator or the global torch seed.
+        base_seed = (
+            rng.initial_seed() if rng is not None else torch.initial_seed()
+        ) % (2**32)
+        if num_workers == 0:
+            # Single-process: seed directly now.
+            for i, ds in enumerate(_collect_datasets(dataset)):
+                ds._rng = np.random.default_rng(base_seed + i)
+        # Multi-process workers each get a unique seed via worker_init_fn.
+        # Respect any caller-supplied worker_init_fn by not overwriting it.
+        if num_workers > 0 and "worker_init_fn" not in kwargs:
+            kwargs["worker_init_fn"] = _worker_init_fn
+
+        # pin_memory: opt-in only — auto-enabling it based on CUDA availability
+        # causes OOM failures on memory-constrained GPUs.  Pass pin_memory=True
+        # explicitly if you want the performance benefit.
+        pin = kwargs.pop("pin_memory", False)
 
         self.loader = DataLoader(
             dataset,
@@ -111,6 +159,7 @@ class CellMapDataLoader:
             num_workers=num_workers,
             collate_fn=self.collate_fn,
             pin_memory=pin,
+            generator=rng,
             **self._kwargs,
         )
 

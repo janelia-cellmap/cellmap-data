@@ -104,6 +104,7 @@ class CellMapDataset(Dataset):
         class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
         force_has_data: bool = False,
         device: Optional[str | torch.device] = None,
+        seed: Optional[int] = None,
     ) -> None:
         self.raw_path = raw_path
         self.target_path = target_path
@@ -116,7 +117,7 @@ class CellMapDataset(Dataset):
         self.target_value_transforms = target_value_transforms
         self.class_relation_dict = class_relation_dict
         self.force_has_data = force_has_data
-        self._rng = np.random.default_rng()
+        self._rng = np.random.default_rng(seed)
 
         # Parse target path to get template and annotated classes
         gt_path_template, annotated_classes = split_target_path(target_path)
