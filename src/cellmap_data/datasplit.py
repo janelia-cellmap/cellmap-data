@@ -129,8 +129,12 @@ class CellMapDataSplit:
     ) -> dict[str, list[dict[str, str]]]:
         """Parse the dataset CSV into a ``dataset_dict``.
 
-        Expected CSV columns: ``split, raw_path, gt_path`` (and optionally
-        ``raw_name``, ``gt_name`` which are ignored).
+        Supports two formats:
+
+        * **3-column**: ``split, raw_path, gt_path``
+        * **5-column** (cellmap-segmentation-challenge): ``split, zarr_path,
+          raw_ds_name, zarr_path, gt_ds_name`` — the full raw/gt paths are
+          constructed by joining columns 1+2 and 3+4 respectively.
         """
         result: dict[str, list[dict[str, str]]] = {
             "train": [],
@@ -145,8 +149,14 @@ class CellMapDataSplit:
                     logger.warning("Skipping malformed CSV row: %s", row)
                     continue
                 split = row[0].strip()
-                raw_path = row[1].strip()
-                gt_path = row[2].strip()
+                if len(row) >= 5:
+                    # 5-column challenge format:
+                    # split, zarr_path, raw_ds_name, zarr_path, gt_ds_name
+                    raw_path = os.path.join(row[1].strip(), row[2].strip())
+                    gt_path = os.path.join(row[3].strip(), row[4].strip())
+                else:
+                    raw_path = row[1].strip()
+                    gt_path = row[2].strip()
                 if split not in result:
                     result[split] = []
                 result[split].append({"raw": raw_path, "gt": gt_path})

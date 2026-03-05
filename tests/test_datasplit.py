@@ -117,6 +117,57 @@ class TestCellMapDataSplit:
         assert len(split.train_datasets) == 0
         assert len(split._validation_datasets) == 0
 
+    def test_init_from_csv_5col(self, tmp_path):
+        """5-column challenge CSV format: split, zarr_path, raw_ds, zarr_path, gt_ds."""
+        train_info = create_test_dataset(tmp_path / "train5", classes=CLASSES)
+        val_info = create_test_dataset(tmp_path / "val5", classes=CLASSES)
+
+        # Simulate challenge CSV: split zarr_path and sub-path across columns 1+2 and 3+4
+        train_zarr = str(tmp_path / "train5")
+        train_raw_ds = os.path.relpath(train_info["raw_path"], train_zarr)
+        train_gt_ds = os.path.relpath(
+            train_info["gt_path"].split("[")[0].rstrip(os.sep), train_zarr
+        )
+        train_classes = ",".join(CLASSES)
+
+        val_zarr = str(tmp_path / "val5")
+        val_raw_ds = os.path.relpath(val_info["raw_path"], val_zarr)
+        val_gt_ds = os.path.relpath(
+            val_info["gt_path"].split("[")[0].rstrip(os.sep), val_zarr
+        )
+
+        csv_path = str(tmp_path / "split5.csv")
+        with open(csv_path, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(
+                [
+                    "train",
+                    train_zarr,
+                    train_raw_ds,
+                    train_zarr,
+                    f"{train_gt_ds}[{train_classes}]",
+                ]
+            )
+            w.writerow(
+                [
+                    "validate",
+                    val_zarr,
+                    val_raw_ds,
+                    val_zarr,
+                    f"{val_gt_ds}[{','.join(CLASSES)}]",
+                ]
+            )
+
+        split = CellMapDataSplit(
+            input_arrays=INPUT_ARRAYS,
+            target_arrays=TARGET_ARRAYS,
+            classes=CLASSES,
+            csv_path=csv_path,
+            force_has_data=True,
+        )
+        assert len(split.train_datasets) == 1
+        assert len(split._validation_datasets) == 1
+
     def test_init_from_datasets(self, tmp_path):
         from cellmap_data import CellMapDataset
 
