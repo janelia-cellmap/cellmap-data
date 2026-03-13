@@ -553,6 +553,24 @@ class CellMapImage:
             logger.warning("class_counts failed for %s: %s", self.path, exc)
             return {self.label_class: 0}
 
+    @property
+    def total_voxels(self) -> int:
+        """Total number of voxels in the data volume at training resolution.
+
+        Computed as the product of the s0 array's spatial dimensions scaled
+        to the training-resolution voxel size via :meth:`_scale_count`.
+        """
+        try:
+            s0_path = self._level_info[0][0]
+            s0_arr = zarr.open_array(f"{self.path}/{s0_path}", mode="r")
+            n_spatial = len(self.axes)
+            spatial_shape = s0_arr.shape[-n_spatial:]
+            total_s0 = int(np.prod(spatial_shape))
+            return self._scale_count(total_s0, s0_idx=0)
+        except Exception as exc:
+            logger.warning("total_voxels failed for %s: %s", self.path, exc)
+            return 0
+
     def _scale_count(self, s0_count: int, s0_idx: int = 0) -> int:
         """Scale a voxel count from s0 resolution to training resolution."""
         try:
