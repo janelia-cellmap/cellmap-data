@@ -170,14 +170,24 @@ class ImageWriter:
     def __setitem__(
         self,
         coords: Mapping[str, float] | Mapping[str, Sequence],
-        data: torch.Tensor | ArrayLike | float | int,
+        data: torch.Tensor | ArrayLike,
     ) -> None:
         """Write *data* at the location given by *coords*.
 
         *coords* can be:
         - ``{axis: float}`` centre coordinates — single patch.
         - ``{axis: Sequence[float]}`` centres — batch.
+
+        Raises
+        ------
+        TypeError
+            If *data* is a scalar (int or float). Use an array or tensor instead.
         """
+        if isinstance(data, (int, float)):
+            raise TypeError(
+                "Scalar writes are not supported. "
+                "Provide an array or tensor with the patch shape instead."
+            )
         first = next(iter(coords.values()))
         if isinstance(first, (int, float)):
             self._write_single(coords, data)  # type: ignore[arg-type]
@@ -209,6 +219,13 @@ class ImageWriter:
             data_np = data.detach().cpu().numpy()
         else:
             data_np = np.asarray(data)
+
+        if data_np.ndim == 0:
+            raise TypeError(
+                "Scalar writes are not supported. "
+                "Provide an array or tensor with the patch shape instead."
+            )
+
         data_np = data_np.astype(self.dtype)
 
         # Strip batch / channel leading dims of size 1
@@ -236,8 +253,7 @@ class ImageWriter:
         n = len(next(iter(batch_coords.values())))
         for i in range(n):
             center = {ax: float(batch_coords[ax][i]) for ax in self.spatial_axes}
-            item = data[i] if hasattr(data, "__getitem__") else data  # type: ignore[index]
-            self._write_single(center, item)
+            self._write_single(center, data[i])  # type: ignore[index]
 
     def __getitem__(self, coords: Mapping[str, float]) -> torch.Tensor:
         """Read the patch centred at *coords*."""
