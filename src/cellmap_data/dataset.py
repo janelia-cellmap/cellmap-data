@@ -419,6 +419,15 @@ class CellMapDataset(Dataset):
                 totals[cls] = 0
         return {"totals": totals}
 
+    @property
+    def total_voxels(self) -> dict[str, int]:
+        """Total voxels in the data volume per class, normalised to training-resolution voxels."""
+        totals: dict[str, int] = {}
+        for cls in self.classes:
+            src = self.target_sources.get(cls)
+            totals[cls] = src.total_voxels if src is not None else 0
+        return totals
+
     # ------------------------------------------------------------------
     # Misc
     # ------------------------------------------------------------------

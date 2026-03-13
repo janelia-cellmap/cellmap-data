@@ -68,13 +68,31 @@ class CellMapMultiDataset(ConcatDataset):
 
     @property
     def class_weights(self) -> dict[str, float]:
-        """Per-class sampling weight: ``bg_voxels / fg_voxels``."""
-        counts = self.class_counts["totals"]
-        total_voxels = sum(counts.values())
+        """Per-class sampling weight: ``bg_voxels / fg_voxels``.
+
+        Background voxels are computed as the total voxels in the data volume
+        minus the foreground voxels for each class.
+        """
+        fg_counts = self.class_counts["totals"]
+        # Aggregate actual total voxels per class across all datasets
+        total_voxels: dict[str, int] = {cls: 0 for cls in self.classes}
+        for ds in self.datasets:
+            ds_total = ds.total_voxels
+            for cls in self.classes:
+                total_voxels[cls] += ds_total.get(cls, 0)
         weights: dict[str, float] = {}
         for cls in self.classes:
-            fg = counts.get(cls, 0)
-            bg = total_voxels - fg
+            fg = fg_counts.get(cls, 0)
+            total = total_voxels.get(cls, 0)
+            if fg > total > 0:
+                logger.warning(
+                    "class_weights: fg (%d) > total_voxels (%d) for class %r; "
+                    "this may indicate a counting error upstream.",
+                    fg,
+                    total,
+                    cls,
+                )
+            bg = max(total - fg, 0)
             weights[cls] = float(bg) / float(max(fg, 1))
         return weights
 

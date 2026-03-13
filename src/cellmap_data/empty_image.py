@@ -66,6 +66,10 @@ class EmptyImage:
     def class_counts(self) -> dict[str, int]:
         return {self.label_class: 0}
 
+    @property
+    def total_voxels(self) -> int:
+        return 0
+
     def to(self, device: str | torch.device) -> "EmptyImage":
         self._nan_tensor = self._nan_tensor.to(device)
         return self
