@@ -101,24 +101,29 @@ class TestCellMapDataLoader:
         """CellMapDataLoader must seed _rng from torch.initial_seed()."""
         ds = _make_ds(tmp_path)
         torch.manual_seed(7)
-        CellMapDataLoader(ds, classes=CLASSES, batch_size=1, is_train=False,
-                          device="cpu")
+        CellMapDataLoader(
+            ds, classes=CLASSES, batch_size=1, is_train=False, device="cpu"
+        )
         rng_state_7 = ds._rng.random()
 
         ds2 = _make_ds(tmp_path)
         torch.manual_seed(7)
-        CellMapDataLoader(ds2, classes=CLASSES, batch_size=1, is_train=False,
-                          device="cpu")
+        CellMapDataLoader(
+            ds2, classes=CLASSES, batch_size=1, is_train=False, device="cpu"
+        )
         rng_state_7b = ds2._rng.random()
 
         ds3 = _make_ds(tmp_path)
         torch.manual_seed(99)
-        CellMapDataLoader(ds3, classes=CLASSES, batch_size=1, is_train=False,
-                          device="cpu")
+        CellMapDataLoader(
+            ds3, classes=CLASSES, batch_size=1, is_train=False, device="cpu"
+        )
         rng_state_99 = ds3._rng.random()
 
         assert rng_state_7 == rng_state_7b, "same seed must yield same rng state"
-        assert rng_state_7 != rng_state_99, "different seeds must yield different rng state"
+        assert (
+            rng_state_7 != rng_state_99
+        ), "different seeds must yield different rng state"
 
     def test_augmentation_reproducible_same_seed(self, tmp_path):
         """Same torch seed → identical augmented batches across two loader runs."""
@@ -137,33 +142,48 @@ class TestCellMapDataLoader:
                 pad=True,
             )
             torch.manual_seed(seed)
-            loader = CellMapDataLoader(ds, classes=info["classes"], batch_size=1,
-                                       is_train=False, device="cpu")
+            loader = CellMapDataLoader(
+                ds, classes=info["classes"], batch_size=1, is_train=False, device="cpu"
+            )
             return next(iter(loader))["raw"]
 
         b1 = get_first_batch(42)
         b2 = get_first_batch(42)
         b3 = get_first_batch(99)
         assert torch.allclose(b1, b2), "same seed must produce identical augmentation"
-        assert not torch.allclose(b1, b3), "different seeds must produce different augmentation"
+        assert not torch.allclose(
+            b1, b3
+        ), "different seeds must produce different augmentation"
 
     def test_dataset_seed_param(self, tmp_path):
         """CellMapDataset(seed=N) seeds _rng at construction."""
         info = create_test_dataset(tmp_path)
         ds_a = CellMapDataset(
-            raw_path=info["raw_path"], target_path=info["gt_path"],
-            classes=info["classes"], input_arrays=INPUT_ARRAYS,
-            target_arrays=TARGET_ARRAYS, force_has_data=True, seed=123,
+            raw_path=info["raw_path"],
+            target_path=info["gt_path"],
+            classes=info["classes"],
+            input_arrays=INPUT_ARRAYS,
+            target_arrays=TARGET_ARRAYS,
+            force_has_data=True,
+            seed=123,
         )
         ds_b = CellMapDataset(
-            raw_path=info["raw_path"], target_path=info["gt_path"],
-            classes=info["classes"], input_arrays=INPUT_ARRAYS,
-            target_arrays=TARGET_ARRAYS, force_has_data=True, seed=123,
+            raw_path=info["raw_path"],
+            target_path=info["gt_path"],
+            classes=info["classes"],
+            input_arrays=INPUT_ARRAYS,
+            target_arrays=TARGET_ARRAYS,
+            force_has_data=True,
+            seed=123,
         )
         ds_c = CellMapDataset(
-            raw_path=info["raw_path"], target_path=info["gt_path"],
-            classes=info["classes"], input_arrays=INPUT_ARRAYS,
-            target_arrays=TARGET_ARRAYS, force_has_data=True, seed=456,
+            raw_path=info["raw_path"],
+            target_path=info["gt_path"],
+            classes=info["classes"],
+            input_arrays=INPUT_ARRAYS,
+            target_arrays=TARGET_ARRAYS,
+            force_has_data=True,
+            seed=456,
         )
         v_a = ds_a._rng.random()
         v_b = ds_b._rng.random()
@@ -183,15 +203,23 @@ class TestCellMapDataLoader:
 
         info = create_test_dataset(tmp_path)
         ds1 = CellMapDataset(
-            raw_path=info["raw_path"], target_path=info["gt_path"],
-            classes=info["classes"], input_arrays=INPUT_ARRAYS,
-            target_arrays=TARGET_ARRAYS, force_has_data=True,
+            raw_path=info["raw_path"],
+            target_path=info["gt_path"],
+            classes=info["classes"],
+            input_arrays=INPUT_ARRAYS,
+            target_arrays=TARGET_ARRAYS,
+            force_has_data=True,
         )
         ds2 = CellMapDataset(
-            raw_path=info["raw_path"], target_path=info["gt_path"],
-            classes=info["classes"], input_arrays=INPUT_ARRAYS,
-            target_arrays=TARGET_ARRAYS, force_has_data=True,
+            raw_path=info["raw_path"],
+            target_path=info["gt_path"],
+            classes=info["classes"],
+            input_arrays=INPUT_ARRAYS,
+            target_arrays=TARGET_ARRAYS,
+            force_has_data=True,
         )
-        multi = CellMapMultiDataset([ds1, ds2], info["classes"], INPUT_ARRAYS, TARGET_ARRAYS)
+        multi = CellMapMultiDataset(
+            [ds1, ds2], info["classes"], INPUT_ARRAYS, TARGET_ARRAYS
+        )
         collected = _collect_datasets(multi)
         assert set(id(d) for d in collected) == {id(ds1), id(ds2)}

@@ -202,13 +202,16 @@ class TestCellMapDataset:
         from .test_helpers import _write_ome_ngff
         import numpy as np, os
 
-        large_raw = (np.random.default_rng(0).random((100, 100, 100)) * 255).astype(np.uint8)
+        large_raw = (np.random.default_rng(0).random((100, 100, 100)) * 255).astype(
+            np.uint8
+        )
         raw_path = str(tmp_path / "raw.zarr")
         _write_ome_ngff(raw_path, large_raw, [8.0, 8.0, 8.0])
 
         gt_base = str(tmp_path / "gt.zarr")
         os.makedirs(gt_base, exist_ok=True)
         import json
+
         with open(os.path.join(gt_base, ".zgroup"), "w") as f:
             f.write('{"zarr_format": 2}')
 
@@ -244,13 +247,16 @@ class TestCellMapDataset:
         from .test_helpers import _write_ome_ngff
         import numpy as np, os
 
-        large_raw = (np.random.default_rng(0).random((100, 100, 100)) * 255).astype(np.uint8)
+        large_raw = (np.random.default_rng(0).random((100, 100, 100)) * 255).astype(
+            np.uint8
+        )
         raw_path = str(tmp_path / "raw.zarr")
         _write_ome_ngff(raw_path, large_raw, [8.0, 8.0, 8.0])
 
         gt_base = str(tmp_path / "gt.zarr")
         os.makedirs(gt_base, exist_ok=True)
         import json
+
         with open(os.path.join(gt_base, ".zgroup"), "w") as f:
             f.write('{"zarr_format": 2}')
 

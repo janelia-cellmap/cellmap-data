@@ -8,7 +8,7 @@ from typing import Any, Callable, Iterator, Optional, Sequence, Union
 import numpy as np
 import torch
 import torch.utils.data
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import DataLoader, Dataset
 
 from .sampler import ClassBalancedSampler
 

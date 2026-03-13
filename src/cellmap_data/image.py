@@ -277,10 +277,16 @@ class CellMapImage:
         oversized pre-rotation patch.
         """
         base = [
-            max(1, int(round(
-                self.output_shape[ax] * self.scale[ax]
-                / self._voxel_size.get(ax, self.scale[ax])
-            )))
+            max(
+                1,
+                int(
+                    round(
+                        self.output_shape[ax]
+                        * self.scale[ax]
+                        / self._voxel_size.get(ax, self.scale[ax])
+                    )
+                ),
+            )
             for ax in self.axes
         ]
         if self._current_spatial_transforms is None:
@@ -437,7 +443,9 @@ class CellMapImage:
             data = data[tuple(crop_sl)]
 
             # Pad any undersized spatial dims (symmetric, pad_value fill)
-            actual = [data.shape[data.ndim - spatial_ndim + i] for i in range(spatial_ndim)]
+            actual = [
+                data.shape[data.ndim - spatial_ndim + i] for i in range(spatial_ndim)
+            ]
             pad_needed = [target_shape[i] - actual[i] for i in range(spatial_ndim)]
             if any(p > 0 for p in pad_needed):
                 size_pad: list[int] = []
