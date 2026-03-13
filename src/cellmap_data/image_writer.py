@@ -193,13 +193,17 @@ class ImageWriter:
         arr_shape = [self.shape[c] for c in self.spatial_axes]
 
         slices: list[slice] = []
+        src_starts: list[int] = []
         for i, c in enumerate(self.spatial_axes):
             start_nm = center[c] - self.write_world_shape[c] / 2.0
             start_vox = int(round((start_nm - self.offset[c]) / self.scale[c]))
             end_vox = start_vox + self.write_voxel_shape[c]
             clamp_start = max(0, start_vox)
             clamp_end = min(arr_shape[i], end_vox)
+            # Where the visible region starts inside the source patch along this axis
+            src_start = clamp_start - start_vox
             slices.append(slice(clamp_start, clamp_end))
+            src_starts.append(src_start)
 
         if isinstance(data, torch.Tensor):
             data_np = data.detach().cpu().numpy()
@@ -214,7 +218,13 @@ class ImageWriter:
         # Crop data to clamped region (near array edges)
         actual = tuple(s.stop - s.start for s in slices)
         if data_np.shape != actual:
-            data_np = data_np[tuple(slice(0, e) for e in actual)]
+            # Use per-axis offsets so that when start_vox < 0, we skip the out-of-bounds prefix
+            data_np = data_np[
+                tuple(
+                    slice(src_starts[i], src_starts[i] + actual[i])
+                    for i in range(len(self.spatial_axes))
+                )
+            ]
 
         arr[tuple(slices)] = data_np
 
