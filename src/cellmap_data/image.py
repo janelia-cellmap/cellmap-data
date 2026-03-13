@@ -553,7 +553,7 @@ class CellMapImage:
             logger.warning("class_counts failed for %s: %s", self.path, exc)
             return {self.label_class: 0}
 
-    @property
+    @cached_property
     def total_voxels(self) -> int:
         """Total number of voxels in the data volume at training resolution.
 
