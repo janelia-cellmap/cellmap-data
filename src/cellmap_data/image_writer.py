@@ -226,7 +226,7 @@ class ImageWriter:
         if data_np.ndim == 0:
             raise TypeError(
                 "Scalar writes are not supported. "
-                "Provide an array or tensor with the patch shape instead."
+                "Pass an array or tensor with shape matching the patch."
             )
 
         data_np = data_np.astype(self.dtype)
