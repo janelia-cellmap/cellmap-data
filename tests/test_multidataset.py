@@ -93,9 +93,9 @@ class TestCellMapMultiDataset:
             fg = counts["totals"][cls]
             expected_bg = total - fg
             expected_weight = float(max(expected_bg, 0)) / float(max(fg, 1))
-            assert abs(weights[cls] - expected_weight) < 1e-6, (
-                f"class_weights[{cls!r}] mismatch: expected {expected_weight}, got {weights[cls]}"
-            )
+            assert (
+                abs(weights[cls] - expected_weight) < 1e-6
+            ), f"class_weights[{cls!r}] mismatch: expected {expected_weight}, got {weights[cls]}"
 
     def test_get_crop_class_matrix_shape(self, tmp_path):
         ds1 = _make_ds(tmp_path, "d1")
