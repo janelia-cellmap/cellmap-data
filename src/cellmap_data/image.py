@@ -557,16 +557,15 @@ class CellMapImage:
     def total_voxels(self) -> int:
         """Total number of voxels in the data volume at training resolution.
 
-        Computed as the product of the s0 array's spatial dimensions scaled
-        to the training-resolution voxel size via :meth:`_scale_count`.
+        Derived from the cached :attr:`bounding_box` (world-space extent of the
+        dataset) divided by the training-resolution voxel size, so no additional
+        zarr I/O is needed beyond what is already cached.
         """
         try:
-            s0_path = self._level_info[0][0]
-            s0_arr = zarr.open_array(f"{self.path}/{s0_path}", mode="r")
-            n_spatial = len(self.axes)
-            spatial_shape = s0_arr.shape[-n_spatial:]
-            total_s0 = int(np.prod(spatial_shape))
-            return self._scale_count(total_s0, s0_idx=0)
+            total = 1
+            for ax, (start, end) in self.bounding_box.items():
+                total *= int(round((end - start) / self.scale[ax]))
+            return total
         except Exception as exc:
             logger.warning("total_voxels failed for %s: %s", self.path, exc)
             return 0
