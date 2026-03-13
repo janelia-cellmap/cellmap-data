@@ -252,6 +252,11 @@ class CellMapDatasetWriter(Dataset):
                 for key, val in arrays.items():
                     if key in _SKIP_KEYS:
                         continue
+                    if np.isscalar(val):
+                        raise TypeError(
+                            f"Scalar writes are not supported (key={key!r}). "
+                            "Pass an array or tensor with a leading batch dimension."
+                        )
                     if isinstance(val, dict):
                         item[key] = {k: v[batch_i] for k, v in val.items()}
                     else:
