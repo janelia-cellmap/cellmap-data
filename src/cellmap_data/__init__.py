@@ -12,8 +12,6 @@ except PackageNotFoundError:
 __author__ = "Jeff Rhoades"
 __email__ = "rhoadesj@hhmi.org"
 
-from .base_dataset import CellMapBaseDataset
-from .base_image import CellMapImageBase
 from .dataloader import CellMapDataLoader
 from .dataset import CellMapDataset
 from .dataset_writer import CellMapDatasetWriter
@@ -22,12 +20,9 @@ from .empty_image import EmptyImage
 from .image import CellMapImage
 from .image_writer import ImageWriter
 from .multidataset import CellMapMultiDataset
-from .mutable_sampler import MutableSubsetRandomSampler
-from .subdataset import CellMapSubset
+from .sampler import ClassBalancedSampler
 
 __all__ = [
-    "CellMapBaseDataset",
-    "CellMapImageBase",
     "CellMapDataLoader",
     "CellMapDataset",
     "CellMapDatasetWriter",
@@ -35,7 +30,6 @@ __all__ = [
     "CellMapImage",
     "ImageWriter",
     "CellMapMultiDataset",
-    "CellMapSubset",
     "EmptyImage",
-    "MutableSubsetRandomSampler",
+    "ClassBalancedSampler",
 ]

@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 # https://peps.python.org/pep-0621/
 [project]
 name = "cellmap-data"
-description = "Utility for loading CellMap data for machine learning training, utilizing PyTorch, Xarray, TensorStore, and PyDantic."
+description = "Utility for loading CellMap data for machine learning training, utilizing PyTorch and zarr."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "BSD 3-Clause License" }
@@ -28,18 +28,10 @@ dependencies = [
     "torchvision",
     "numpy",
     "matplotlib",
-    "pydantic_ome_ngff",
-    "xarray_ome_ngff",
-    "tensorstore",
-    # "xarray=2024.10.0",
-    "xarray-tensorstore==0.1.5",
+    "zarr>=2.0,<3.0",
     "universal_pathlib>=0.2.0",
     "fsspec[s3,http]",
-    "neuroglancer",
-    "h5py", # Only needed until the new cellmap-flow is released
-    # "cellmap-flow",
     "ipython",
-    # "py_distance_transforms",
     "scipy",
     "tqdm",
 ]

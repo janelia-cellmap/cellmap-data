@@ -1,164 +1,112 @@
-import os
-import platform
-import logging
-from typing import Callable, Optional, Sequence, Union
+"""CellMapDataLoader: thin wrapper around PyTorch DataLoader."""
 
+from __future__ import annotations
+
+import logging
+from typing import Any, Callable, Iterator, Optional, Sequence, Union
+
+import numpy as np
 import torch
 import torch.utils.data
+from torch.utils.data import DataLoader, Dataset
 
-from .dataset import CellMapDataset
-from .dataset_writer import CellMapDatasetWriter
-from .image import CellMapImage
-from .multidataset import CellMapMultiDataset
-from .mutable_sampler import MutableSubsetRandomSampler
-from .subdataset import CellMapSubset
+from .sampler import ClassBalancedSampler
 
 logger = logging.getLogger(__name__)
 
-# Default TensorStore chunk-cache budget applied when neither the constructor
-# argument nor CELLMAP_TENSORSTORE_CACHE_BYTES env var is set.
-# 2 GiB is a conservative bound that prevents unbounded RAM growth across
-# epochs while still providing meaningful caching for hot regions.
-# Override via CELLMAP_TENSORSTORE_CACHE_BYTES or the tensorstore_cache_bytes
-# constructor argument.
-_DEFAULT_TENSORSTORE_CACHE_BYTES = 2 * 1024**3  # 2 GiB
+
+def _collect_datasets(dataset) -> list:
+    """Recursively collect all leaf datasets that own an ``_rng``."""
+    if hasattr(dataset, "_rng"):
+        return [dataset]
+    result = []
+    for attr in ("datasets", "dataset"):
+        child = getattr(dataset, attr, None)
+        if child is None:
+            continue
+        if isinstance(child, (list, tuple)):
+            for ds in child:
+                result.extend(_collect_datasets(ds))
+        else:
+            result.extend(_collect_datasets(child))
+    return result
 
 
-def _set_tensorstore_context(dataset, context) -> None:
+def _worker_init_fn(worker_id: int) -> None:
+    """Seed each dataset's numpy RNG from the per-worker torch seed.
+
+    PyTorch derives a unique seed per worker from the DataLoader's base seed
+    (which respects ``torch.manual_seed``).  This function propagates that
+    seed to every constituent ``CellMapDataset._rng`` so that spatial
+    augmentation transforms are reproducible given the same global seed.
     """
-    Recursively set a TensorStore context on every CellMapImage in the dataset tree.
-
-    This must be called before workers are spawned so the bounded cache_pool
-    limit is picked up by every worker process (via fork inheritance on Linux,
-    or via pickle on Windows/macOS spawn).
-
-    If an image's TensorStore array has already been opened (``array`` cached),
-    the new context cannot affect that array; a warning is emitted.
-    """
-    if isinstance(dataset, CellMapMultiDataset):
-        for ds in dataset.datasets:
-            _set_tensorstore_context(ds, context)
-    elif isinstance(dataset, CellMapSubset):
-        _set_tensorstore_context(dataset.dataset, context)
-    elif isinstance(dataset, CellMapDataset):
-        dataset.context = context
-        all_sources = list(dataset.input_sources.values()) + list(
-            dataset.target_sources.values()
-        )
-        for source in all_sources:
-            if isinstance(source, CellMapImage):
-                _apply_context_to_image(source, context)
-            elif isinstance(source, dict):
-                for sub_source in source.values():
-                    if isinstance(sub_source, CellMapImage):
-                        _apply_context_to_image(sub_source, context)
-    else:
-        logger.warning(
-            "Unsupported dataset type %s in _set_tensorstore_context; "
-            "TensorStore context was not applied.",
-            type(dataset).__name__,
-        )
-
-
-def _apply_context_to_image(image: "CellMapImage", context) -> None:
-    """Set the TensorStore context on a single CellMapImage, warning if already opened."""
-    if "array" in getattr(image, "__dict__", {}):
-        logger.warning(
-            "TensorStore array already opened for %s; "
-            "cache_pool limit will not apply to this image.",
-            getattr(image, "path", image),
-        )
-    image.context = context
+    worker_info = torch.utils.data.get_worker_info()
+    seed = worker_info.seed % (2**32)
+    for i, ds in enumerate(_collect_datasets(worker_info.dataset)):
+        ds._rng = np.random.default_rng(seed + i)
 
 
 class CellMapDataLoader:
-    """
-    Optimized DataLoader wrapper for CellMapDataset that uses PyTorch's native DataLoader.
+    """PyTorch-compatible DataLoader for CellMap datasets.
 
-    This class provides a simplified, high-performance interface to PyTorch's DataLoader
-    with optimizations for GPU training including prefetch_factor, persistent_workers,
-    and pin_memory support.
+    Wraps :class:`torch.utils.data.DataLoader` with optional
+    :class:`~cellmap_data.sampler.ClassBalancedSampler` for class-balanced
+    training.
 
-    Attributes
+    Parameters
     ----------
-        dataset (CellMapMultiDataset | CellMapDataset | CellMapSubset): Dataset to load.
-        classes (Iterable[str]): Classes to load.
-        batch_size (int): Batch size.
-        num_workers (int): Number of workers.
-        weighted_sampler (bool): Whether to use a weighted sampler.
-        sampler (Union[MutableSubsetRandomSampler, Callable, None]): Sampler to use.
-        is_train (bool): Whether data is for training (shuffled).
-        rng (Optional[torch.Generator]): Random number generator.
-        loader (torch.utils.data.DataLoader): Underlying PyTorch DataLoader.
-        default_kwargs (dict): Default arguments for compatibility.
+    dataset:
+        A :class:`~cellmap_data.dataset.CellMapDataset`,
+        :class:`~cellmap_data.multidataset.CellMapMultiDataset`, or any
+        compatible dataset / ``Subset``.
+    classes:
+        Class names.  Defaults to ``dataset.classes``.
+    batch_size:
+        Samples per batch.
+    num_workers:
+        DataLoader worker processes (0 = main process only).
+    weighted_sampler:
+        If ``True`` and ``is_train=True``, use
+        :class:`ClassBalancedSampler` (requires ``dataset`` to implement
+        ``get_crop_class_matrix()``).
+    sampler:
+        Explicit sampler; overrides *weighted_sampler*.
+    is_train:
+        Training mode (enables random sampling and the weighted sampler).
+    device:
+        Ignored — tensors are returned on CPU; move them in training loop.
+    iterations_per_epoch:
+        Number of samples per epoch when using ClassBalancedSampler.
+        Defaults to ``len(dataset)``.
+    **kwargs:
+        Forwarded to :class:`torch.utils.data.DataLoader`.
     """
 
     def __init__(
         self,
-        dataset: (
-            CellMapMultiDataset | CellMapDataset | CellMapSubset | CellMapDatasetWriter
-        ),
-        classes: Sequence[str] | None = None,
+        dataset: Dataset,
+        classes: Optional[Sequence[str]] = None,
         batch_size: int = 1,
         num_workers: int = 0,
         weighted_sampler: bool = False,
-        sampler: Union[MutableSubsetRandomSampler, Callable, None] = None,
+        sampler: Optional[Union[torch.utils.data.Sampler, Callable]] = None,
         is_train: bool = True,
         rng: Optional[torch.Generator] = None,
         device: Optional[str | torch.device] = None,
         iterations_per_epoch: Optional[int] = None,
-        tensorstore_cache_bytes: Optional[int] = None,
-        **kwargs,
-    ):
-        """
-        Initializes the CellMapDataLoader with an optimized PyTorch DataLoader backend.
-
-        Args:
-        ----
-            dataset: The dataset to load.
-            classes: The classes to load.
-            batch_size: The batch size.
-            num_workers: The number of workers.
-            weighted_sampler: Whether to use a weighted sampler.
-            sampler: The sampler to use.
-            is_train: Whether the data is for training (shuffled).
-            rng: The random number generator.
-            device: The device to use ("cuda", "mps", or "cpu").
-            iterations_per_epoch: Iterations per epoch for large datasets.
-            tensorstore_cache_bytes: Total TensorStore chunk-cache budget in bytes
-                shared across all worker processes.  The budget is split evenly:
-                ``per_worker = tensorstore_cache_bytes // max(1, num_workers)``.
-                **Important:** When ``tensorstore_cache_bytes < num_workers``, each worker
-                receives a minimum of 1 byte (instead of 0, which TensorStore treats as
-                unlimited), so the effective aggregate cache may exceed the requested total.
-                To avoid this, ensure ``tensorstore_cache_bytes >= num_workers``.
-                Resolution order: explicit argument → ``CELLMAP_TENSORSTORE_CACHE_BYTES``
-                env var → built-in default of 2 GiB.  Bounding this value prevents
-                persistent worker processes from accumulating chunk data unboundedly
-                across epochs.  **Note:** TensorStore ignores a limit of ``0`` (treats
-                it as unlimited); to minimize caching use a small positive value such
-                as ``1``.  Pass ``0`` only if you explicitly want an unbounded cache.
-            **kwargs: Additional PyTorch DataLoader arguments.
-        """
+        **kwargs: Any,
+    ) -> None:
         self.dataset = dataset
-        self.classes = classes if classes is not None else dataset.classes
+        self.classes = (
+            classes if classes is not None else getattr(dataset, "classes", [])
+        )
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.weighted_sampler = weighted_sampler
-        self.sampler = sampler
         self.is_train = is_train
-        self.rng = rng
+        self.iterations_per_epoch = iterations_per_epoch
+        self._kwargs = kwargs
 
-        if platform.system() == "Windows" and num_workers > 0:
-            logger.warning(
-                "CellMapDataLoader: num_workers=%d on Windows. "
-                "The dataset uses a synchronous (single-thread) executor internally "
-                "so TensorStore reads are never dispatched to ThreadPoolExecutor "
-                "worker threads. If crashes persist, try num_workers=0.",
-                num_workers,
-            )
-
-        # Set device
+        # Resolve device
         if device is None:
             if torch.cuda.is_available():
                 device = "cuda"
@@ -167,253 +115,97 @@ class CellMapDataLoader:
             else:
                 device = "cpu"
         self.device = device
-        self.iterations_per_epoch = iterations_per_epoch
 
-        # Bound TensorStore chunk-cache to prevent unbounded RAM growth in
-        # persistent worker processes (Linux fork, Windows/macOS spawn).
-        # Resolve from parameter → env var → built-in default.
-        if tensorstore_cache_bytes is None:
-            _env = os.environ.get("CELLMAP_TENSORSTORE_CACHE_BYTES")
-            if _env is not None:
-                try:
-                    tensorstore_cache_bytes = int(_env)
-                except ValueError as exc:
-                    raise ValueError(
-                        "Invalid value for environment variable "
-                        "CELLMAP_TENSORSTORE_CACHE_BYTES: "
-                        f"{_env!r}. Expected an integer number of bytes."
-                    ) from exc
+        # Build sampler
+        if sampler is not None:
+            self._sampler = sampler
+        elif weighted_sampler and is_train:
+            if hasattr(dataset, "get_crop_class_matrix"):
+                n_samples = iterations_per_epoch or len(dataset)
+                self._sampler: Any = ClassBalancedSampler(dataset, n_samples)
             else:
-                tensorstore_cache_bytes = _DEFAULT_TENSORSTORE_CACHE_BYTES
-                logger.info(
-                    "TensorStore cache limit not set; applying default of %d bytes "
-                    "(%.1f GiB). Override via tensorstore_cache_bytes= or "
-                    "CELLMAP_TENSORSTORE_CACHE_BYTES env var.",
-                    _DEFAULT_TENSORSTORE_CACHE_BYTES,
-                    _DEFAULT_TENSORSTORE_CACHE_BYTES / 1024**3,
-                )
-        if tensorstore_cache_bytes is not None and tensorstore_cache_bytes < 0:
-            raise ValueError(
-                f"tensorstore_cache_bytes must be >= 0 when set; got {tensorstore_cache_bytes}"
-            )
-        self.tensorstore_cache_bytes = tensorstore_cache_bytes
-
-        # NOTE: TensorStore silently treats total_bytes_limit=0 as "no limit"
-        # (it strips zero values from the context spec).  Only positive values
-        # actually register a bound, so we skip context creation for 0.
-        if (
-            tensorstore_cache_bytes is not None
-            and tensorstore_cache_bytes > 0
-            and not isinstance(dataset, CellMapDatasetWriter)
-        ):
-            import tensorstore as ts
-
-            effective_workers = max(1, num_workers)
-            per_worker_bytes = tensorstore_cache_bytes // effective_workers
-            if per_worker_bytes == 0 and tensorstore_cache_bytes > 0:
-                per_worker_bytes = 1
                 logger.warning(
-                    "tensorstore_cache_bytes=%d with num_workers=%d results in "
-                    "per-worker cache limit of 0 bytes, which TensorStore treats as "
-                    "unlimited. Setting per-worker cache limit to 1 byte to enforce "
-                    "a meaningful bound. To avoid this warning, set tensorstore_cache_bytes "
-                    "to at least %d bytes for num_workers=%d.",
-                    tensorstore_cache_bytes,
-                    num_workers,
-                    effective_workers,
-                    effective_workers,
+                    "weighted_sampler=True but dataset does not implement "
+                    "get_crop_class_matrix(); falling back to default sampler."
                 )
-            bounded_ctx = ts.Context(
-                {"cache_pool": {"total_bytes_limit": per_worker_bytes}}
-            )
-            _set_tensorstore_context(dataset, bounded_ctx)
-            logger.info(
-                "TensorStore cache bounded: total=%d bytes / %d worker(s) = %d bytes each",
-                tensorstore_cache_bytes,
-                effective_workers,
-                per_worker_bytes,
-            )
-        elif tensorstore_cache_bytes == 0:
-            logger.warning(
-                "tensorstore_cache_bytes=0: TensorStore does not support a 0-byte "
-                "cache limit (it treats 0 as unlimited). The cache is unbounded. "
-                "To meaningfully limit caching, set a positive value.",
-            )
-
-        # Extract DataLoader parameters with optimized defaults
-        # pin_memory only works with CUDA, so default to True only when CUDA is available
-        # and device is CUDA
-        pin_memory_default = (
-            torch.cuda.is_available()
-            and str(device).startswith("cuda")
-            and platform.system() != "Windows"
-        )  # pin_memory has issues on Windows with CUDA
-        self._pin_memory = kwargs.pop("pin_memory", pin_memory_default)
-
-        # Validate pin_memory setting
-        if self._pin_memory and not str(device).startswith("cuda"):
-            logger.warning(
-                "pin_memory=True is only supported with CUDA. Disabling for %s.",
-                device,
-            )
-            self._pin_memory = False
-
-        self._persistent_workers = kwargs.pop("persistent_workers", num_workers > 0)
-        self._drop_last = kwargs.pop("drop_last", False)
-
-        # Set prefetch_factor for better GPU utilization (default 2, increase for GPU training)
-        # Only applicable when num_workers > 0
-        if num_workers > 0:
-            prefetch_factor = kwargs.pop("prefetch_factor", 2)
-            if not isinstance(prefetch_factor, int) or prefetch_factor < 1:
-                raise ValueError(
-                    f"prefetch_factor must be a positive integer, got {prefetch_factor}"
-                )
-            self._prefetch_factor = prefetch_factor
+                self._sampler = None
         else:
-            kwargs.pop("prefetch_factor", None)
-            self._prefetch_factor = None
+            self._sampler = None
 
-        # Setup sampler
-        if self.sampler is None:
-            if iterations_per_epoch is not None or (
-                weighted_sampler and len(self.dataset) > 2**24
-            ):
-                if iterations_per_epoch is None:
-                    raise ValueError(
-                        "iterations_per_epoch must be specified for large datasets."
-                    )
-                if isinstance(self.dataset, CellMapDatasetWriter):
-                    raise TypeError(
-                        "CellMapDatasetWriter does not support random sampling."
-                    )
-                self.sampler = self.dataset.get_subset_random_sampler(
-                    num_samples=iterations_per_epoch * batch_size,
-                    weighted=weighted_sampler,
-                    rng=self.rng,
-                )
-            elif weighted_sampler and isinstance(self.dataset, CellMapMultiDataset):
-                self.sampler = self.dataset.get_weighted_sampler(
-                    self.batch_size, self.rng
-                )
+        # Seed numpy RNGs so augmentation is reproducible when a torch seed is set.
+        # Derive a base seed from the provided generator or the global torch seed.
+        base_seed = (
+            rng.initial_seed() if rng is not None else torch.initial_seed()
+        ) % (2**32)
+        if num_workers == 0:
+            # Single-process: seed directly now.
+            for i, ds in enumerate(_collect_datasets(dataset)):
+                ds._rng = np.random.default_rng(base_seed + i)
+        # Multi-process workers each get a unique seed via worker_init_fn.
+        # Respect any caller-supplied worker_init_fn by not overwriting it.
+        if num_workers > 0 and "worker_init_fn" not in kwargs:
+            kwargs["worker_init_fn"] = _worker_init_fn
 
-        self.default_kwargs = kwargs
-        self.default_kwargs.update(
-            {
-                "pin_memory": self._pin_memory,
-                "persistent_workers": self._persistent_workers,
-                "drop_last": self._drop_last,
-            }
+        # pin_memory: opt-in only — auto-enabling it based on CUDA availability
+        # causes OOM failures on memory-constrained GPUs.  Pass pin_memory=True
+        # explicitly if you want the performance benefit.
+        pin = kwargs.pop("pin_memory", False)
+
+        self.loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=(is_train and self._sampler is None),
+            sampler=self._sampler,
+            num_workers=num_workers,
+            collate_fn=self.collate_fn,
+            pin_memory=pin,
+            generator=rng,
+            **self._kwargs,
         )
-        if self._prefetch_factor is not None:
-            self.default_kwargs["prefetch_factor"] = self._prefetch_factor
 
-        self._pytorch_loader = None
-        self.refresh()
+    # ------------------------------------------------------------------
+    # Collation
+    # ------------------------------------------------------------------
 
-    @property
-    def loader(self) -> torch.utils.data.DataLoader | None:
-        """Return the DataLoader."""
-        return self._pytorch_loader
+    @staticmethod
+    def collate_fn(batch: list[dict]) -> dict[str, Any]:
+        """Stack tensor values; preserve string / non-tensor items."""
+        if not batch:
+            return {}
+        keys = batch[0].keys()
+        result: dict[str, Any] = {}
+        for key in keys:
+            values = [item[key] for item in batch]
+            if isinstance(values[0], torch.Tensor):
+                result[key] = torch.stack(values)
+            elif key == "__metadata__":
+                result[key] = values
+            else:
+                try:
+                    result[key] = torch.stack(values)
+                except (TypeError, RuntimeError):
+                    result[key] = values
+        return result
 
-    def __getitem__(self, indices: Union[int, Sequence[int]]) -> dict:
-        """Get an item from the DataLoader."""
-        if isinstance(indices, int):
-            indices = [indices]
-        return self.collate_fn([self.dataset[index] for index in indices])
+    # ------------------------------------------------------------------
+    # DataLoader interface
+    # ------------------------------------------------------------------
 
-    def __iter__(self):
-        """Create an iterator over the dataset."""
-        if self._pytorch_loader is None:
-            self.refresh()
-        return iter(self._pytorch_loader)
+    def __iter__(self) -> Iterator[dict]:
+        return iter(self.loader)
 
-    def __len__(self) -> int | None:
-        """Return the number of batches per epoch."""
-        if self._pytorch_loader is None:
-            return None
-        return len(self._pytorch_loader)
+    def __len__(self) -> int:
+        return len(self.loader)
 
-    def to(self, device: str | torch.device, non_blocking: bool = True):
-        """Move the dataset to the specified device."""
-        self.dataset.to(device, non_blocking=non_blocking)
+    def to(self, device: str | torch.device) -> "CellMapDataLoader":
+        """Move the underlying dataset to *device* (no-op for CPU datasets)."""
+        if hasattr(self.dataset, "to"):
+            self.dataset.to(device)
         self.device = device
         return self
 
-    def refresh(self):
-        """Refresh the DataLoader with the current sampler state."""
-        if self._pytorch_loader is not None:
-            # Explicitly drop the old loader before creating a new one.
-            # With persistent_workers=True, simply reassigning self._pytorch_loader
-            # keeps workers alive until GC; explicit deletion triggers immediate
-            # shutdown via DataLoader.__del__ → reference counting.
-            old_loader = self._pytorch_loader
-            self._pytorch_loader = None
-            del old_loader
-        if isinstance(self.sampler, MutableSubsetRandomSampler):
-            self.sampler.refresh()
-
-        dataloader_sampler = None
-        shuffle = False
-
-        if self.sampler is not None:
-            if isinstance(self.sampler, MutableSubsetRandomSampler):
-                dataloader_sampler = self.sampler
-            elif callable(self.sampler):
-                dataloader_sampler = self.sampler()
-            else:
-                dataloader_sampler = self.sampler
-        else:
-            shuffle = self.is_train
-
-        dataloader_kwargs = {
-            "batch_size": self.batch_size,
-            "shuffle": shuffle if dataloader_sampler is None else False,
-            "num_workers": self.num_workers,
-            "collate_fn": self.collate_fn,
-            "pin_memory": self._pin_memory,
-            "drop_last": self._drop_last,
-            "generator": self.rng,
-        }
-
-        # Add sampler if provided
-        if dataloader_sampler is not None:
-            dataloader_kwargs["sampler"] = dataloader_sampler
-
-        # Add persistent_workers only if num_workers > 0
-        if self.num_workers > 0:
-            dataloader_kwargs["persistent_workers"] = self._persistent_workers
-            if self._prefetch_factor is not None:
-                dataloader_kwargs["prefetch_factor"] = self._prefetch_factor
-
-        # Add any additional kwargs
-        for key, value in self.default_kwargs.items():
-            if key not in dataloader_kwargs:
-                dataloader_kwargs[key] = value
-
-        dataloader_kwargs.pop("force_has_data", None)
-
-        # Ensure that dataset is loaded onto CPU if pin_memory is used
-        if self._pin_memory:
-            self.dataset.to("cpu")
-
-        self._pytorch_loader = torch.utils.data.DataLoader(
-            self.dataset, **dataloader_kwargs
+    def __repr__(self) -> str:
+        return (
+            f"CellMapDataLoader(dataset={self.dataset!r}, "
+            f"batch_size={self.batch_size}, is_train={self.is_train})"
         )
-
-    def collate_fn(self, batch: Sequence) -> dict[str, torch.Tensor]:
-        """
-        Collates a batch of samples into a single dictionary of tensors.
-        """
-        outputs = {}
-        for b in batch:
-            for key, value in b.items():
-                if key not in outputs:
-                    outputs[key] = []
-                outputs[key].append(value)
-
-        for key, value in outputs.items():
-            if key != "__metadata__":
-                outputs[key] = torch.stack(value)
-
-        return outputs
