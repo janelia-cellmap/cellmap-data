@@ -111,6 +111,18 @@ class TestCellMapDatasetWriter:
         output = {"mito": torch.zeros(2, 4, 4, 4)}
         writer[idx_tensor] = output  # should not raise
 
+    def test_setitem_batch_scalar_raises(self, tmp_path):
+        """Passing a scalar value in a batch write must raise TypeError."""
+        import pytest
+
+        writer = self._make_writer(tmp_path)
+        indices = writer.writer_indices[:2]
+        idx_tensor = torch.tensor(indices)
+        # Scalar instead of a batched array — should raise
+        output = {"mito": 1.0}
+        with pytest.raises(TypeError, match="Scalar writes are not supported"):
+            writer[idx_tensor] = output
+
     def test_loader_iterable(self, tmp_path):
         writer = self._make_writer(tmp_path)
         loader = writer.loader(batch_size=2)
