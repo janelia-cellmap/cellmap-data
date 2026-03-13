@@ -181,7 +181,10 @@ class ImageWriter:
         Raises
         ------
         TypeError
-            If *data* is a scalar (int or float). Use an array or tensor instead.
+            If *data* is a scalar (i.e. ``np.isscalar(data)`` is ``True``, including
+            Python and NumPy scalar types). Use a non-scalar array or tensor with
+            shape matching the patch instead. Zero-dimensional arrays/tensors are
+            also not supported for writes.
         """
         if np.isscalar(data):
             raise TypeError(
