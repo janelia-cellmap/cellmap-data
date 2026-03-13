@@ -406,7 +406,7 @@ class CellMapDataset(Dataset):
     # Class counts
     # ------------------------------------------------------------------
 
-    @property
+    @cached_property
     def class_counts(self) -> dict[str, Any]:
         """Aggregate per-class foreground voxel counts from all target sources.
 
