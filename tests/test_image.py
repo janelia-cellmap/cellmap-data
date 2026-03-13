@@ -261,3 +261,11 @@ class TestCellMapImageClassCounts:
         counts = img.class_counts
         assert "mito" in counts
         assert counts["mito"] >= 0
+
+    def test_total_voxels_equals_array_size(self, tmp_path):
+        shape = (10, 10, 10)
+        data = np.zeros(shape, dtype=np.uint8)
+        data[2:5, 2:5, 2:5] = 1
+        path = create_test_zarr(tmp_path, shape=shape, data=data)
+        img = CellMapImage(path, "mito", [8.0, 8.0, 8.0], [4, 4, 4])
+        assert img.total_voxels == int(np.prod(shape))

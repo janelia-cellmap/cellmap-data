@@ -63,6 +63,10 @@ class EmptyImage:
         return None
 
     @property
+    def total_voxels(self) -> int:
+        return 0
+
+    @property
     def class_counts(self) -> dict[str, int]:
         return {self.label_class: 0}
 

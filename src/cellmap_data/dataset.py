@@ -406,18 +406,27 @@ class CellMapDataset(Dataset):
     # Class counts
     # ------------------------------------------------------------------
 
-    @property
+    @cached_property
     def class_counts(self) -> dict[str, Any]:
-        """Aggregate per-class foreground voxel counts from all target sources."""
+        """Aggregate per-class foreground voxel counts from all target sources.
+
+        Returns a dict with:
+        - ``"totals"``: per-class foreground voxel counts at training resolution.
+        - ``"totals_total"``: per-class total voxel counts (full array size) at
+          training resolution.
+        """
         totals: dict[str, int] = {}
+        totals_total: dict[str, int] = {}
         for cls in self.classes:
             src = self.target_sources.get(cls)
             if src is not None:
                 counts = src.class_counts
                 totals[cls] = counts.get(cls, 0)
+                totals_total[cls] = src.total_voxels
             else:
                 totals[cls] = 0
-        return {"totals": totals}
+                totals_total[cls] = 0
+        return {"totals": totals, "totals_total": totals_total}
 
     # ------------------------------------------------------------------
     # Misc
