@@ -170,7 +170,7 @@ class ImageWriter:
     def __setitem__(
         self,
         coords: Mapping[str, float] | Mapping[str, Sequence],
-        data: torch.Tensor | ArrayLike | float | int,
+        data: torch.Tensor | ArrayLike,
     ) -> None:
         """Write *data* at the location given by *coords*.
 
@@ -178,6 +178,11 @@ class ImageWriter:
         - ``{axis: float}`` centre coordinates — single patch.
         - ``{axis: Sequence[float]}`` centres — batch.
         """
+        if np.isscalar(data):
+            raise TypeError(
+                "Scalar writes are not supported. "
+                "Pass an array or tensor with shape matching the patch."
+            )
         first = next(iter(coords.values()))
         if isinstance(first, (int, float)):
             self._write_single(coords, data)  # type: ignore[arg-type]

@@ -252,9 +252,7 @@ class CellMapDatasetWriter(Dataset):
                 for key, val in arrays.items():
                     if key in _SKIP_KEYS:
                         continue
-                    if isinstance(val, (int, float)):
-                        item[key] = val
-                    elif isinstance(val, dict):
+                    if isinstance(val, dict):
                         item[key] = {k: v[batch_i] for k, v in val.items()}
                     else:
                         item[key] = val[batch_i]
