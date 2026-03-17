@@ -564,7 +564,10 @@ class CellMapImage:
         try:
             total = 1
             for ax, (start, end) in self.bounding_box.items():
-                total *= int(round((end - start) / self.scale[ax]))
+                axis_voxels = int(round((end - start) / self.scale[ax]))
+                if axis_voxels < 1:
+                    axis_voxels = 1
+                total *= axis_voxels
             return total
         except Exception as exc:
             logger.warning("total_voxels failed for %s: %s", self.path, exc)
