@@ -553,6 +553,26 @@ class CellMapImage:
             logger.warning("class_counts failed for %s: %s", self.path, exc)
             return {self.label_class: 0}
 
+    @cached_property
+    def total_voxels(self) -> int:
+        """Total number of voxels in the data volume at training resolution.
+
+        Derived from the cached :attr:`bounding_box` (world-space extent of the
+        dataset) divided by the training-resolution voxel size, so no additional
+        zarr I/O is needed beyond what is already cached.
+        """
+        try:
+            total = 1
+            for ax, (start, end) in self.bounding_box.items():
+                axis_voxels = int(round((end - start) / self.scale[ax]))
+                if axis_voxels < 1:
+                    axis_voxels = 1
+                total *= axis_voxels
+            return total
+        except Exception as exc:
+            logger.warning("total_voxels failed for %s: %s", self.path, exc)
+            return 0
+
     def _scale_count(self, s0_count: int, s0_idx: int = 0) -> int:
         """Scale a voxel count from s0 resolution to training resolution."""
         try:
