@@ -261,10 +261,6 @@ class CellMapDatasetWriter(Dataset):
                         item[key] = {k: v[batch_i] for k, v in val.items()}
                     elif hasattr(val, "__getitem__") and not isinstance(val, str):
                         item[key] = val[batch_i]
-                    else:
-                        raise TypeError(
-                            "Written values should be ArrayLike, or dictionaries of ArrayLike objects."
-                        )
                 self.__setitem__(int(i), item)
             return
 

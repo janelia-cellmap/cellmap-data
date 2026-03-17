@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
 from cellmap_data import CellMapDatasetWriter
@@ -113,8 +114,6 @@ class TestCellMapDatasetWriter:
 
     def test_setitem_batch_scalar_raises(self, tmp_path):
         """Passing a scalar value in a batch write must raise TypeError."""
-        import pytest
-
         writer = self._make_writer(tmp_path)
         indices = writer.writer_indices[:2]
         idx_tensor = torch.tensor(indices)
