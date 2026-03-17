@@ -58,23 +58,36 @@ class CellMapMultiDataset(ConcatDataset):
 
         Sequential scan (parallelism offers no benefit over NFS; see
         project MEMORY.md notes on ``CellMapMultiDataset.class_counts``).
+
+        Returns a dict with:
+        - ``"totals"``: per-class foreground voxel counts.
+        - ``"totals_total"``: per-class total voxel counts (full array sizes).
         """
         totals: dict[str, int] = {cls: 0 for cls in self.classes}
+        totals_total: dict[str, int] = {cls: 0 for cls in self.classes}
         for ds in tqdm(self.datasets, desc="Counting class voxels", leave=False):
-            ds_counts = ds.class_counts.get("totals", {})
+            ds_counts = ds.class_counts
             for cls in self.classes:
-                totals[cls] += ds_counts.get(cls, 0)
-        return {"totals": totals}
+                totals[cls] += ds_counts.get("totals", {}).get(cls, 0)
+                totals_total[cls] += ds_counts.get("totals_total", {}).get(cls, 0)
+        return {"totals": totals, "totals_total": totals_total}
 
     @property
     def class_weights(self) -> dict[str, float]:
-        """Per-class sampling weight: ``bg_voxels / fg_voxels``."""
-        counts = self.class_counts["totals"]
-        total_voxels = sum(counts.values())
+        """Per-class sampling weight: ``bg_voxels / fg_voxels``.
+
+        Background voxels for each class are derived from the actual data
+        volume size (``totals_total``) minus foreground voxels, so the ratio
+        correctly reflects the class imbalance within each volume.
+        """
+        counts = self.class_counts
+        fg_counts = counts["totals"]
+        total_counts = counts["totals_total"]
         weights: dict[str, float] = {}
         for cls in self.classes:
-            fg = counts.get(cls, 0)
-            bg = total_voxels - fg
+            fg = fg_counts.get(cls, 0)
+            total = total_counts.get(cls, 0)
+            bg = max(total - fg, 0)
             weights[cls] = float(bg) / float(max(fg, 1))
         return weights
 
