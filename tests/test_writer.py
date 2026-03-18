@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
 from cellmap_data import CellMapDatasetWriter
@@ -55,6 +56,30 @@ class TestImageWriter:
             write_voxel_shape={"z": 4, "y": 4, "x": 4},
         )
         assert "ImageWriter" in repr(writer)
+
+    def _make_image_writer(self, tmp_path):
+        return ImageWriter(
+            path=str(tmp_path / "out.zarr" / "mito"),
+            target_class="mito",
+            scale={"z": 8.0, "y": 8.0, "x": 8.0},
+            bounding_box={"z": (0.0, 128.0), "y": (0.0, 128.0), "x": (0.0, 128.0)},
+            write_voxel_shape={"z": 4, "y": 4, "x": 4},
+            overwrite=True,
+        )
+
+    def test_setitem_zero_dim_ndarray_raises(self, tmp_path):
+        """A 0-D NumPy array must raise TypeError with a clear message."""
+        writer = self._make_image_writer(tmp_path)
+        center = {"z": 16.0, "y": 16.0, "x": 16.0}
+        with pytest.raises(TypeError, match="Zero-dimensional NumPy arrays"):
+            writer[center] = np.array(1.0)
+
+    def test_setitem_zero_dim_tensor_raises(self, tmp_path):
+        """A 0-D torch.Tensor must raise TypeError with a clear message."""
+        writer = self._make_image_writer(tmp_path)
+        center = {"z": 16.0, "y": 16.0, "x": 16.0}
+        with pytest.raises(TypeError, match="Zero-dimensional torch.Tensors"):
+            writer[center] = torch.tensor(1.0)
 
 
 class TestCellMapDatasetWriter:
@@ -110,6 +135,24 @@ class TestCellMapDatasetWriter:
         # Batch of predictions: [batch, *spatial]
         output = {"mito": torch.zeros(2, 4, 4, 4)}
         writer[idx_tensor] = output  # should not raise
+
+    def test_setitem_batch_scalar_raises(self, tmp_path):
+        """Passing a scalar value in a batch write must raise TypeError."""
+        writer = self._make_writer(tmp_path)
+        indices = writer.writer_indices[:2]
+        idx_tensor = torch.tensor(indices)
+        # Scalar instead of a batched array — should raise
+        output = {"mito": 1.0}
+        with pytest.raises(TypeError, match="Scalar writes are not supported"):
+            writer[idx_tensor] = output
+
+    def test_setitem_batch_unsupported_type_raises(self, tmp_path):
+        """A non-dict, non-indexable value in a batch write must raise TypeError."""
+        writer = self._make_writer(tmp_path)
+        indices = writer.writer_indices[:2]
+        idx_tensor = torch.tensor(indices)
+        with pytest.raises(TypeError, match="Unsupported batched value type"):
+            writer[idx_tensor] = {"mito": object()}
 
     def test_loader_iterable(self, tmp_path):
         writer = self._make_writer(tmp_path)

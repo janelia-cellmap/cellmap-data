@@ -252,12 +252,22 @@ class CellMapDatasetWriter(Dataset):
                 for key, val in arrays.items():
                     if key in _SKIP_KEYS:
                         continue
-                    if isinstance(val, (int, float)):
-                        item[key] = val
-                    elif isinstance(val, dict):
+                    if np.isscalar(val):
+                        raise TypeError(
+                            f"Scalar writes are not supported (key={key!r}). "
+                            "Pass an array or tensor with a leading batch dimension."
+                        )
+                    if isinstance(val, dict):
                         item[key] = {k: v[batch_i] for k, v in val.items()}
-                    else:
+                    elif hasattr(val, "__getitem__") and not isinstance(val, str):
                         item[key] = val[batch_i]
+                    else:
+                        raise TypeError(
+                            "Unsupported batched value type for key "
+                            f"{key!r}: {type(val).__name__}. Expected a dict of "
+                            "batch-indexable values or a batch-indexable "
+                            "array/tensor/sequence."
+                        )
                 self.__setitem__(int(i), item)
             return
 
