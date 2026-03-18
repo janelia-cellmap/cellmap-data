@@ -191,6 +191,18 @@ class ImageWriter:
                 "Scalar writes are not supported. "
                 "Pass an array or tensor with shape matching the patch."
             )
+        # Explicitly reject zero-dimensional arrays/tensors, which are not caught
+        # by np.isscalar and are documented as unsupported for writes.
+        if isinstance(data, np.ndarray) and data.ndim == 0:
+            raise TypeError(
+                "Zero-dimensional NumPy arrays are not supported for writes. "
+                "Pass a non-scalar array or tensor with shape matching the patch."
+            )
+        if torch.is_tensor(data) and data.dim() == 0:
+            raise TypeError(
+                "Zero-dimensional torch.Tensors are not supported for writes. "
+                "Pass a non-scalar tensor or array with shape matching the patch."
+            )
         first = next(iter(coords.values()))
         if isinstance(first, (int, float)):
             self._write_single(coords, data)  # type: ignore[arg-type]
