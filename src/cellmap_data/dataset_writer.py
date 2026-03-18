@@ -261,6 +261,13 @@ class CellMapDatasetWriter(Dataset):
                         item[key] = {k: v[batch_i] for k, v in val.items()}
                     elif hasattr(val, "__getitem__") and not isinstance(val, str):
                         item[key] = val[batch_i]
+                    else:
+                        raise TypeError(
+                            "Unsupported batched value type for key "
+                            f"{key!r}: {type(val).__name__}. Expected a dict of "
+                            "batch-indexable values or a batch-indexable "
+                            "array/tensor/sequence."
+                        )
                 self.__setitem__(int(i), item)
             return
 
