@@ -1,1071 +1,466 @@
-# %%
-import atexit
-import functools
-from functools import cached_property
+"""CellMapDataset: PyTorch Dataset for CellMap OME-NGFF data."""
+
+from __future__ import annotations
+
 import logging
 import os
-import platform
-from concurrent.futures import Executor as _ConcurrentExecutor
-from concurrent.futures import Future as _ConcurrentFuture
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import cached_property
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 import numpy as np
-import tensorstore
 import torch
-from numpy.typing import ArrayLike
 from torch.utils.data import Dataset
 
-from .base_dataset import CellMapBaseDataset
 from .empty_image import EmptyImage
 from .image import CellMapImage
-from .mutable_sampler import MutableSubsetRandomSampler
-from .utils.read_limiter import MAX_CONCURRENT_READS, limit_tensorstore_reads
-from .utils import get_sliced_shape, is_array_2D, min_redundant_inds, split_target_path
+from .utils import split_target_path
+from .utils.geometry import box_intersection, box_shape
 
 logger = logging.getLogger(__name__)
-if logger.level == logging.NOTSET:
-    logger.setLevel(logging.INFO)
-
-# Cache system values to avoid repeated calls during dataset instantiation
-_OS_NAME = platform.system()
-_DATA_BACKEND = os.environ.get("CELLMAP_DATA_BACKEND", "tensorstore")
-
-# On Windows + TensorStore, calling tensorstore's .read().result() from a
-# Python ThreadPoolExecutor worker thread causes a hard native crash
-# (STATUS_STACK_BUFFER_OVERRUN / abort, exit code 0xC0000409).  The
-# limit_tensorstore_reads semaphore only prevents *concurrent* Python reads
-# but does not fix the per-thread crash.  The safest fix is to run all
-# dataset __getitem__ work synchronously in the calling thread so that
-# TensorStore is never invoked from a ThreadPoolExecutor worker on Windows.
-_USE_IMMEDIATE_EXECUTOR = (
-    _OS_NAME == "Windows" and _DATA_BACKEND.lower() == "tensorstore"
-)
-
-# Per-process executor singleton.
-#
-# Using one ThreadPoolExecutor per CellMapDataset causes a thread explosion
-# when many dataset instances exist inside DataLoader worker processes:
-#   Before: N_datasets × num_workers × max_workers threads
-#   After:  num_workers × max_workers threads
-#
-# _PROCESS_EXECUTORS is keyed by PID so that forked child processes (DataLoader
-# workers on Linux) automatically get their own fresh pool on first access.
-# dict.setdefault() is atomic under CPython's GIL, avoiding the need for an
-# explicit lock (and the fork-safety issues that come with one).
-_PROCESS_EXECUTORS: dict[int, ThreadPoolExecutor] = {}
 
 
-def _get_process_executor(max_workers: int) -> ThreadPoolExecutor:
-    """Return the per-process shared ThreadPoolExecutor, creating it on first call.
+def _make_rotation_matrix(axes: list[str], rotation_config: dict) -> np.ndarray | None:
+    """Build a rotation matrix from a per-axis angle dict (degrees).
 
-    The first CellMapDataset created in a process determines the pool size.
-    Subsequent datasets in the same process reuse the existing pool regardless
-    of their own max_workers setting.
+    Returns a (n, n) orthonormal rotation matrix, or ``None`` if all angles
+    are zero.
     """
-    pid = os.getpid()
-    if pid not in _PROCESS_EXECUTORS:
-        executor = ThreadPoolExecutor(max_workers=max_workers)
-        # setdefault is atomic under the GIL; if two threads race here the
-        # loser's executor is discarded cleanly.
-        existing = _PROCESS_EXECUTORS.setdefault(pid, executor)
-        if existing is not executor:
-            executor.shutdown(wait=False)
-    return _PROCESS_EXECUTORS[pid]
+    n = len(axes)
+    R = np.eye(n)
+    for ax, angle_deg in rotation_config.items():
+        if angle_deg == 0 or ax not in axes:
+            continue
+        theta = np.deg2rad(angle_deg)
+        # Determine the two axes to rotate in (perpendicular to *ax*)
+        ax_idx = axes.index(ax)
+        other = [i for i in range(n) if i != ax_idx]
+        if len(other) < 2:
+            continue
+        i, j = other[0], other[1]
+        Ri = np.eye(n)
+        Ri[i, i] = np.cos(theta)
+        Ri[i, j] = -np.sin(theta)
+        Ri[j, i] = np.sin(theta)
+        Ri[j, j] = np.cos(theta)
+        R = R @ Ri
+    return None if np.allclose(R, np.eye(n)) else R
 
 
-def _shutdown_process_executor() -> None:
-    """Shut down the executor for the current process (registered via atexit)."""
-    pid = os.getpid()
-    executor = _PROCESS_EXECUTORS.pop(pid, None)
-    if executor is not None:
-        executor.shutdown(wait=True, cancel_futures=True)
+class CellMapDataset(Dataset):
+    """PyTorch Dataset that reads patches from a single CellMap zarr dataset.
 
+    Parameters
+    ----------
+    raw_path:
+        Path to the raw EM zarr group.
+    target_path:
+        Path template for GT labels, with classes in brackets, e.g.
+        ``"/data/jrc.zarr/labels/[mito,er]"``.  Each class occupies a
+        sub-group of the base path (``base/mito``, ``base/er``, …).
+    classes:
+        Segmentation classes to load.
+    input_arrays:
+        ``{array_name: {"shape": (z,y,x), "scale": (z,y,x)}}`` specs for
+        input patches.
+    target_arrays:
+        ``{array_name: {"shape": (z,y,x), "scale": (z,y,x)}}`` specs for
+        target patches.  All classes share these specs.
+    pad:
+        Whether to pad reads that extend beyond array bounds with
+        ``pad_value`` (NaN by default).
+    spatial_transforms:
+        Augmentation config dict with optional keys ``"mirror"``,
+        ``"transpose"``, and ``"rotate"``.  Example::
 
-atexit.register(_shutdown_process_executor)
-
-
-class _ImmediateExecutor(_ConcurrentExecutor):
-    """Drop-in for ThreadPoolExecutor that runs tasks in the calling thread.
-
-    On Windows + TensorStore the real ThreadPoolExecutor causes native crashes.
-    This executor avoids that by executing every submitted callable synchronously
-    before returning, so the returned Future is already resolved.
-    ``as_completed`` handles pre-resolved futures correctly (yields immediately).
-    ``map`` is inherited from ``concurrent.futures.Executor`` and works correctly
-    because it calls ``submit`` internally (which returns pre-resolved futures).
-    ``shutdown`` is a no-op because there are no threads to join.
-    """
-
-    def submit(self, fn, /, *args, **kwargs):
-        f = _ConcurrentFuture()
-        try:
-            f.set_result(fn(*args, **kwargs))
-        except Exception as exc:  # noqa: BLE001
-            f.set_exception(exc)
-        return f
-
-    def shutdown(self, wait=True, *, cancel_futures=False):
-        pass  # nothing to shut down
-
-
-_IMMEDIATE_EXECUTOR: _ImmediateExecutor | None = (
-    _ImmediateExecutor() if _USE_IMMEDIATE_EXECUTOR else None
-)
-
-
-# %%
-class CellMapDataset(CellMapBaseDataset, Dataset):
-    """
-    Subclasses PyTorch Dataset to load CellMap data for training.
-
-    This class handles data sources for raw and ground truth data, including paths,
-    segmentation classes, and input/target array configurations. It retrieves data,
-    calculates class-specific pixel counts, and generates random crops for training.
-    It also combines images for different classes into a single output array,
-    which is useful for training multi-class segmentation networks.
+            {
+                "mirror": {"z": True, "y": True, "x": True},
+                "transpose": True,
+                "rotate": {"z": 45},   # max degrees
+            }
+    raw_value_transforms:
+        Callable applied to each raw input tensor.
+    target_value_transforms:
+        Callable (or ``{class: callable}`` dict) applied to each target
+        tensor.
+    class_relation_dict:
+        Stored for API compatibility; not used in inference currently.
+    force_has_data:
+        Skip the empty-data check when ``True``.
+    device:
+        Ignored — all tensors are returned on CPU.
     """
 
     def __init__(
         self,
         raw_path: str,
         target_path: str,
-        classes: Sequence[str] | None,
-        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
-        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]] | None = None,
-        spatial_transforms: Optional[Mapping[str, Mapping]] = None,  # type: ignore
+        classes: Sequence[str],
+        input_arrays: Mapping[str, Mapping[str, Any]],
+        target_arrays: Mapping[str, Mapping[str, Any]],
+        pad: bool = False,
+        spatial_transforms: Optional[Mapping[str, Any]] = None,
         raw_value_transforms: Optional[Callable] = None,
-        target_value_transforms: Optional[
-            Callable | Sequence[Callable] | Mapping[str, Callable]
-        ] = None,
+        target_value_transforms: Optional[Callable | Mapping[str, Callable]] = None,
         class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
-        is_train: bool = False,
-        axis_order: str = "zyx",
-        context: Optional[tensorstore.Context] = None,  # type: ignore
-        rng: Optional[torch.Generator] = None,
         force_has_data: bool = False,
-        empty_value: float | int = torch.nan,
-        pad: bool = True,
-        device: Optional[str | torch.device] = "cpu",
-        max_workers: Optional[int] = None,
+        device: Optional[str | torch.device] = None,
+        seed: Optional[int] = None,
     ) -> None:
-        """Initializes the CellMapDataset class.
-
-        Args:
-        ----
-            raw_path: Path to the raw data.
-            target_path: Path to the ground truth data.
-            classes: List of classes for segmentation training.
-            input_arrays: Dictionary of input arrays with shape and scale.
-            target_arrays: Dictionary of target arrays with shape and scale.
-            spatial_transforms: Spatial transformations to apply.
-            raw_value_transforms: Transforms for raw data (e.g., normalization).
-            target_value_transforms: Transforms for target data (e.g., distance transform).
-            class_relation_dict: Defines mutual exclusivity between classes.
-            is_train: Whether the dataset is for training.
-            axis_order: The order of axes (e.g., "zyx").
-            context: TensorStore context.
-            rng: Random number generator.
-            force_has_data: If True, forces the dataset to report having data.
-            empty_value: Value for empty data.
-            pad: Whether to pad data to match requested array shapes.
-            device: The device for torch tensors. Defaults to CPU.
-            max_workers: Max worker threads for data loading.
-        """
-        super().__init__()
         self.raw_path = raw_path
         self.target_path = target_path
-        self.target_path_str, self.classes_with_path = split_target_path(target_path)
-        self.classes = classes if classes is not None else []
-        self.raw_only = classes is None
-        self.input_arrays = input_arrays
-        self.target_arrays = target_arrays if target_arrays is not None else {}
-        self.spatial_transforms = spatial_transforms
+        self.classes = list(classes)
+        self.input_arrays = dict(input_arrays)
+        self.target_arrays = dict(target_arrays)
+        self.pad = pad
+        self.spatial_transforms_config = spatial_transforms
         self.raw_value_transforms = raw_value_transforms
         self.target_value_transforms = target_value_transforms
         self.class_relation_dict = class_relation_dict
-        self.is_train = is_train
-        self.axis_order = axis_order
-        self.context = context
-        self._rng = rng
         self.force_has_data = force_has_data
-        self.empty_value = empty_value
-        self.pad = pad
-        self._current_center = None
-        self._current_spatial_transforms = None
+        self._rng = np.random.default_rng(seed)
+
+        # Parse target path to get template and annotated classes
+        gt_path_template, annotated_classes = split_target_path(target_path)
+        self._gt_path_template = gt_path_template
+        self._annotated_classes = set(annotated_classes)
+
+        # Build input sources
         self.input_sources: dict[str, CellMapImage] = {}
-        self._device = (
-            torch.device(device) if device is not None else torch.device("cpu")
-        )
-        for array_name, array_info in self.input_arrays.items():
-            self.input_sources[array_name] = CellMapImage(
-                self.raw_path,
-                "raw",
-                array_info["scale"],  # type: ignore
-                tuple(map(int, array_info["shape"])),
-                value_transform=self.raw_value_transforms,
-                context=self.context,
-                pad=self.pad,
-                pad_value=0,
-                interpolation="linear",
-                device=self._device,
-            )
-        self.target_sources = {}
-        self.has_data = force_has_data or (
-            False if (len(self.target_arrays) > 0 and len(self.classes) > 0) else True
-        )
-        for array_name, array_info in self.target_arrays.items():
-            if classes is None:
-                self.target_sources[array_name] = CellMapImage(
-                    self.raw_path,
-                    "raw",
-                    array_info["scale"],  # type: ignore
-                    tuple(map(int, array_info["shape"])),
-                    value_transform=self.target_value_transforms,
-                    context=self.context,
-                    pad=self.pad,
-                    pad_value=0,
-                    interpolation="linear",
-                    device=self._device,
-                )
-            else:
-                self.target_sources[array_name] = self.get_target_array(array_info)
-
-        self._executor = None
-        self._executor_pid = None
-        if max_workers is not None:
-            self._max_workers = max_workers
-        else:
-            # For HPC with I/O lag: prioritize I/O parallelism over CPU count
-            # Estimate based on number of concurrent I/O operations needed
-            estimated_concurrent_io = len(self.input_arrays) + len(self.target_arrays)
-            # Use at least 2 workers (input + target), cap at reasonable limit
-            # to avoid thread overhead while allowing parallel I/O requests
-            self._max_workers = min(
-                max(estimated_concurrent_io, 2),  # At least 2 workers
-                int(os.environ.get("CELLMAP_MAX_WORKERS", 8)),  # Cap at 8 by default
+        for arr_name, arr_spec in self.input_arrays.items():
+            self.input_sources[arr_name] = CellMapImage(
+                path=raw_path,
+                target_class=arr_name,
+                target_scale=arr_spec["scale"],
+                target_voxel_shape=arr_spec["shape"],
+                pad=pad,
+                value_transform=raw_value_transforms,
             )
 
-        logger.info(
-            "CellMapDataset: OS=%s backend=%s max_workers=%d max_concurrent_reads=%s "
-            "inputs=%d targets=%d classes=%d",
-            _OS_NAME,
-            _DATA_BACKEND,
-            self._max_workers,
-            (
-                str(MAX_CONCURRENT_READS)
-                if MAX_CONCURRENT_READS is not None
-                else "unlimited"
-            ),
-            len(self.input_arrays),
-            len(self.target_arrays),
-            len(self.classes),
-        )
-
-    @property
-    def executor(self) -> ThreadPoolExecutor | _ImmediateExecutor:
-        """
-        Lazy accessor for the per-process shared executor.
-
-        On Windows + TensorStore returns the module-level ``_ImmediateExecutor``
-        singleton (runs tasks synchronously to avoid native crashes).
-
-        On all other platforms returns the per-process ``ThreadPoolExecutor``
-        singleton from ``_get_process_executor``.  Using a process-level pool
-        instead of a per-dataset pool prevents thread explosion when many
-        ``CellMapDataset`` instances exist inside DataLoader worker processes.
-
-        ``self._executor`` and ``self._executor_pid`` cache the result so the
-        PID lookup only happens when the PID changes (i.e. after fork).
-        """
-        current_pid = os.getpid()
-
-        if _USE_IMMEDIATE_EXECUTOR:
-            if self._executor is None or self._executor_pid != current_pid:
-                self._executor = _IMMEDIATE_EXECUTOR
-                self._executor_pid = current_pid
-            return self._executor  # type: ignore[return-value]
-
-        # Re-fetch the process executor if PID changed (post-fork child).
-        if self._executor_pid != current_pid or self._executor is None:
-            self._executor = _get_process_executor(self._max_workers)
-            self._executor_pid = current_pid
-        return self._executor
-
-    def __str__(self) -> str:
-        return f"CellMapDataset(raw_path={self.raw_path}, target_path={self.target_path}, classes={self.classes})"
-
-    def __del__(self):
-        """Release the cached executor reference.
-
-        The shared per-process pool is shut down by the module-level atexit
-        handler (_shutdown_process_executor), not per-dataset, so we must not
-        call shutdown() here.
-        """
-        self._executor = None
-
-    def close(self) -> None:
-        """Release the cached executor reference.
-
-        The per-process shared pool is shut down via the module-level atexit
-        handler (_shutdown_process_executor).  Individual datasets must not
-        shut it down, as doing so would break all other datasets in the process.
-        """
-        self._executor = None
-
-    def __new__(
-        cls,
-        raw_path: str,
-        target_path: str,
-        classes: Sequence[str] | None,
-        input_arrays: Mapping[str, Mapping[str, Sequence[int | float]]],
-        target_arrays: Mapping[str, Mapping[str, Sequence[int | float]]] | None = None,
-        spatial_transforms: Optional[Mapping[str, Mapping]] = None,  # type: ignore
-        raw_value_transforms: Optional[Callable] = None,
-        target_value_transforms: Optional[
-            Callable | Sequence[Callable] | Mapping[str, Callable]
-        ] = None,
-        class_relation_dict: Optional[Mapping[str, Sequence[str]]] = None,
-        is_train: bool = False,
-        axis_order: str = "zyx",
-        context: Optional[tensorstore.Context] = None,  # type: ignore
-        rng: Optional[torch.Generator] = None,
-        force_has_data: bool = False,
-        empty_value: float | int = torch.nan,
-        pad: bool = True,
-        device: Optional[str | torch.device] = None,
-        max_workers: Optional[int] = None,
-    ):
-        # If 2D arrays are requested without a slicing axis, create a
-        # multidataset with 3 datasets, each slicing along one axis.
-        if is_array_2D(input_arrays, summary=any) or is_array_2D(
-            target_arrays, summary=any
-        ):
-            from cellmap_data.multidataset import CellMapMultiDataset
-
-            logger.info(
-                "2D arrays requested without slicing axis. Creating datasets "
-                "that each slice along one axis. If this is not intended, "
-                "specify the slicing axis in the input and target arrays."
-            )
-            datasets = []
-            for axis in range(3):
-                logger.debug("Creating dataset for axis %d", axis)
-                input_arrays_2d = {
-                    name: {
-                        "shape": get_sliced_shape(
-                            tuple(map(int, array_info["shape"])), axis
-                        ),
-                        "scale": array_info["scale"],
-                    }
-                    for name, array_info in input_arrays.items()
-                }
-                target_arrays_2d = (
-                    {
-                        name: {
-                            "shape": get_sliced_shape(
-                                tuple(map(int, array_info["shape"])), axis
-                            ),
-                            "scale": array_info["scale"],
-                        }
-                        for name, array_info in target_arrays.items()
-                    }
-                    if target_arrays is not None
-                    else None
-                )
-                logger.debug("Input arrays for axis %d: %s", axis, input_arrays_2d)
-                logger.debug("Target arrays for axis %d: %s", axis, target_arrays_2d)
-                dataset_instance = super(CellMapDataset, cls).__new__(cls)
-                dataset_instance.__init__(
-                    raw_path,
-                    target_path,
-                    classes,
-                    input_arrays_2d,
-                    target_arrays_2d,
-                    spatial_transforms=spatial_transforms,
-                    raw_value_transforms=raw_value_transforms,
-                    target_value_transforms=target_value_transforms,
-                    class_relation_dict=class_relation_dict,
-                    is_train=is_train,
-                    axis_order=axis_order,
-                    context=context,
-                    rng=rng,
-                    force_has_data=force_has_data,
-                    empty_value=empty_value,
+        # Build target sources: one CellMapImage or EmptyImage per class
+        # Use the first (and typically only) target array spec
+        first_target_spec = next(iter(target_arrays.values()))
+        self.target_sources: dict[str, CellMapImage | EmptyImage] = {}
+        for cls in self.classes:
+            cls_path = gt_path_template.format(label=cls)
+            value_tx = self._class_value_transform(cls)
+            if cls in self._annotated_classes and os.path.exists(cls_path):
+                self.target_sources[cls] = CellMapImage(
+                    path=cls_path,
+                    target_class=cls,
+                    target_scale=first_target_spec["scale"],
+                    target_voxel_shape=first_target_spec["shape"],
                     pad=pad,
-                    device=device,
-                    max_workers=max_workers,
+                    interpolation="nearest",
+                    value_transform=value_tx,
                 )
-                datasets.append(dataset_instance)
-            return CellMapMultiDataset(
-                classes=classes,
-                input_arrays=input_arrays,
-                target_arrays=target_arrays,
-                datasets=datasets,
-            )
-        else:
-            return super().__new__(cls)
+            else:
+                self.target_sources[cls] = EmptyImage(
+                    path=cls_path,
+                    target_class=cls,
+                    target_scale=first_target_spec["scale"],
+                    target_voxel_shape=first_target_spec["shape"],
+                )
 
-    def __reduce__(self):
-        """
-        Support pickling for multiprocessing DataLoader.
-        """
-        args = (
-            self.raw_path,
-            self.target_path,
-            self.classes,
-            self.input_arrays,
-            self.target_arrays,
-            self.spatial_transforms,
-            self.raw_value_transforms,
-            self.target_value_transforms,
-            self.class_relation_dict,
-            self.is_train,
-            self.axis_order,
-            self.context,
-            self._rng,
-            self.force_has_data,
-            self.empty_value,
-            self.pad,
-            self.device.type if hasattr(self.device, "type") else self.device,
-            self._max_workers,
-        )
-        return (self.__class__, args, self.__dict__)
-
-    @cached_property
-    def center(self) -> Mapping[str, float] | None:
-        """Returns the center of the dataset in world units."""
-        if self.bounding_box is None:
+    def _class_value_transform(self, cls: str) -> Optional[Callable]:
+        """Return the value transform for a specific class."""
+        if self.target_value_transforms is None:
             return None
-        return {
-            c: start + (stop - start) / 2
-            for c, (start, stop) in self.bounding_box.items()
-        }
+        if callable(self.target_value_transforms):
+            return self.target_value_transforms
+        if isinstance(self.target_value_transforms, Mapping):
+            return self.target_value_transforms.get(cls)
+        return None
+
+    # ------------------------------------------------------------------
+    # Spatial properties
+    # ------------------------------------------------------------------
 
     @cached_property
-    def largest_voxel_sizes(self) -> Mapping[str, float]:
-        """Returns the largest voxel size of the dataset."""
-        largest_voxel_size = dict.fromkeys(self.axis_order, 0.0)
-        for source in list(self.input_sources.values()) + list(
+    def bounding_box(self) -> dict[str, tuple[float, float]] | None:
+        """Intersection of all source bounding boxes."""
+        box = None
+        for src in list(self.input_sources.values()) + list(
             self.target_sources.values()
         ):
-            if isinstance(source, dict):
-                for _, source in source.items():
-                    if not hasattr(source, "scale") or source.scale is None:  # type: ignore
-                        continue
-                    for c, size in source.scale.items():  # type: ignore
-                        largest_voxel_size[c] = max(largest_voxel_size[c], size)
-            else:
-                if not hasattr(source, "scale") or source.scale is None:
-                    continue
-                for c, size in source.scale.items():
-                    largest_voxel_size[c] = max(largest_voxel_size[c], size)
-        return largest_voxel_size
+            bb = src.bounding_box
+            if bb is None:
+                continue
+            box = bb if box is None else box_intersection(box, bb)
+            if box is None:
+                return None
+        return box
 
     @cached_property
-    def bounding_box(self) -> Mapping[str, list[float]]:
-        """Returns the bounding box of the dataset."""
-        all_sources = list(self.input_sources.values()) + list(
+    def sampling_box(self) -> dict[str, tuple[float, float]] | None:
+        """Intersection of all source sampling boxes.
+
+        ``EmptyImage`` sources (``bounding_box is None``) are skipped.
+        A ``CellMapImage`` with a crop smaller than the output patch returns
+        a single-centre ``sampling_box`` when ``pad=True`` (so
+        ``len(dataset)`` becomes 1), or ``None`` when ``pad=False`` (which
+        causes this method to return ``None`` and exclude the dataset).
+        """
+        box = None
+        for src in list(self.input_sources.values()) + list(
             self.target_sources.values()
-        )
-        # Flatten to individual CellMapImage objects
-        flat_sources = []
-        for source in all_sources:
-            if isinstance(source, dict):
-                flat_sources.extend(
-                    s for s in source.values() if hasattr(s, "bounding_box")
-                )
-            elif hasattr(source, "bounding_box"):
-                flat_sources.append(source)
-
-        # Prefetch bounding boxes in parallel (each triggers a zarr group open)
-        # Use self.executor to respect Windows+TensorStore immediate executor handling
-        boxes = list(self.executor.map(lambda s: s.bounding_box, flat_sources))
-
-        bounding_box: dict[str, list[float]] | None = None
-        for box in boxes:
-            bounding_box = self._get_box_intersection(box, bounding_box)
-
-        if bounding_box is None:
-            logger.warning(
-                "Bounding box is None. This may cause errors during sampling."
-            )
-            bounding_box = {c: [-np.inf, np.inf] for c in self.axis_order}
-        return bounding_box
+        ):
+            sb = src.sampling_box
+            if sb is None:
+                if src.bounding_box is None:
+                    continue  # EmptyImage — no spatial constraint
+                return None  # pad=False and crop too small → exclude
+            box = sb if box is None else box_intersection(box, sb)
+            if box is None:
+                return None
+        return box
 
     @cached_property
-    def bounding_box_shape(self) -> Mapping[str, int]:
-        """Returns the shape of the bounding box of the dataset in voxels of the largest voxel size requested."""
-        return self._get_box_shape(self.bounding_box)
+    def _target_scale(self) -> dict[str, float]:
+        """Scale of the first target array spec."""
+        first_target_src = next(iter(self.target_sources.values()))
+        return dict(first_target_src.scale)
 
-    @cached_property
-    def sampling_box(self) -> Mapping[str, list[float]]:
-        """Returns the sampling box of the dataset (i.e. where centers can be drawn from and still have full samples drawn from within the bounding box)."""
-        all_sources = list(self.input_sources.values()) + list(
-            self.target_sources.values()
-        )
-        flat_sources = []
-        for source in all_sources:
-            if isinstance(source, dict):
-                flat_sources.extend(
-                    s for s in source.values() if hasattr(s, "sampling_box")
-                )
-            elif hasattr(source, "sampling_box"):
-                flat_sources.append(source)
-
-        # Prefetch sampling boxes in parallel; bounding_box is already cached
-        # from the bounding_box property so these are cheap if called after it.
-        # Use self.executor to respect Windows+TensorStore immediate executor handling
-        boxes = list(self.executor.map(lambda s: s.sampling_box, flat_sources))
-
-        sampling_box: dict[str, list[float]] | None = None
-        for box in boxes:
-            sampling_box = self._get_box_intersection(box, sampling_box)
-
-        if sampling_box is None:
-            logger.warning(
-                "Sampling box is None. This may cause errors during sampling."
-            )
-            sampling_box = {c: [-np.inf, np.inf] for c in self.axis_order}
-        return sampling_box
-
-    @cached_property
-    def sampling_box_shape(self) -> dict[str, int]:
-        """Returns the shape of the sampling box of the dataset in voxels of the largest voxel size requested."""
-        shape = self._get_box_shape(self.sampling_box)
-        if self.pad:
-            for c, size in shape.items():
-                if size <= 0:
-                    logger.debug(
-                        "Sampling box for axis %s has size %d <= 0. "
-                        "Setting to 1 and padding.",
-                        c,
-                        size,
-                    )
-                    shape[c] = 1
-        return shape
-
-    @cached_property
-    def size(self) -> int:
-        """Returns the size of the dataset in voxels of the largest voxel size requested."""
-        return int(
-            np.prod([stop - start for start, stop in self.bounding_box.values()])
-        )
-
-    @cached_property
-    def class_counts(self) -> Mapping[str, Mapping[str, float]]:
-        """Returns the number of pixels for each class in the ground truth data, normalized by the resolution."""
-        class_counts = {"totals": dict.fromkeys(self.classes, 0.0)}
-        class_counts["totals"].update({c + "_bg": 0.0 for c in self.classes})
-        for array_name, sources in self.target_sources.items():
-            class_counts[array_name] = {}
-            for label, source in sources.items():
-                if isinstance(source, CellMapImage):
-                    class_counts[array_name][label] = source.class_counts
-                    class_counts[array_name][label + "_bg"] = source.bg_count
-                    class_counts["totals"][label] += source.class_counts
-                    class_counts["totals"][label + "_bg"] += source.bg_count
-                else:
-                    class_counts[array_name][label] = 0.0
-                    class_counts[array_name][label + "_bg"] = 0.0
-        return class_counts
-
-    @cached_property
-    def class_weights(self) -> dict[str, float]:
-        """Returns the class weights for the dataset based on the number of samples in each class. Classes without any samples will have a weight of 1."""
-        if self.classes is None:
-            return {}
-        return {
-            c: (
-                self.class_counts["totals"][c + "_bg"] / self.class_counts["totals"][c]
-                if self.class_counts["totals"][c] != 0
-                else 1
-            )
-            for c in self.classes
-        }
-
-    @cached_property
-    def validation_indices(self) -> Sequence[int]:
-        """Returns the indices of the dataset that will produce non-overlapping tiles for use in validation, based on the largest requested voxel size."""
-        chunk_size = {
-            c: np.ceil(size - self.sampling_box_shape[c]).astype(int)
-            for c, size in self.bounding_box_shape.items()
-        }
-        return self.get_indices(chunk_size)
-
-    @property
-    def device(self) -> torch.device:
-        """Returns the device for the dataset."""
-        return self._device
+    # ------------------------------------------------------------------
+    # Dataset interface
+    # ------------------------------------------------------------------
 
     def __len__(self) -> int:
-        """Returns the number of unique patches in the dataset."""
-        if not self.has_data and not self.force_has_data:
+        sb = self.sampling_box
+        if sb is None:
             return 0
-        # Return at least 1 if the dataset has data, so that samplers can be initialized
-        return int(max(np.prod(list(self.sampling_box_shape.values())), 1))
+        grid = box_shape(sb, self._target_scale)
+        total = 1
+        for v in grid.values():
+            total *= v
+        return total
 
-    def __getitem__(self, idx: ArrayLike) -> dict[str, torch.Tensor]:
-        """Returns a crop of the input and target data as PyTorch tensors, corresponding to the coordinate of the unwrapped index."""
-        try:
-            idx_arr = np.array(idx)
-            if np.any(idx_arr < 0):
-                idx_arr[idx_arr < 0] = len(self) + idx_arr[idx_arr < 0]
+    def __getitem__(self, idx: int) -> dict[str, Any]:
+        center = self._idx_to_center(idx)
+        transforms = self._generate_spatial_transforms()
 
-            center_indices = np.unravel_index(
-                idx_arr, [self.sampling_box_shape[c] for c in self.axis_order]
-            )
-        except ValueError:
-            logger.error(
-                "Index %s out of bounds for dataset of length %d", idx, len(self)
-            )
-            logger.warning("Returning closest index in bounds")
-            center_indices = [self.sampling_box_shape[c] - 1 for c in self.axis_order]
-        center = {
-            c: float(
-                center_indices[i] * self.largest_voxel_sizes[c]
-                + self.sampling_box[c][0]
-            )
-            for i, c in enumerate(self.axis_order)
-        }
-
-        self._current_idx = idx
-        self._current_center = center
-        spatial_transforms = self.generate_spatial_transforms()
-
-        def get_input_array(array_name: str) -> tuple[str, torch.Tensor]:
-            self.input_sources[array_name].set_spatial_transforms(spatial_transforms)
-            with limit_tensorstore_reads():
-                array = self.input_sources[array_name][center]
-            return array_name, array.squeeze()[None, ...]
-
-        futures = [
-            self.executor.submit(get_input_array, array_name)
-            for array_name in self.input_arrays.keys()
-        ]
-
-        if self.raw_only:
-
-            def get_target_array(array_name: str) -> tuple[str, torch.Tensor]:
-                self.target_sources[array_name].set_spatial_transforms(
-                    spatial_transforms
-                )
-                with limit_tensorstore_reads():
-                    array = self.target_sources[array_name][center]
-                return array_name, array.squeeze()[None, ...]
-
-        else:
-
-            def get_target_array(array_name: str) -> tuple[str, torch.Tensor]:
-                class_arrays = dict.fromkeys(self.classes)  # Force order of classes
-                inferred_arrays = []
-
-                def get_label_array(
-                    label: str,
-                ) -> tuple[str, torch.Tensor | None]:
-                    source = self.target_sources[array_name].get(label)
-                    if isinstance(source, (CellMapImage, EmptyImage)):
-                        source.set_spatial_transforms(spatial_transforms)
-                        with limit_tensorstore_reads():
-                            array = source[center].squeeze()
-                    else:
-                        array = None
-                    return label, array
-
-                # Run label reads synchronously within this pool thread.
-                # Submitting sub-futures to the same shared pool and blocking
-                # on as_completed() inside a pool thread causes deadlock when
-                # all pool slots are occupied by blocking get_target_array tasks.
-                for label in self.classes:
-                    lbl, array = get_label_array(label)
-                    if array is not None:
-                        class_arrays[lbl] = array
-                    else:
-                        inferred_arrays.append(lbl)
-
-                empty_array = self.get_empty_store(
-                    self.target_arrays[array_name], device=self.device
-                )
-
-                def infer_label_array(label: str) -> tuple[str, torch.Tensor]:
-                    array = empty_array.clone()
-                    other_labels = self.target_sources[array_name].get(label, [])
-                    for other_label in other_labels:
-                        other_array = class_arrays.get(other_label)
-                        if other_array is not None:
-                            mask = other_array > 0
-                            array[mask] = 0
-                    return label, array
-
-                for label in inferred_arrays:
-                    lbl, array = infer_label_array(label)
-                    class_arrays[lbl] = array
-
-                stacked_arrays = []
-                for label in self.classes:
-                    arr = class_arrays.get(label)
-                    if arr is not None:
-                        stacked_arrays.append(
-                            arr.to(self.device, non_blocking=True)
-                            if arr.device != self.device
-                            else arr
-                        )
-
-                array = torch.stack(stacked_arrays)
-                if array.shape[0] != len(self.classes):
-                    raise ValueError(
-                        f"Target array {array_name} has {array.shape[0]} classes, "
-                        f"but {len(self.classes)} were expected."
-                    )
-                return array_name, array
-
-        futures += [
-            self.executor.submit(get_target_array, array_name)
-            for array_name in self.target_arrays.keys()
-        ]
-
-        outputs: dict[str, Any] = {
-            "__metadata__": self.metadata,
-        }
-
-        for future in as_completed(futures):
-            array_name, array = future.result()
-            outputs[array_name] = array
-
-        return outputs
-
-    @property
-    def metadata(self) -> dict[str, Any]:
-        """Returns metadata about the dataset."""
-        metadata = {
-            "raw_path": self.raw_path,
-            "current_center": self._current_center,
-            "current_idx": self._current_idx,
-        }
-
-        if self._current_spatial_transforms is not None:
-            metadata["current_spatial_transforms"] = self._current_spatial_transforms
-        if not self.raw_only:
-            metadata["target_path_str"] = self.target_path_str
-            metadata["class_weights"] = self.class_weights
-        return metadata
-
-    def __repr__(self) -> str:
-        """Returns a string representation of the dataset."""
-        return (
-            f"CellMapDataset(\n\tRaw path: {self.raw_path}\n\t"
-            f"GT path(s): {self.target_path}\n\tClasses: {self.classes})"
-        )
-
-    def get_empty_store(
-        self, array_info: Mapping[str, Sequence[int | float]], device: torch.device
-    ) -> torch.Tensor:
-        """Returns an empty store, based on the requested array."""
-        shape = tuple(map(int, array_info["shape"]))
-        empty_store = torch.ones(shape, device=device) * self.empty_value
-        return empty_store.squeeze()
-
-    def get_target_array(
-        self, array_info: Mapping[str, Sequence[int | float]]
-    ) -> dict[str, CellMapImage | EmptyImage | Sequence[str]]:
-        """
-        Returns a target array source for the dataset.
-
-        Creates a dictionary of image sources for each class. If ground truth
-        data is missing for a class, it can be inferred from other mutually
-        exclusive classes.
-        """
-        empty_store = self.get_empty_store(array_info, device=torch.device("cpu"))
-        target_array = {}
-        for i, label in enumerate(self.classes):
-            target_array[label] = self.get_label_array(
-                label, i, array_info, empty_store
-            )
-
-        for label in self.classes:
-            if isinstance(target_array.get(label), (CellMapImage, EmptyImage)):
-                continue
-
-            is_empty = True
-            related_labels = target_array.get(label)
-            if isinstance(related_labels, list):
-                for other_label in related_labels:
-                    if isinstance(target_array.get(other_label), CellMapImage):
-                        is_empty = False
-                        break
-            if is_empty:
-                shape = tuple(map(int, array_info["shape"]))
-                target_array[label] = EmptyImage(
-                    label, array_info["scale"], shape, empty_store  # type: ignore
-                )
-
-        return target_array
-
-    def get_label_array(
-        self,
-        label: str,
-        i: int,
-        array_info: Mapping[str, Sequence[int | float]],
-        empty_store: torch.Tensor,
-    ) -> CellMapImage | EmptyImage | Sequence[str]:
-        """Returns a target array source for a specific class in the dataset."""
-        if label in self.classes_with_path:
-            value_transform: Callable | None = None
-            if isinstance(self.target_value_transforms, dict):
-                value_transform = self.target_value_transforms.get(label)
-            elif isinstance(self.target_value_transforms, list):
-                value_transform = self.target_value_transforms[i]
-            elif callable(self.target_value_transforms):
-                value_transform = self.target_value_transforms
-
-            array = CellMapImage(
-                self.target_path_str.format(label=label),
-                label,
-                array_info["scale"],  # type: ignore
-                tuple(map(int, array_info["shape"])),
-                value_transform=value_transform,
-                context=self.context,
-                pad=self.pad,
-                pad_value=self.empty_value,
-                interpolation="nearest",
-                device=self._device,
-            )
-            if not self.has_data and not self.force_has_data:
-                self.has_data = array.class_counts > 0
-            logger.debug(f"{str(self)} has data: {self.has_data}")
-        else:
-            if (
-                self.class_relation_dict is not None
-                and label in self.class_relation_dict
-            ):
-                array = self.class_relation_dict[label]
-            else:
-                shape = tuple(map(int, array_info["shape"]))
-                array = EmptyImage(
-                    label, array_info["scale"], shape, empty_store, device=self._device  # type: ignore
-                )
-        return array
-
-    def _get_box_shape(self, source_box: Mapping[str, list[float]]) -> dict[str, int]:
-        """Returns the shape of the box in voxels of the largest voxel size requested."""
-        box_shape = {}
-        for c, (start, stop) in source_box.items():
-            size = stop - start
-            size /= self.largest_voxel_sizes[c]
-            box_shape[c] = int(np.floor(size))
-        return box_shape
-
-    def _get_box_intersection(
-        self,
-        source_box: Mapping[str, list[float]] | None,
-        current_box: dict[str, list[float]] | None,
-    ) -> dict[str, list[float]] | None:
-        """Returns the intersection of the source and current boxes."""
-        if source_box is None:
-            return current_box
-        if current_box is None:
-            return {k: v[:] for k, v in source_box.items()}
-
-        result_box = {k: v[:] for k, v in current_box.items()}
-        for c, (start, stop) in source_box.items():
-            if stop <= start:
-                raise ValueError(f"Invalid box: start={start}, stop={stop}")
-            result_box[c][0] = max(result_box[c][0], start)
-            result_box[c][1] = min(result_box[c][1], stop)
-        return result_box
-
-    def verify(self) -> bool:
-        """Verifies that the dataset is valid to draw samples from."""
-        try:
-            return len(self) > 0
-        except Exception as e:
-            logger.warning("Dataset verification failed: %s", e)
-            return False
-
-    def get_indices(self, chunk_size: Mapping[str, int]) -> Sequence[int]:
-        """Returns the indices of the dataset that will tile the dataset according to the chunk_size."""
-        # TODO: ADD TEST
-        # Get padding per axis
-        indices_dict = {}
-        for c, size in chunk_size.items():
-            if size <= 0:
-                indices_dict[c] = np.array([0], dtype=int)
-            else:
-                indices_dict[c] = np.arange(
-                    0, self.sampling_box_shape[c], size, dtype=int
-                )
-
-        indices = []
-        shape_values = [self.sampling_box_shape[c] for c in self.axis_order]
-        for i in np.ndindex(*[len(indices_dict[c]) for c in self.axis_order]):
-            index = [indices_dict[c][j] for c, j in zip(self.axis_order, i)]
-            index = np.ravel_multi_index(index, shape_values)
-            indices.append(index)
-        return indices
-
-    def to(
-        self, device: str | torch.device, non_blocking: bool = True
-    ) -> "CellMapDataset":
-        """Sets the device for the dataset."""
-        self._device = torch.device(device)
-        device_str = str(self._device)
-        all_sources = list(self.input_sources.values()) + list(
+        # Set transforms on all sources
+        for src in list(self.input_sources.values()) + list(
             self.target_sources.values()
-        )
-        for source in all_sources:
-            if isinstance(source, dict):
-                for sub_source in source.values():
-                    if hasattr(sub_source, "to"):
-                        sub_source.to(device_str, non_blocking=non_blocking)
-            elif hasattr(source, "to"):
-                source.to(device_str, non_blocking=non_blocking)
-        return self
+        ):
+            src.set_spatial_transforms(transforms)
 
-    def generate_spatial_transforms(self) -> Optional[Mapping[str, Any]]:
-        """
-        Generates random spatial transforms for training.
+        result: dict[str, Any] = {"idx": torch.tensor(idx)}
 
-        Available transforms:
-        - "mirror": {"axes": {"x": 0.5, "y": 0.5}}
-        - "transpose": {"axes": ["x", "z"]}
-        - "rotate": {"axes": {"z": [-90, 90]}}
-        """
-        if not self.is_train or self.spatial_transforms is None:
+        for name, src in self.input_sources.items():
+            tensor = src[center]
+            # Drop any singleton spatial dims (e.g. Z=1 for flat-3D inputs),
+            # then prepend C=1 so the batch has shape [N, C, *spatial] as
+            # expected by PyTorch convolutions.
+            if 1 in tensor.shape:
+                tensor = tensor.squeeze()
+            result[name] = tensor.unsqueeze(0)  # [C=1, *spatial]
+
+        # Stack per-class tensors under each target array name.
+        # The challenge (and train.py) accesses targets via target_arrays keys
+        # (e.g. batch["output"]), not individual class names.
+        if self.target_arrays:
+            class_tensors = []
+            for cls in self.classes:
+                t = self.target_sources[cls][center]
+                # Match the same singleton-dim squeeze applied to inputs so
+                # spatial dims are consistent between inputs and targets.
+                if 1 in t.shape:
+                    t = t.squeeze()
+                class_tensors.append(t)
+            stacked = torch.stack(class_tensors, dim=0)  # [n_classes, *spatial]
+            for arr_name in self.target_arrays:
+                result[arr_name] = stacked
+
+        # Reset spatial transforms
+        for src in list(self.input_sources.values()) + list(
+            self.target_sources.values()
+        ):
+            src.set_spatial_transforms(None)
+
+        return result
+
+    def _idx_to_center(self, idx: int) -> dict[str, float]:
+        """Convert flat index to world centre coordinates."""
+        sb = self.sampling_box
+        if sb is None:
+            raise IndexError(f"sampling_box is None for {self.raw_path!r}")
+        scale = self._target_scale
+        grid = box_shape(sb, scale)
+        axes = list(sb.keys())
+        shape_tuple = tuple(grid[ax] for ax in axes)
+        vox_idx = np.unravel_index(int(idx) % max(1, len(self)), shape_tuple)
+        return {
+            ax: sb[ax][0] + (vox_idx[i] + 0.5) * scale[ax] for i, ax in enumerate(axes)
+        }
+
+    def _generate_spatial_transforms(self) -> dict | None:
+        """Generate random spatial transforms from the config for one sample."""
+        cfg = self.spatial_transforms_config
+        if not cfg:
             return None
 
-        spatial_transforms: dict[str, Any] = {}
-        for transform, params in self.spatial_transforms.items():
-            if transform == "mirror":
-                mirrored_axes = [
-                    axis
-                    for axis, prob in params["axes"].items()
-                    if torch.rand(1, generator=self._rng).item() < prob
-                ]
-                if mirrored_axes:
-                    spatial_transforms[transform] = mirrored_axes
-            elif transform == "transpose":
-                axes = {axis: i for i, axis in enumerate(self.axis_order)}
-                permuted_axes = [axes[a] for a in params["axes"]]
-                permuted_indices = torch.randperm(
-                    len(permuted_axes), generator=self._rng
-                )
-                shuffled_axes = [permuted_axes[i] for i in permuted_indices]
-                axes.update(
-                    {axis: shuffled_axes[i] for i, axis in enumerate(params["axes"])}
-                )
-                spatial_transforms[transform] = axes
-            elif transform == "rotate":
-                rotated_axes = {}
-                for axis, limits in params["axes"].items():
-                    angle = (
-                        torch.rand(1, generator=self._rng).item()
-                        * (limits[1] - limits[0])
-                        + limits[0]
-                    )
-                    rotated_axes[axis] = angle
-                if rotated_axes:
-                    spatial_transforms[transform] = rotated_axes
+        result: dict[str, Any] = {}
+
+        # Mirror
+        mirror_cfg = cfg.get("mirror")
+        if mirror_cfg:
+            if isinstance(mirror_cfg, dict):
+                # Support {"axes": {"x": 0.5, ...}} wrapper or flat {"x": 0.5, ...}
+                axis_probs = mirror_cfg.get("axes", mirror_cfg)
+                if isinstance(axis_probs, dict):
+                    result["mirror"] = {
+                        ax: bool(self._rng.random() < prob)
+                        for ax, prob in axis_probs.items()
+                    }
+                else:
+                    axes = next(iter(self.input_sources.values())).axes
+                    result["mirror"] = {
+                        ax: bool(self._rng.random() < 0.5) for ax in axes
+                    }
             else:
-                raise ValueError(f"Unknown spatial transform: {transform}")
+                axes = next(iter(self.input_sources.values())).axes
+                result["mirror"] = {ax: bool(self._rng.random() < 0.5) for ax in axes}
 
-        self._current_spatial_transforms = spatial_transforms
-        return spatial_transforms
+        # Transpose
+        if cfg.get("transpose"):
+            axes = next(iter(self.input_sources.values())).axes
+            n = len(axes)
+            perm = list(self._rng.permutation(n))
+            result["transpose"] = perm
 
-    def set_raw_value_transforms(self, transforms: Callable) -> None:
-        """Sets the raw value transforms for the dataset."""
-        self.raw_value_transforms = transforms
-        for source in self.input_sources.values():
-            source.value_transform = transforms
+        # Rotate
+        rotate_cfg = cfg.get("rotate")
+        if rotate_cfg:
+            axes = next(iter(self.input_sources.values())).axes
+            if isinstance(rotate_cfg, dict):
+                # Support {"axes": {"x": 45, ...}} wrapper or flat {"x": 45, ...}
+                axis_angles = rotate_cfg.get("axes", rotate_cfg)
+                if isinstance(axis_angles, dict):
+                    angle_dict: dict[str, float] = {}
+                    for ax, max_angle in axis_angles.items():
+                        if isinstance(max_angle, (list, tuple)):
+                            lo, hi = max_angle
+                        else:
+                            lo, hi = -float(max_angle), float(max_angle)
+                        angle_dict[ax] = float(self._rng.uniform(lo, hi))
+                    R = _make_rotation_matrix(axes, angle_dict)
+                    if R is not None:
+                        result["rotation_matrix"] = R
 
-    def set_target_value_transforms(self, transforms: Callable) -> None:
-        """Sets the ground truth value transforms for the dataset."""
-        self.target_value_transforms = transforms
-        for sources in self.target_sources.values():
-            for source in sources.values():
-                if isinstance(source, CellMapImage):
-                    source.value_transform = transforms
+        return result if result else None
 
-    def reset_arrays(self, array_type: str = "target") -> None:
-        """Resets the specified arrays for the dataset."""
-        if array_type.lower() == "input":
-            self.input_sources = {}
-            for array_name, array_info in self.input_arrays.items():
-                self.input_sources[array_name] = CellMapImage(
-                    self.raw_path,
-                    "raw",
-                    array_info["scale"],  # type: ignore
-                    tuple(map(int, array_info["shape"])),
-                    value_transform=self.raw_value_transforms,
-                    context=self.context,
-                    pad=self.pad,
-                    pad_value=0,
-                )
-        elif array_type.lower() == "target":
-            self.target_sources = {}
-            self.has_data = False
-            for array_name, array_info in self.target_arrays.items():
-                self.target_sources[array_name] = self.get_target_array(array_info)
-        else:
-            raise ValueError(f"Unknown dataset array type: {array_type}")
+    # ------------------------------------------------------------------
+    # Sampling utilities
+    # ------------------------------------------------------------------
 
-    def get_random_subset_sampler(
-        self, num_samples: int, rng: Optional[torch.Generator] = None, **kwargs: Any
-    ) -> MutableSubsetRandomSampler:
+    def get_indices(self, chunk_size: Mapping[str, float]) -> list[int]:
+        """Flat indices that tile the sampling box without overlap.
+
+        Parameters
+        ----------
+        chunk_size:
+            World-space tile size per axis in nm (e.g. target output size).
         """
-        Returns a random sampler that yields exactly `num_samples` indices from this subset.
-        - If `num_samples` ≤ total number of available indices, samples without replacement.
-        - If `num_samples` > total number of available indices, samples with replacement using repeated shuffles to minimize duplicates.
-        """
-        indices_generator = functools.partial(
-            self.get_random_subset_indices, num_samples, rng, **kwargs
-        )
+        sb = self.sampling_box
+        if sb is None:
+            return []
+        scale = self._target_scale
+        grid = box_shape(sb, scale)
+        axes = list(sb.keys())
 
-        return MutableSubsetRandomSampler(indices_generator)
-
-    def get_random_subset_indices(
-        self, num_samples: int, rng: Optional[torch.Generator] = None, **kwargs: Any
-    ) -> Sequence[int]:
-        inds = min_redundant_inds(len(self), num_samples, rng=rng)
-        return inds.tolist()
-
-    def get_subset_random_sampler(
-        self,
-        num_samples: int,
-        weighted: bool = False,
-        rng: Optional[torch.Generator] = None,
-    ) -> MutableSubsetRandomSampler:
-        """
-        Returns a subset random sampler for the dataset.
-
-        Args:
-        ----
-            num_samples: The number of samples.
-            weighted: Whether to use weighted sampling.
-            rng: The random number generator.
-
-        Returns:
-        -------
-            A subset random sampler.
-        """
-        if num_samples is None:
-            num_samples = len(self) * 2
-
-        if weighted:
-            raise NotImplementedError("Weighted sampling is not yet implemented.")
-        else:
-            indices_generator = lambda: min_redundant_inds(
-                len(self), num_samples, rng=rng
+        # Tile with the given chunk size
+        chunk_grid = {
+            ax: max(
+                1, int(round((sb[ax][1] - sb[ax][0]) / chunk_size.get(ax, scale[ax])))
             )
+            for ax in axes
+        }
+        indices = []
+        shape_tuple = tuple(grid[ax] for ax in axes)
+        chunk_tuple = tuple(chunk_grid[ax] for ax in axes)
+        # Step through the sampling box in chunks
+        for chunk_idx in np.ndindex(*chunk_tuple):
+            vox_idx = tuple(
+                int(chunk_idx[i] * shape_tuple[i] / chunk_tuple[i])
+                for i in range(len(axes))
+            )
+            flat = int(np.ravel_multi_index(vox_idx, shape_tuple))
+            indices.append(flat)
+        return indices
 
-        return MutableSubsetRandomSampler(indices_generator, rng=rng)
+    def get_crop_class_matrix(self) -> np.ndarray:
+        """Return a ``[1, n_classes]`` boolean row for ClassBalancedSampler.
 
-    @staticmethod
-    def empty() -> "CellMapDataset":
-        """Creates an empty dataset."""
-        # Directly instantiate to bypass __new__ logic
-        instance = super(CellMapDataset, CellMapDataset).__new__(CellMapDataset)
-        instance.__init__("", "", [], {}, {}, force_has_data=False)
-        instance.has_data = False
-        # Set cached_property value directly in __dict__ to bypass computation
-        instance.__dict__["sampling_box_shape"] = {c: 0 for c in instance.axis_order}
-        return instance
+        True where the class is annotated (non-empty CellMapImage).
+        """
+        row = np.array(
+            [
+                not isinstance(self.target_sources.get(cls), EmptyImage)
+                for cls in self.classes
+            ],
+            dtype=bool,
+        ).reshape(1, -1)
+        return row
+
+    # ------------------------------------------------------------------
+    # Class counts
+    # ------------------------------------------------------------------
+
+    @cached_property
+    def class_counts(self) -> dict[str, Any]:
+        """Aggregate per-class foreground voxel counts from all target sources.
+
+        Returns a dict with:
+        - ``"totals"``: per-class foreground voxel counts at training resolution.
+        - ``"totals_total"``: per-class total voxel counts (full array size) at
+          training resolution.
+        """
+        totals: dict[str, int] = {}
+        totals_total: dict[str, int] = {}
+        for cls in self.classes:
+            src = self.target_sources.get(cls)
+            if src is not None:
+                counts = src.class_counts
+                totals[cls] = counts.get(cls, 0)
+                totals_total[cls] = src.total_voxels
+            else:
+                totals[cls] = 0
+                totals_total[cls] = 0
+        return {"totals": totals, "totals_total": totals_total}
+
+    # ------------------------------------------------------------------
+    # Misc
+    # ------------------------------------------------------------------
+
+    def verify(self) -> bool:
+        """Return True if the dataset has at least one valid sample."""
+        return len(self) > 0 or self.force_has_data
+
+    def set_raw_value_transforms(self, transforms: Optional[Callable]) -> None:
+        self.raw_value_transforms = transforms
+        for src in self.input_sources.values():
+            src.value_transform = transforms
+        # Reset cached properties that depend on sources
+        self.__dict__.pop("bounding_box", None)
+        self.__dict__.pop("sampling_box", None)
+
+    def set_target_value_transforms(
+        self, transforms: Optional[Callable | Mapping[str, Callable]]
+    ) -> None:
+        self.target_value_transforms = transforms
+        for cls, src in self.target_sources.items():
+            if isinstance(src, CellMapImage):
+                src.value_transform = self._class_value_transform(cls)
+
+    def set_spatial_transforms(self, transforms: Optional[Mapping[str, Any]]) -> None:
+        self.spatial_transforms_config = transforms
+
+    def to(self, device: str | torch.device) -> "CellMapDataset":
+        """No-op for API compatibility (tensors returned on CPU)."""
+        return self
+
+    def __repr__(self) -> str:
+        return (
+            f"CellMapDataset(raw={self.raw_path!r}, "
+            f"classes={self.classes}, len={len(self)})"
+        )

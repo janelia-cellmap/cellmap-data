@@ -1,28 +1,48 @@
+"""ImageWriter: writes patch data back to a zarr array at world coordinates."""
+
+from __future__ import annotations
+
 import logging
 import os
 from functools import cached_property
-from typing import Mapping, Optional, Sequence, Union
+from typing import Mapping, Optional, Sequence
 
 import numpy as np
-import tensorstore
 import torch
-import xarray
-import xarray_tensorstore as xt
+import zarr
 from numpy.typing import ArrayLike
-from pydantic_ome_ngff.v04.axis import Axis
-from pydantic_ome_ngff.v04.transform import VectorScale, VectorTranslation
 from upath import UPath
-from xarray_ome_ngff.v04.multiscale import coords_from_transforms
 
-from cellmap_data.utils import create_multiscale_metadata
+from .utils.metadata import create_multiscale_metadata
 
 logger = logging.getLogger(__name__)
 
 
 class ImageWriter:
-    """
-    This class is used to write image data to a single-resolution zarr.
-    ...existing docstring...
+    """Write patches of a single class to a single-resolution zarr array.
+
+    Parameters
+    ----------
+    path:
+        Base path of the zarr group (e.g. ``/out/predictions.zarr/mito``).
+    target_class:
+        Semantic label (e.g. ``"mito"``).
+    scale:
+        Voxel size in nm per spatial axis (dict or sequence in *axis_order*).
+    bounding_box:
+        World bounding box ``{axis: (min_nm, max_nm)}``.
+    write_voxel_shape:
+        Patch size in voxels (dict or sequence in *axis_order*).
+    scale_level:
+        Scale level index to write (default 0 = full resolution).
+    axis_order:
+        Spatial axis names.
+    overwrite:
+        If ``True``, existing data at *path* is overwritten.
+    dtype:
+        Output dtype (default ``float32``).
+    fill_value:
+        Value to pre-fill the output array with (default ``0``).
     """
 
     def __init__(
@@ -30,311 +50,240 @@ class ImageWriter:
         path: str | UPath,
         target_class: str,
         scale: Mapping[str, float] | Sequence[float],
-        bounding_box: Mapping[str, list[float]],
+        bounding_box: Mapping[str, Sequence[float]],
         write_voxel_shape: Mapping[str, int] | Sequence[int],
         scale_level: int = 0,
         axis_order: str = "zyx",
-        context: Optional[tensorstore.Context] = None,
+        context: Optional[object] = None,  # ignored – kept for API compat
         overwrite: bool = False,
         dtype: np.dtype = np.float32,
         fill_value: float | int = 0,
     ) -> None:
         self.base_path = str(path)
-        self.path = (UPath(path) / f"s{scale_level}").path
         self.label_class = self.target_class = target_class
-        if isinstance(scale, Sequence):
-            scale = {c: s for c, s in zip(axis_order[::-1], scale[::-1])}
-        self.scale = scale
-        if isinstance(write_voxel_shape, Sequence):
-            if len(axis_order) > len(write_voxel_shape):  # TODO: This might be a bug
-                write_voxel_shape = [1] * (
-                    len(axis_order) - len(write_voxel_shape)
-                ) + list(write_voxel_shape)
-            elif (
-                len(axis_order) + 1 == len(write_voxel_shape) and "c" not in axis_order
-            ):
-                axis_order = "c" + axis_order
-            write_voxel_shape = {c: t for c, t in zip(axis_order, write_voxel_shape)}
-        self.axes = axis_order
-        # Assume axes correspond to last dimensions of voxel shape
-        self.spatial_axes = axis_order[-len(scale) :]
-        self.bounding_box = bounding_box
-        self.write_voxel_shape = write_voxel_shape
-        self.write_world_shape = {
-            c: write_voxel_shape[c] * scale[c] for c in self.spatial_axes
-        }
         self.scale_level = scale_level
-        self.context = context
         self.overwrite = overwrite
         self.dtype = dtype
         self.fill_value = fill_value
-        self.metadata = {
-            "offset": list(self.offset.values()),
-            "axes": [c for c in axis_order],
-            "voxel_size": list(self.scale.values()),
-            "shape": list(self.shape.values()),
-            "units": "nanometer",
-            "chunk_shape": list(write_voxel_shape.values()),
+
+        if isinstance(scale, Sequence):
+            scale = {c: float(s) for c, s in zip(axis_order, scale)}
+        self.scale: dict[str, float] = dict(scale)
+
+        self.axes: str = axis_order
+        self.spatial_axes: list[str] = list(axis_order[-len(self.scale) :])
+
+        if isinstance(write_voxel_shape, Sequence):
+            if len(axis_order) > len(write_voxel_shape):
+                write_voxel_shape = [1] * (
+                    len(axis_order) - len(write_voxel_shape)
+                ) + list(write_voxel_shape)
+            write_voxel_shape = {
+                c: int(t) for c, t in zip(axis_order, write_voxel_shape)
+            }
+        self.write_voxel_shape: dict[str, int] = dict(write_voxel_shape)
+        self.write_world_shape: dict[str, float] = {
+            c: self.write_voxel_shape[c] * self.scale[c] for c in self.spatial_axes
         }
 
-    @cached_property
-    def array(self) -> xarray.DataArray:
-        os.makedirs(UPath(self.base_path), exist_ok=True)
-        group_path = str(self.base_path).split(".zarr")[0] + ".zarr"
-        for group in [""] + list(UPath(str(self.base_path).split(".zarr")[-1]).parts)[
-            1:
-        ]:
-            group_path = UPath(group_path) / group
-            with open(group_path / ".zgroup", "w") as f:
-                f.write('{"zarr_format": 2}')
-        create_multiscale_metadata(
-            ds_name=str(self.base_path),
-            voxel_size=self.metadata["voxel_size"],
-            translation=self.metadata["offset"],
-            units=self.metadata["units"],
-            axes=self.metadata["axes"],
-            base_scale_level=self.scale_level,
-            levels_to_add=0,
-            out_path=str(UPath(self.base_path) / ".zattrs"),
-        )
-        spec = {
-            "driver": "zarr",
-            "kvstore": {"driver": "file", "path": self.path},
+        self.bounding_box: dict[str, tuple[float, float]] = {
+            c: (float(bounding_box[c][0]), float(bounding_box[c][1]))
+            for c in self.spatial_axes
         }
-        open_kwargs = {
-            "read": True,
-            "write": True,
-            "create": True,
-            "delete_existing": self.overwrite,
-            "dtype": self.dtype,
-            "shape": list(self.shape.values()),
-            "fill_value": self.fill_value,
-            "chunk_layout": tensorstore.ChunkLayout(write_chunk_shape=self.chunk_shape),
-            "context": self.context,
-        }
-        array_future = tensorstore.open(
-            spec,
-            **open_kwargs,
-        )
-        try:
-            array = array_future.result()
-        except ValueError as e:
-            if "ALREADY_EXISTS" in str(e):
-                raise FileExistsError(
-                    f"Image already exists at {self.path}. Set overwrite=True to overwrite the image."
-                )
-            logger.warning("Error opening with zarr driver: %s", e)
-            logger.warning("Falling back to zarr3 driver")
-            spec["driver"] = "zarr3"
-            array_future = tensorstore.open(spec, **open_kwargs)
-            array = array_future.result()
-        data = xarray.DataArray(
-            data=xt._TensorStoreAdapter(array),
-            coords=coords_from_transforms(
-                axes=[
-                    Axis(
-                        name=c,
-                        type="space" if c != "c" else "channel",
-                        unit="nm" if c != "c" else "",
-                    )
-                    for c in self.axes
-                ],
-                transforms=(
-                    VectorScale(scale=tuple(self.scale.values())),
-                    VectorTranslation(translation=tuple(self.offset.values())),
-                ),
-                shape=tuple(self.shape.values()),
-            ),
-        )
-        with open(UPath(self.path) / ".zattrs", "w") as f:
-            f.write("{}")
-        return data
+
+    # ------------------------------------------------------------------
+    # Cached properties
+    # ------------------------------------------------------------------
 
     @cached_property
-    def chunk_shape(self) -> Sequence[int]:
-        return list(self.write_voxel_shape.values())
+    def offset(self) -> dict[str, float]:
+        return {c: self.bounding_box[c][0] for c in self.spatial_axes}
 
     @cached_property
-    def world_shape(self) -> Mapping[str, float]:
+    def world_shape(self) -> dict[str, float]:
         return {
             c: self.bounding_box[c][1] - self.bounding_box[c][0]
             for c in self.spatial_axes
         }
 
     @cached_property
-    def shape(self) -> Mapping[str, int]:
+    def shape(self) -> dict[str, int]:
         return {
             c: int(np.ceil(self.world_shape[c] / self.scale[c]))
             for c in self.spatial_axes
         }
 
     @cached_property
-    def center(self) -> Mapping[str, float]:
-        return {str(k): float(np.mean(v)) for k, v in self.array.coords.items()}
+    def chunk_shape(self) -> list[int]:
+        return [self.write_voxel_shape[c] for c in self.spatial_axes]
 
     @cached_property
-    def offset(self) -> Mapping[str, float]:
-        return {c: self.bounding_box[c][0] for c in self.spatial_axes}
+    def array_path(self) -> str:
+        return str(UPath(self.base_path) / f"s{self.scale_level}")
 
     @cached_property
-    def full_coords(self) -> tuple[xarray.DataArray, ...]:
-        return coords_from_transforms(
-            axes=[
-                Axis(
-                    name=c,
-                    type="space" if c != "c" else "channel",
-                    unit="nm" if c != "c" else "",
-                )
-                for c in self.axes
-            ],
-            transforms=(
-                VectorScale(scale=tuple(self.scale.values())),
-                VectorTranslation(translation=tuple(self.offset.values())),
-            ),
-            shape=tuple(self.shape.values()),
+    def _zarr_array(self) -> zarr.Array:
+        """Open (creating if necessary) the output zarr array."""
+        os.makedirs(str(UPath(self.base_path)), exist_ok=True)
+
+        # Ensure every ancestor group has a .zgroup
+        group_path = str(self.base_path).split(".zarr")[0] + ".zarr"
+        inner = UPath(str(self.base_path).split(".zarr")[-1])
+        for part in [""] + list(inner.parts)[1:]:
+            gp = str(UPath(group_path) / part)
+            zgroup = UPath(gp) / ".zgroup"
+            if not zgroup.exists():
+                os.makedirs(gp, exist_ok=True)
+                zgroup.write_text('{"zarr_format": 2}')
+            group_path = gp
+
+        # Write OME-NGFF multiscale metadata
+        create_multiscale_metadata(
+            ds_name=self.base_path,
+            voxel_size=[self.scale[c] for c in self.spatial_axes],
+            translation=[self.offset[c] for c in self.spatial_axes],
+            units="nanometer",
+            axes=self.spatial_axes,
+            base_scale_level=self.scale_level,
+            levels_to_add=0,
+            out_path=str(UPath(self.base_path) / ".zattrs"),
         )
 
-    def align_coords(
-        self, coords: Mapping[str, tuple[Sequence, np.ndarray]]
-    ) -> Mapping[str, tuple[Sequence, np.ndarray]]:
-        aligned_coords = {}
-        for c in self.spatial_axes:
-            aligned_coords[c] = np.array(
-                self.array.coords[c][
-                    np.abs(np.array(self.array.coords[c])[:, None] - coords[c]).argmin(
-                        axis=0
-                    )
-                ]
-            ).squeeze()
-        return aligned_coords
+        total_shape = [self.shape[c] for c in self.spatial_axes]
+        arr = zarr.open_array(
+            self.array_path,
+            mode="w" if self.overwrite else "a",
+            shape=total_shape,
+            dtype=self.dtype,
+            chunks=self.chunk_shape,
+            fill_value=self.fill_value,
+        )
+        # Empty attrs for scale-level array
+        with open(str(UPath(self.array_path) / ".zattrs"), "w") as f:
+            f.write("{}")
+        return arr
 
-    def aligned_coords_from_center(self, center: Mapping[str, float]):
-        coords = {}
-        for c in self.axes:
-            # Use center-of-voxel alignment
-            start_requested = (
-                center[c] - self.write_world_shape[c] / 2 + self.scale[c] / 2
-            )
-            start_aligned_idx = int(
-                np.abs(self.array.coords[c] - start_requested).argmin()
-            )
-            coords[c] = self.array.coords[c][
-                start_aligned_idx : start_aligned_idx + self.write_voxel_shape[c]
-            ]
-        return coords
+    # ------------------------------------------------------------------
+    # Write
+    # ------------------------------------------------------------------
 
     def __setitem__(
         self,
-        coords: Union[Mapping[str, float], Mapping[str, tuple[Sequence, np.ndarray]]],
-        data: Union[torch.Tensor, ArrayLike, float, int],
+        coords: Mapping[str, float] | Mapping[str, Sequence],
+        data: torch.Tensor | ArrayLike,
     ) -> None:
+        """Write *data* at the location given by *coords*.
+
+        *coords* can be:
+        - ``{axis: float}`` centre coordinates — single patch.
+        - ``{axis: Sequence[float]}`` centres — batch.
+
+        Raises
+        ------
+        TypeError
+            If *data* is a scalar (i.e. ``np.isscalar(data)`` is ``True``, including
+            Python and NumPy scalar types). Use a non-scalar array or tensor with
+            shape matching the patch instead. Zero-dimensional arrays/tensors are
+            also not supported for writes.
         """
-        Set data at the specified coordinates.
-
-        This method handles two types of coordinate inputs:
-        1. Center coordinates: mapping axis names to float values
-        2. Batch coordinates: mapping axis names to sequences of coordinates
-
-        Args:
-        ----
-            coords: Either center coordinates or batch coordinates
-            data: Data to write at the coordinates
-        """
-        first_coord_value = next(iter(coords.values()))
-
-        if isinstance(first_coord_value, (int, float)):
-            # Handle single item with center coordinates
-            self._write_single_item(coords, data)  # type: ignore
+        if np.isscalar(data):
+            raise TypeError(
+                "Scalar writes are not supported. "
+                "Pass an array or tensor with shape matching the patch."
+            )
+        # Explicitly reject zero-dimensional arrays/tensors, which are not caught
+        # by np.isscalar and are documented as unsupported for writes.
+        if isinstance(data, np.ndarray) and data.ndim == 0:
+            raise TypeError(
+                "Zero-dimensional NumPy arrays are not supported for writes. "
+                "Pass a non-scalar array or tensor with shape matching the patch."
+            )
+        if torch.is_tensor(data) and data.dim() == 0:
+            raise TypeError(
+                "Zero-dimensional torch.Tensors are not supported for writes. "
+                "Pass a non-scalar tensor or array with shape matching the patch."
+            )
+        first = next(iter(coords.values()))
+        if isinstance(first, (int, float)):
+            self._write_single(coords, data)  # type: ignore[arg-type]
         else:
-            # Handle batch of items with coordinate sequences
-            self._write_batch_items(coords, data)  # type: ignore
+            self._write_batch(coords, data)  # type: ignore[arg-type]
 
-    def _write_single_item(
+    def _write_single(
         self,
-        center_coords: Mapping[str, float],
-        data: Union[torch.Tensor, ArrayLike],
+        center: Mapping[str, float],
+        data: torch.Tensor | ArrayLike,
     ) -> None:
-        """Write a single data item using center coordinates."""
-        # Convert center coordinates to aligned array coordinates
-        aligned_coords = self.aligned_coords_from_center(center_coords)
+        arr = self._zarr_array
+        arr_shape = [self.shape[c] for c in self.spatial_axes]
 
-        # Convert data to numpy array with correct dtype
+        slices: list[slice] = []
+        src_starts: list[int] = []
+        for i, c in enumerate(self.spatial_axes):
+            start_nm = center[c] - self.write_world_shape[c] / 2.0
+            start_vox = int(round((start_nm - self.offset[c]) / self.scale[c]))
+            end_vox = start_vox + self.write_voxel_shape[c]
+            clamp_start = max(0, start_vox)
+            clamp_end = min(arr_shape[i], end_vox)
+            # Where the visible region starts inside the source patch along this axis
+            src_start = clamp_start - start_vox
+            slices.append(slice(clamp_start, clamp_end))
+            src_starts.append(src_start)
+
         if isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
-        data_array = np.array(data).astype(self.dtype)
+            data_np = data.detach().cpu().numpy()
+        else:
+            data_np = np.asarray(data)
 
-        # Remove batch dimension if present
-        if data_array.ndim == len(self.axes) + 1 and data_array.shape[0] == 1:
-            data_array = np.squeeze(data_array, axis=0)
-
-        # Check for shape mismatches
-        expected_shape = tuple(self.write_voxel_shape[c] for c in self.axes)
-        if data_array.shape != expected_shape:
-            if len(data_array.shape) < len(expected_shape) and 1 in expected_shape:
-                # Try to expand dimensions to fit expected shape
-                for axis, size in enumerate(expected_shape):
-                    if size == 1:
-                        data_array = np.expand_dims(data_array, axis=axis)
-            else:
-                raise ValueError(
-                    f"Data shape {data_array.shape} does not match expected shape {expected_shape}."
-                )
-        coord_shape = tuple(len(aligned_coords[c]) for c in self.axes)
-        if coord_shape != expected_shape:
-            # Try to crop data to fit within bounds if necessary
-            min_shape = tuple(min(c, e) for c, e in zip(coord_shape, expected_shape))
-            slices = tuple(slice(0, s) for s in min_shape)
-            data_array = data_array[slices]
-            if data_array.shape != coord_shape:
-                raise ValueError(
-                    f"Aligned coordinates shape {coord_shape} does not match expected shape {expected_shape}."
-                )
-            UserWarning(
-                f"Data shape cropped to {data_array.shape} to fit within bounds."
+        if data_np.ndim == 0:
+            raise TypeError(
+                "Scalar writes are not supported. "
+                "Pass an array or tensor with shape matching the patch."
             )
 
-        # Write to array
-        self.array.loc[aligned_coords] = data_array
+        data_np = data_np.astype(self.dtype)
 
-    def _write_batch_items(
+        # Strip batch / channel leading dims of size 1
+        while data_np.ndim > len(self.spatial_axes) and data_np.shape[0] == 1:
+            data_np = data_np.squeeze(0)
+
+        # Crop data to clamped region (near array edges)
+        actual = tuple(s.stop - s.start for s in slices)
+        if data_np.shape != actual:
+            # Use per-axis offsets so that when start_vox < 0, we skip the out-of-bounds prefix
+            data_np = data_np[
+                tuple(
+                    slice(src_starts[i], src_starts[i] + actual[i])
+                    for i in range(len(self.spatial_axes))
+                )
+            ]
+
+        arr[tuple(slices)] = data_np
+
+    def _write_batch(
         self,
-        batch_coords: Mapping[str, tuple[Sequence, np.ndarray]],
-        data: Union[torch.Tensor, ArrayLike],
+        batch_coords: Mapping[str, Sequence],
+        data: torch.Tensor | ArrayLike,
     ) -> None:
-        """Write multiple data items by iterating through coordinate batches."""
-        # Do for each item in the batch
-        for i in range(data.shape[0]):
-            # Extract center coordinates for this item
-            item_coords = {axis: batch_coords[axis][i] for axis in self.axes}
+        n = len(next(iter(batch_coords.values())))
+        for i in range(n):
+            center = {ax: float(batch_coords[ax][i]) for ax in self.spatial_axes}
+            self._write_single(center, data[i])  # type: ignore[index]
 
-            # Extract data for this item
-            item_data = data[i]  # type: ignore
-
-            # Write this single item using center coordinates
-            self._write_single_item(item_coords, item_data)
+    def __getitem__(self, coords: Mapping[str, float]) -> torch.Tensor:
+        """Read the patch centred at *coords*."""
+        arr = self._zarr_array
+        arr_shape = [self.shape[c] for c in self.spatial_axes]
+        slices: list[slice] = []
+        for i, c in enumerate(self.spatial_axes):
+            start_nm = coords[c] - self.write_world_shape[c] / 2.0
+            start_vox = int(round((start_nm - self.offset[c]) / self.scale[c]))
+            end_vox = start_vox + self.write_voxel_shape[c]
+            slices.append(slice(max(0, start_vox), min(arr_shape[i], end_vox)))
+        return torch.from_numpy(np.array(arr[tuple(slices)]))
 
     def __repr__(self) -> str:
-        return f"ImageWriter({self.path}: {self.label_class} @ {list(self.scale.values())} {self.metadata['units']})"
-
-    def __getitem__(
-        self, coords: Mapping[str, float] | Mapping[str, tuple[Sequence, np.ndarray]]
-    ) -> torch.Tensor:
-        """
-        Get the image data at the specified center coordinates.
-
-        Args:
-        ----
-            coords (Mapping[str, float] | Mapping[str, tuple[Sequence, np.ndarray]]): The center coordinates or aligned coordinates.
-
-        Returns:
-        -------
-            torch.Tensor: The image data at the specified center.
-        """
-        # Check if center or coords are provided
-        if isinstance(list(coords.values())[0], int | float):
-            center = coords
-            aligned_coords = self.aligned_coords_from_center(center)  # type: ignore
-        else:
-            # If coords are provided, align them
-            aligned_coords = self.align_coords(coords)  # type: ignore
-        return torch.tensor(self.array.loc[aligned_coords].data).squeeze()
+        return (
+            f"ImageWriter({self.base_path!r}: {self.label_class!r} "
+            f"@ {list(self.scale.values())} nm)"
+        )

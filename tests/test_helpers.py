@@ -1,313 +1,133 @@
-"""
-Test helpers for creating real test data without mocks.
+"""Helpers for creating minimal zarr test fixtures."""
 
-This module provides utilities to create real Zarr/OME-NGFF datasets
-for testing purposes.
-"""
+from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import zarr
-from pydantic_ome_ngff.v04.axis import Axis
-from pydantic_ome_ngff.v04.multiscale import Dataset as MultiscaleDataset
-from pydantic_ome_ngff.v04.multiscale import MultiscaleMetadata
-from pydantic_ome_ngff.v04.transform import VectorScale
 
 
-def create_test_zarr_array(
-    path: Path,
+def _write_ome_ngff(
+    path: str,
     data: np.ndarray,
-    axes: Sequence[str] = ("z", "y", "x"),
-    scale: Sequence[float] = (1.0, 1.0, 1.0),
-    chunks: Optional[Sequence[int]] = None,
-    multiscale: bool = True,
-    absent: int = 0,
-) -> zarr.Array:
-    """
-    Create a test Zarr array with OME-NGFF metadata.
+    voxel_size: list[float],
+    *,
+    axes: list[str] | None = None,
+    origin: list[float] | None = None,
+    level: str = "s0",
+) -> None:
+    """Write a single-level OME-NGFF zarr group."""
+    if axes is None:
+        axes = ["z", "y", "x"][-data.ndim :]
+    if origin is None:
+        origin = [0.0] * len(axes)
 
-    Args:
-        path: Path to create the Zarr array
-        data: Numpy array data
-        axes: Axis names
-        scale: Scale for each axis in physical units
-        chunks: Chunk size for Zarr array
-        multiscale: Whether to create multiscale metadata
-
-    Returns:
-        Created zarr.Array
-    """
-    path.mkdir(parents=True, exist_ok=True)
-
-    if chunks is None:
-        chunks = tuple(min(32, s) for s in data.shape)
-
-    # Create zarr group
-    store = zarr.DirectoryStore(str(path))
-    root = zarr.group(store=store, overwrite=True)
-
-    if multiscale:
-        # Create multiscale group with s0 level
-        s0 = root.create_dataset(
-            "s0",
-            data=data,
-            chunks=chunks,
-            dtype=data.dtype,
-            overwrite=True,
-        )
-
-        # Create OME-NGFF multiscale metadata
-        axis_list = tuple(
-            Axis(
-                name=name,
-                type="space" if name in ["x", "y", "z"] else "channel",
-                unit="nanometer" if name in ["x", "y", "z"] else None,
-            )
-            for name in axes
-        )
-
-        datasets = (
-            MultiscaleDataset(
-                path="s0",
-                coordinateTransformations=(
-                    VectorScale(type="scale", scale=tuple(scale)),
-                ),
-            ),
-        )
-
-        multiscale_metadata = MultiscaleMetadata(
-            version="0.4",
-            name="test_data",
-            axes=axis_list,
-            datasets=datasets,
-        )
-
-        root.attrs["multiscales"] = [
-            multiscale_metadata.model_dump(mode="json", exclude_none=True)
+    os.makedirs(path, exist_ok=True)
+    z_attrs = {
+        "multiscales": [
+            {
+                "axes": [
+                    {"name": ax, "type": "space", "unit": "nanometer"} for ax in axes
+                ],
+                "datasets": [
+                    {
+                        "path": level,
+                        "coordinateTransformations": [
+                            {"type": "scale", "scale": voxel_size},
+                            {"type": "translation", "translation": origin},
+                        ],
+                    }
+                ],
+                "version": "0.4",
+            }
         ]
+    }
+    with open(os.path.join(path, ".zattrs"), "w") as f:
+        json.dump(z_attrs, f)
+    with open(os.path.join(path, ".zgroup"), "w") as f:
+        f.write('{"zarr_format": 2}')
 
-        s0.attrs["cellmap"] = {"annotation": {"complement_counts": {"absent": absent}}}
-
-        return s0
-    else:
-        # Create simple array without multiscale
-        arr = root.create_dataset(
-            name="data",
-            data=data,
-            chunks=chunks,
-            dtype=data.dtype,
-            overwrite=True,
-        )
-        return arr
+    arr_path = os.path.join(path, level)
+    zarr.open_array(
+        arr_path,
+        mode="w",
+        shape=data.shape,
+        dtype=data.dtype,
+        chunks=data.shape,
+    )[:] = data
 
 
-def create_test_image_data(
-    shape: Sequence[int],
-    dtype: np.dtype = np.float32,
-    pattern: str = "gradient",
-    seed: int = 42,
-) -> np.ndarray:
+def create_test_zarr(
+    tmp_path: Path,
+    name: str = "test",
+    shape: tuple[int, ...] = (20, 20, 20),
+    voxel_size: list[float] | None = None,
+    origin: list[float] | None = None,
+    data: np.ndarray | None = None,
+    axes: list[str] | None = None,
+) -> str:
+    """Create a minimal OME-NGFF zarr group under *tmp_path*.
+
+    Returns the path to the zarr group (the directory).
     """
-    Create test image data with various patterns.
+    ndim = len(shape)
+    if axes is None:
+        axes = ["z", "y", "x"][-ndim:]
+    if voxel_size is None:
+        voxel_size = [8.0] * ndim
+    if origin is None:
+        origin = [0.0] * ndim
+    if data is None:
+        rng = np.random.default_rng(0)
+        data = (rng.random(shape) * 255).astype(np.uint8)
 
-    Args:
-        shape: Shape of the array
-        dtype: Data type
-        pattern: Type of pattern ("gradient", "checkerboard", "random", "constant", "sphere")
-        seed: Random seed
-
-    Returns:
-        Generated numpy array
-    """
-    rng = np.random.default_rng(seed)
-
-    if pattern == "gradient":
-        # Create a gradient along the last axis
-        data = np.zeros(shape, dtype=dtype)
-        for i in range(shape[-1]):
-            data[..., i] = i / shape[-1]
-    elif pattern == "checkerboard":
-        # Create checkerboard pattern
-        indices = np.indices(shape)
-        data = np.sum(indices, axis=0) % 2
-        data = data.astype(dtype)
-    elif pattern == "random":
-        # Random values between 0 and 1
-        data = rng.random(shape, dtype=np.float32).astype(dtype)
-    elif pattern == "constant":
-        # Constant value
-        data = np.ones(shape, dtype=dtype)
-    elif pattern == "sphere":
-        # Create a sphere in the center
-        data = np.zeros(shape, dtype=dtype)
-        center = tuple(s // 2 for s in shape)
-        radius = min(shape) // 4
-
-        indices = np.indices(shape)
-        distances = np.sqrt(
-            sum((indices[i] - center[i]) ** 2 for i in range(len(shape)))
-        )
-        data[distances <= radius] = 1.0
-    else:
-        raise ValueError(f"Unknown pattern: {pattern}")
-
-    return data
-
-
-def create_test_label_data(
-    shape: Sequence[int],
-    num_classes: int = 3,
-    pattern: str = "regions",
-    seed: int = 42,
-) -> Dict[str, np.ndarray]:
-    """
-    Create test label data for multiple classes.
-
-    Args:
-        shape: Shape of the arrays
-        num_classes: Number of classes to generate
-        pattern: Type of pattern ("regions", "random", "stripes")
-        seed: Random seed
-
-    Returns:
-        Dictionary mapping class names to label arrays
-    """
-    rng = np.random.default_rng(seed)
-    labels = {}
-
-    if pattern == "regions":
-        # Divide the volume into regions for different classes
-        for i in range(num_classes):
-            class_label = np.zeros(shape, dtype=np.uint8)
-            # Create regions along first axis
-            start = (i * shape[0]) // num_classes
-            end = ((i + 1) * shape[0]) // num_classes
-            class_label[start:end] = 1
-            labels[f"class_{i}"] = class_label
-    elif pattern == "random":
-        # Random labels
-        for i in range(num_classes):
-            labels[f"class_{i}"] = (rng.random(shape) > 0.5).astype(np.uint8)
-    elif pattern == "stripes":
-        # Create stripes along last axis
-        for i in range(num_classes):
-            class_label = np.zeros(shape, dtype=np.uint8)
-            # Create stripes
-            for j in range(shape[-1]):
-                if j % num_classes == i:
-                    class_label[..., j] = 1
-            if np.sum(class_label) == 0 and shape[-1] > 0:
-                class_label[..., 0] = 1  # Ensure at least one pixel
-            labels[f"class_{i}"] = class_label
-    else:
-        raise ValueError(f"Unknown pattern: {pattern}")
-
-    return labels
+    path = str(tmp_path / f"{name}.zarr")
+    _write_ome_ngff(path, data, voxel_size, axes=axes, origin=origin)
+    return path
 
 
 def create_test_dataset(
     tmp_path: Path,
-    raw_shape: Sequence[int] = (64, 64, 64),
-    gt_shape: Optional[Sequence[int]] = None,
-    num_classes: int = 3,
-    raw_scale: Sequence[float] = (4.0, 4.0, 4.0),
-    gt_scale: Optional[Sequence[float]] = None,
-    seed: int = 0,
-    raw_pattern: str = "random",
-    label_pattern: str = "regions",
-) -> Dict[str, Any]:
+    classes: list[str] | None = None,
+    shape: tuple[int, ...] = (32, 32, 32),
+    voxel_size: list[float] | None = None,
+) -> dict:
+    """Create a minimal raw + label zarr dataset for testing.
+
+    Returns a dict with keys ``raw_path``, ``gt_path``, ``classes``.
     """
-    Create a test dataset with raw and ground truth Zarr arrays.
+    if classes is None:
+        classes = ["mito", "er"]
+    ndim = len(shape)
+    if voxel_size is None:
+        voxel_size = [8.0] * ndim
+    axes = ["z", "y", "x"][-ndim:]
 
-    Args:
-        tmp_path: Path to create the dataset
-        raw_shape: Shape of the raw data
-        gt_shape: Shape of the ground truth data
-        num_classes: Number of classes in ground truth
-        raw_scale: Scale of the raw data
-        gt_scale: Scale of the ground truth data
-        seed: Random seed for data generation
-        raw_pattern: Pattern for raw data
-        label_pattern: Pattern for label data
+    rng = np.random.default_rng(42)
+    raw_data = (rng.random(shape) * 255).astype(np.uint8)
+    raw_path = str(tmp_path / "raw.zarr")
+    _write_ome_ngff(raw_path, raw_data, voxel_size, axes=axes)
 
-    Returns:
-        Dictionary with paths and parameters of the created dataset
-    """
-    dataset_path = tmp_path / "dataset.zarr"
-    raw_data = create_test_image_data(
-        raw_shape, dtype=np.dtype(np.uint8), pattern=raw_pattern, seed=seed
-    )
-    create_test_zarr_array(dataset_path / "raw", raw_data, scale=raw_scale)
+    gt_base = str(tmp_path / "gt.zarr")
+    os.makedirs(gt_base, exist_ok=True)
+    with open(os.path.join(gt_base, ".zgroup"), "w") as f:
+        f.write('{"zarr_format": 2}')
 
-    classes = [f"class_{i}" for i in range(num_classes)]
-    if gt_shape is None:
-        gt_shape = raw_shape
-    if gt_scale is None:
-        gt_scale = raw_scale
+    for cls in classes:
+        label_data = rng.integers(0, 2, size=shape).astype(np.uint8)
+        cls_path = os.path.join(gt_base, cls)
+        _write_ome_ngff(cls_path, label_data, voxel_size, axes=axes)
 
-    label_data = create_test_label_data(
-        gt_shape, num_classes, pattern=label_pattern, seed=seed
-    )
-
-    for class_name, gt_data in label_data.items():
-        class_path = dataset_path / class_name
-        create_test_zarr_array(
-            class_path,
-            gt_data,
-            scale=gt_scale,
-            absent=np.count_nonzero(gt_data == 0),
-        )
+    class_str = ",".join(classes)
+    gt_path = f"{gt_base}/[{class_str}]"
 
     return {
-        "raw_path": str(dataset_path / "raw"),
-        "gt_path": str(dataset_path / f"[{','.join(classes)}]"),
+        "raw_path": raw_path,
+        "gt_path": gt_path,
         "classes": classes,
-        "raw_shape": raw_shape,
-        "gt_shape": gt_shape,
-        "raw_scale": raw_scale,
-        "gt_scale": gt_scale,
+        "shape": shape,
+        "voxel_size": voxel_size,
     }
-
-
-def create_minimal_test_dataset(tmp_path: Path) -> Dict[str, Any]:
-    """
-    Create a minimal test dataset for quick tests.
-
-    Args:
-        tmp_path: Temporary directory path
-
-    Returns:
-        Dictionary with paths and metadata
-    """
-    return create_test_dataset(
-        tmp_path,
-        raw_shape=(16, 16, 16),
-        num_classes=2,
-        raw_scale=(4.0, 4.0, 4.0),
-    )
-
-
-def check_device_transfer(loader, device):
-    """
-    Check if data transfer between CPU and GPU works as expected.
-
-    Args:
-        loader: Data loader providing the data
-        device: Device to transfer the data to (e.g., "cuda" or "cpu")
-
-    Returns:
-        None
-    """
-    # Iterate through the data loader
-    for batch in loader:
-        # Transfer the batch to the specified device
-        batch = {k: v.to(device) for k, v in batch.items()}
-
-        # Check if the transfer was successful
-        for k, v in batch.items():
-            assert v.device == device
-
-        # Break after the first batch to avoid transferring all data
-        break
