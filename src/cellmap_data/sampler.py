@@ -64,6 +64,12 @@ class ClassBalancedSampler(Sampler):
                 self.class_to_crops[c] = indices
 
         self.active_classes: list[int] = sorted(self.class_to_crops.keys())
+        if not self.active_classes:
+            raise ValueError(
+                "ClassBalancedSampler: no active classes found in crop-class "
+                "matrix. This can occur when all requested classes are only "
+                "represented by empty crops (e.g., EmptyImage)."
+            )
 
     def __iter__(self) -> Iterator[int]:
         class_counts = np.zeros(self.n_classes, dtype=np.float64)
@@ -86,7 +92,44 @@ class ClassBalancedSampler(Sampler):
             annotated = np.where(self.crop_class_matrix[crop_idx])[0]
             class_counts[annotated] += 1.0
 
-            yield crop_idx
+            # Map crop index (dataset-level row) to an actual sample index.
+            # If n_crops equals len(dataset), the crop index IS the sample index.
+            if self.n_crops == len(self.dataset):
+                sample_idx = crop_idx
+            elif hasattr(self.dataset, "datasets") and hasattr(
+                self.dataset, "cumulative_sizes"
+            ):
+                # ConcatDataset / CellMapMultiDataset: each crop row corresponds
+                # to one sub-dataset; pick a random sample within that sub-dataset.
+                cumulative_sizes = self.dataset.cumulative_sizes
+                if crop_idx < len(cumulative_sizes):
+                    start = int(cumulative_sizes[crop_idx - 1]) if crop_idx > 0 else 0
+                    end = int(cumulative_sizes[crop_idx])
+                else:
+                    start, end = 0, len(self.dataset)
+                if start >= end or end > len(self.dataset):
+                    start, end = 0, len(self.dataset)
+                sample_idx = int(self.rng.integers(start, end))
+            else:
+                # Generic fallback: partition [0, len(dataset)) into n_crops
+                # contiguous segments and sample within this crop's segment.
+                total = len(self.dataset)
+                if self.n_crops <= 1 or total <= 0:
+                    start, end = 0, max(total, 1)
+                else:
+                    base = total // self.n_crops
+                    remainder = total % self.n_crops
+                    if crop_idx < remainder:
+                        start = crop_idx * (base + 1)
+                        end = start + (base + 1)
+                    else:
+                        start = remainder * (base + 1) + (crop_idx - remainder) * base
+                        end = start + base
+                    if start >= end or end > total:
+                        start, end = 0, total
+                sample_idx = int(self.rng.integers(start, end))
+
+            yield sample_idx
 
     def __len__(self) -> int:
         return self.samples_per_epoch

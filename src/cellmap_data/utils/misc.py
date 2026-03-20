@@ -140,7 +140,12 @@ def min_redundant_inds(
         return torch.randint(n, (k,), generator=rng)
     else:
         if k > n:
-            # Repeat the unique indices until we have k indices
-            return torch.cat([torch.randperm(n, generator=rng) for _ in range(k // n)])
+            # Repeat unique indices until we have k indices (handle remainder)
+            full_perms = k // n
+            remainder = k % n
+            parts = [torch.randperm(n, generator=rng) for _ in range(full_perms)]
+            if remainder > 0:
+                parts.append(torch.randperm(n, generator=rng)[:remainder])
+            return torch.cat(parts)
         else:
             return torch.randperm(n, generator=rng)[:k]

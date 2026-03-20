@@ -254,7 +254,6 @@ class TestCellMapDataset:
 
         gt_base = str(tmp_path / "gt.zarr")
         os.makedirs(gt_base, exist_ok=True)
-        import json
 
         with open(os.path.join(gt_base, ".zgroup"), "w") as f:
             f.write('{"zarr_format": 2}')
