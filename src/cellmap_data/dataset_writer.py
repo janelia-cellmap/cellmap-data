@@ -149,7 +149,9 @@ class CellMapDatasetWriter(Dataset):
             lo = bb[ax][0] + h
             hi = bb[ax][1] - h
             if lo >= hi:
-                return None
+                # Bounding box is smaller than one write patch; center a single tile
+                center = (bb[ax][0] + bb[ax][1]) / 2.0
+                lo = hi = center
             result[ax] = (lo, hi)
         return result
 
@@ -276,28 +278,26 @@ class CellMapDatasetWriter(Dataset):
         for key, val in arrays.items():
             if key in _SKIP_KEYS:
                 continue
-            # Find which target array and class this key maps to
-            for arr_name, writers in self.target_array_writers.items():
-                if key in writers:
-                    writers[key][center] = val
-                elif key in self.classes:
-                    # Flat class key — write to first matching target array
+            if key in self.target_array_writers:
+                # key is an array name — val is either a class dict or a multi-class tensor
+                writers = self.target_array_writers[key]
+                if isinstance(val, dict):
+                    for cls, tensor in val.items():
+                        if cls in writers:
+                            writers[cls][center] = tensor
+                else:
+                    # tensor shape (C, ...) — split channels by class order
+                    for i, cls in enumerate(self.model_classes):
+                        if cls in writers:
+                            # Use slice i:i+1 to preserve the leading dim so that
+                            # _write_single can strip singleton dims correctly
+                            writers[cls][center] = val[i:i+1] if val.ndim > 0 and val.shape[0] > i else val
+            elif key in self.classes:
+                # key is a class name — write to matching writer in any target array
+                for writers in self.target_array_writers.values():
                     if key in writers:
                         writers[key][center] = val
-                    else:
-                        # Write per channel if val is multi-channel
-                        cls_idx = (
-                            self.model_classes.index(key)
-                            if key in self.model_classes
-                            else None
-                        )
-                        if key in writers:
-                            writers[key][center] = (
-                                val[cls_idx]
-                                if cls_idx is not None and val.ndim > 0
-                                else val
-                            )
-                break
+                        break
 
     # ------------------------------------------------------------------
     # DataLoader helper
