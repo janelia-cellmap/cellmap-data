@@ -252,8 +252,6 @@ class TestCellMapImageSpatialTransforms:
 
 class TestCellMapImageClassCounts:
     def test_class_counts_keys(self, tmp_path):
-        import zarr as z
-
         data = np.zeros((10, 10, 10), dtype=np.uint8)
         data[2:5, 2:5, 2:5] = 1  # some foreground
         path = create_test_zarr(tmp_path, shape=(10, 10, 10), data=data)

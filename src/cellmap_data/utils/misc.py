@@ -124,7 +124,9 @@ def min_redundant_inds(
 ) -> torch.Tensor:
     """Returns k indices from 0 to n-1 with minimum redundancy.
 
-    If replacement is False, the indices are unique.
+    If replacement is False and k <= n, the indices are unique.
+    If replacement is False and k > n, duplicates are unavoidable; indices
+    are unique within each block of size n (minimum redundancy overall).
     If replacement is True, the indices can have duplicates.
 
     Args:
@@ -134,13 +136,18 @@ def min_redundant_inds(
         rng (torch.Generator, optional): The random number generator. Defaults to None.
 
     Returns:
-        torch.Tensor: A tensor of k indices.
+        torch.Tensor: A tensor of exactly k indices.
     """
     if replacement:
         return torch.randint(n, (k,), generator=rng)
     else:
         if k > n:
-            # Repeat the unique indices until we have k indices
-            return torch.cat([torch.randperm(n, generator=rng) for _ in range(k // n)])
+            # Repeat unique indices until we have k indices (handle remainder)
+            full_perms = k // n
+            remainder = k % n
+            parts = [torch.randperm(n, generator=rng) for _ in range(full_perms)]
+            if remainder > 0:
+                parts.append(torch.randperm(n, generator=rng)[:remainder])
+            return torch.cat(parts)
         else:
             return torch.randperm(n, generator=rng)[:k]

@@ -24,8 +24,9 @@ class ClassBalancedSampler(Sampler):
        ``dataset.get_crop_class_matrix()`` → ``bool[n_crops, n_classes]``.
     2. Maintain running counts of how many times each class has been seen.
     3. At each step: pick the class with the lowest count (ties broken
-       randomly), sample a crop annotating it, yield that crop index, then
-       increment counts for *all* classes that crop annotates.
+       randomly), sample a matrix row (crop) annotating it, map that row to
+       an actual dataset sample index, and yield the sample index.  Then
+       increment counts for *all* classes that row annotates.
 
     This guarantees rare classes get sampled as often as common ones.
 
@@ -64,6 +65,12 @@ class ClassBalancedSampler(Sampler):
                 self.class_to_crops[c] = indices
 
         self.active_classes: list[int] = sorted(self.class_to_crops.keys())
+        if not self.active_classes:
+            raise ValueError(
+                "ClassBalancedSampler: no active classes found in crop-class "
+                "matrix. This can occur when all requested classes are only "
+                "represented by empty crops (e.g., EmptyImage)."
+            )
 
     def __iter__(self) -> Iterator[int]:
         class_counts = np.zeros(self.n_classes, dtype=np.float64)
@@ -79,14 +86,60 @@ class ClassBalancedSampler(Sampler):
             ]
             target_class = int(self.rng.choice(tied))
 
-            # Sample a crop that annotates this class
-            crop_idx = int(self.rng.choice(self.class_to_crops[target_class]))
+            # Sample a matrix row (crop) that annotates this class
+            row_idx = int(self.rng.choice(self.class_to_crops[target_class]))
 
-            # Increment counts for all classes this crop annotates
-            annotated = np.where(self.crop_class_matrix[crop_idx])[0]
+            # Increment counts for all classes this row annotates
+            annotated = np.where(self.crop_class_matrix[row_idx])[0]
             class_counts[annotated] += 1.0
 
-            yield crop_idx
+            # Map matrix row (dataset-level row) to an actual sample index.
+            # If n_crops equals len(dataset), the row index IS the sample index.
+            if self.n_crops == len(self.dataset):
+                sample_idx = row_idx
+            elif hasattr(self.dataset, "datasets") and hasattr(
+                self.dataset, "cumulative_sizes"
+            ):
+                # ConcatDataset / CellMapMultiDataset: each row corresponds
+                # to one sub-dataset; pick a random sample within that sub-dataset.
+                cumulative_sizes = self.dataset.cumulative_sizes
+                if row_idx < len(cumulative_sizes):
+                    start = int(cumulative_sizes[row_idx - 1]) if row_idx > 0 else 0
+                    end = int(cumulative_sizes[row_idx])
+                else:
+                    raise ValueError(
+                        "ClassBalancedSampler: crop index out of range for "
+                        "ConcatDataset/CellMapMultiDataset mapping. "
+                        f"row_idx={row_idx}, n_subdatasets={len(cumulative_sizes)}"
+                    )
+                if start >= end or end > len(self.dataset):
+                    raise ValueError(
+                        "ClassBalancedSampler: invalid sub-dataset slice computed "
+                        "from cumulative_sizes for row index "
+                        f"{row_idx}: start={start}, end={end}, "
+                        f"len(dataset)={len(self.dataset)}"
+                    )
+                sample_idx = int(self.rng.integers(start, end))
+            else:
+                # Generic fallback: partition [0, len(dataset)) into n_crops
+                # contiguous segments and sample within this row's segment.
+                total = len(self.dataset)
+                if self.n_crops <= 1 or total <= 0:
+                    start, end = 0, max(total, 1)
+                else:
+                    base = total // self.n_crops
+                    remainder = total % self.n_crops
+                    if row_idx < remainder:
+                        start = row_idx * (base + 1)
+                        end = start + (base + 1)
+                    else:
+                        start = remainder * (base + 1) + (row_idx - remainder) * base
+                        end = start + base
+                    if start >= end or end > total:
+                        start, end = 0, total
+                sample_idx = int(self.rng.integers(start, end))
+
+            yield sample_idx
 
     def __len__(self) -> int:
         return self.samples_per_epoch

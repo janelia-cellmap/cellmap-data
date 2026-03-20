@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from cellmap_data.utils.geometry import box_intersection, box_shape, box_union
 
 

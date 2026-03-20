@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import torch
 
 from cellmap_data import CellMapDataset, CellMapMultiDataset
 
@@ -15,8 +14,6 @@ CLASSES = ["mito", "er"]
 
 
 def _make_ds(tmp_path, suffix="", **kwargs):
-    import tempfile, pathlib
-
     sub = tmp_path / suffix if suffix else tmp_path / "ds0"
     sub.mkdir(parents=True, exist_ok=True)
     info = create_test_dataset(sub, classes=CLASSES, **kwargs)
