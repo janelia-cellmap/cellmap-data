@@ -291,7 +291,11 @@ class CellMapDatasetWriter(Dataset):
                         if cls in writers:
                             # Use slice i:i+1 to preserve the leading dim so that
                             # _write_single can strip singleton dims correctly
-                            writers[cls][center] = val[i:i+1] if val.ndim > 0 and val.shape[0] > i else val
+                            writers[cls][center] = (
+                                val[i : i + 1]
+                                if val.ndim > 0 and val.shape[0] > i
+                                else val
+                            )
             elif key in self.classes:
                 # key is a class name — write to matching writer in any target array
                 for writers in self.target_array_writers.values():
